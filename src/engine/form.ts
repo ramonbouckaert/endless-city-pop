@@ -42,7 +42,23 @@ export class FormPlanner {
   }
 
   plan(): Section[] {
-    return [...this.opening(), ...this.rounds(), ...this.middle(), ...this.ending()];
+    const opening = this.opening();
+    const body = [...this.rounds(), ...this.middle()];
+    const vamp = opening.find((s) => s.type === 'vamp');
+    return [...opening, ...(vamp ? this.vampReturn(body, vamp.bars) : body), ...this.ending()];
+  }
+
+  // The body, perhaps with the opening vamp back once, after a section
+  // that hands over to anything (not a verse, which leads on to its
+  // pre-chorus or chorus). Its own stream, so the rest of the form keeps
+  // its rolls.
+  private vampReturn(body: Section[], bars: number): Section[] {
+    const rng = this.rng.fork('vampReturn');
+    if (!rng.chance(FORM.vamp.returns)) return body;
+    const spots = body.flatMap((s, i) => (FORM.vamp.after.includes(s.type) ? [i + 1] : []));
+    if (!spots.length) return body;
+    const at = rng.pick(spots);
+    return [...body.slice(0, at), new Section('vamp', bars, { second: true }), ...body.slice(at)];
   }
 
   private opening(): Section[] {

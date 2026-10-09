@@ -11,7 +11,17 @@ import { BAND, KIT_GAPS, SOUND_LEVELS, SOUND_TOPS } from './instruments';
 import type { Section } from './form';
 import type { Key } from './music';
 import type { Song } from './song';
-import type { Bar, BandSounds, DrumFill, Material, PickedPart, SectionType, Sounds, StepGains } from './types';
+import type {
+  Bar,
+  BandSounds,
+  DrumFill,
+  DrumRole,
+  Material,
+  PickedPart,
+  SectionType,
+  Sounds,
+  StepGains,
+} from './types';
 
 // Plain strings passed to Strudel functions are mini-notation, as in the
 // Strudel REPL.
@@ -323,11 +333,20 @@ class SectionArranger {
     return { drums: this.drums(), pitched: [band.softKeys(C), band.strings(C), this.B.gain(0.6), this.teaser()] };
   }
 
-  // Drums come in after two bars.
+  // The opening vamp's drums come in after two bars, start with kick and
+  // hats alone, or play throughout, as the material says; when the vamp
+  // comes back, the band is already going.
   private vamp(): Parts {
     const { band, C } = this;
+    const entry = this.sec.opts.second ? 'full' : this.mat.entry;
+    const drums =
+      entry === 'late'
+        ? [stack(...this.drums()).mask(this.from(2))]
+        : entry === 'light'
+          ? this.drums((role) => (role === 'kick' || role === 'hat' ? undefined : this.from(2)))
+          : this.drums();
     return {
-      drums: [stack(...this.drums()).mask(this.from(2))],
+      drums,
       pitched: [this.B, band.keys(C).lpf(saw.slow(this.len).range(700, 8000))],
     };
   }
@@ -563,13 +582,16 @@ class SectionArranger {
   // end of the last bar (a different one for each repeat). The fill
   // replaces the kick and snare from where it starts, or everything for
   // a stop.
-  private drums(): Pattern[] {
+  // `enter` may hold a part back, by role, with a mask.
+  private drums(enter?: (role: DrumRole) => string | undefined): Pattern[] {
     const d = this.mat.drums!;
     const { len } = this;
     const fill: DrumFill | null = d.fill ? d.fills[this.repeat % d.fills.length] : null;
     const cut = fill && Mini.lastBar(len, fill.start ? `[1@${fill.start} 0@${16 - fill.start}]` : '0', '1');
     const parts = d.parts.map(({ sound, role, bars }) => {
-      const p = s(Mini.perBar(bars.map((b) => Mini.hits(b, sound)))).gain(Mini.perBar(bars.map(Mini.gains)));
+      let p = s(Mini.perBar(bars.map((b) => Mini.hits(b, sound)))).gain(Mini.perBar(bars.map(Mini.gains)));
+      const held = enter?.(role);
+      if (held) p = p.mask(held);
       return cut && (fill.stop || role === 'kick' || role === 'snare' || role === 'ghost') ? p.mask(cut) : p;
     });
     if (fill) {

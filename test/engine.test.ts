@@ -24,7 +24,8 @@ import {
   type PickedPart,
 } from '../src/engine';
 import { Harmonizer } from '../src/engine/harmony';
-import { Rng } from '../src/engine/random';
+import { Rng } from '../src/engine';
+import { romanise } from '../src/engine/romaji';
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => `seed${i}`);
 
@@ -65,6 +66,107 @@ describe('Song', () => {
       expect(forms.some((f) => f.some((s) => s.type === type))).toBe(true);
       expect(forms.some((f) => f.every((s) => s.type !== type))).toBe(true);
     }
+  });
+
+  it('brings a vamp back at most once, never straight after a verse', () => {
+    const forms = Array.from({ length: 300 }, (_, i) => Song.generate({ seed: `vamp${i}` }).form);
+    let returns = 0;
+    for (const form of forms) {
+      const vamps = form.flatMap((s, i) => (s.type === 'vamp' ? [i] : []));
+      expect(vamps.length).toBeLessThanOrEqual(2);
+      if (vamps.length) expect(vamps[0]).toBe(1); // the first opens the song, after the intro
+      if (vamps.length === 2) {
+        returns++;
+        const back = vamps[1];
+        expect(FORM.vamp.after).toContain(form[back - 1].type);
+        expect(form[back].bars).toBe(form[vamps[0]].bars);
+        expect(form[back].opts.second).toBe(true);
+      }
+    }
+    expect(returns).toBeGreaterThan(20);
+  });
+
+  it("starts the opening vamp's drums late, light or with the whole kit", () => {
+    const entries = new Set<string>();
+    for (let i = 0; i < 100; i++) {
+      const song = Song.generate({ seed: `vamp${i}` });
+      if (song.materials.vamp) entries.add(song.materials.vamp.entry!);
+      else expect(song.form.some((s) => s.type === 'vamp')).toBe(false);
+    }
+    expect(entries).toEqual(new Set(['late', 'light', 'full']));
+  });
+
+  it('titles songs in Japanese and English, one after the other', () => {
+    const japanese = /[぀-ヿ一-龯]/;
+    const titles = Array.from({ length: 400 }, (_, i) => Song.generate({ seed: `title${i}` }).title);
+    const firsts = { japanese: 0, english: 0 };
+    const styles = new Set<string>();
+    const joins = new Set<string>();
+    let romaji = 0;
+    titles.forEach((title, i) => {
+      const { title: main, aside, join, romanised } = Song.titleParts(`title${i}`);
+      if (romanised) romaji++;
+      joins.add(join);
+      expect(title).toBe(
+        { brackets: `${main} (${aside})`, dash: `${main} – ${aside}`, space: `${main} ${aside}` }[join],
+      );
+      // One side Japanese, the other English.
+      expect(japanese.test(main)).not.toBe(japanese.test(aside));
+      // The English as it is, in capitals, or in fullwidth letters.
+      const english = japanese.test(main) ? aside : main;
+      const ascii = english
+        .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+        .replace(/　/g, ' ');
+      // English words, or the Japanese in romaji (Mayonaka no Doraibu, Tokyo).
+      if (romanised) expect(ascii).toMatch(/^[A-Za-z ]+$/);
+      else expect(ascii).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$|^[A-Z]+ [A-Z]+$/);
+      styles.add(`${english !== ascii ? 'fullwidth ' : ''}${ascii === ascii.toUpperCase() ? 'caps' : 'plain'}`);
+      firsts[japanese.test(main) ? 'japanese' : 'english']++;
+    });
+    expect(joins).toEqual(new Set(['brackets', 'dash', 'space']));
+    expect(romaji / titles.length).toBeGreaterThan(0.12);
+    expect(romaji / titles.length).toBeLessThan(0.28);
+    expect(firsts.japanese).toBeGreaterThan(100);
+    expect(firsts.english).toBeGreaterThan(100);
+    expect(styles).toEqual(new Set(['plain', 'caps', 'fullwidth plain', 'fullwidth caps']));
+    expect(new Set(titles).size).toBeGreaterThan(350);
+    expect(titles.some((t) => t.includes('・'))).toBe(true); // katakana English
+    expect(titles.some((t) => t.includes('の'))).toBe(true); // native Japanese
+    expect(Song.generate({ seed: 'title1' }).title).toBe(titles[1]);
+  });
+
+  it("writes solos as long as their sections, in the song's mode", () => {
+    const songs = Array.from({ length: 300 }, (_, i) => Song.generate({ seed: `solo${i}` }));
+    let sixteens = 0;
+    let split = 0;
+    let fromHome = 0;
+    const minorHalfDiminished: number[] = [];
+    for (const song of songs) {
+      for (const type of ['solo', 'solo2'] as const) {
+        const sec = song.form.find((s) => s.type === type);
+        if (!sec) continue;
+        const mat = song.materials[type]!;
+        // The changes and the line fill the section: nothing loops.
+        expect(mat.bars).toHaveLength(sec.bars);
+        expect(mat.solo!.bars).toHaveLength(sec.bars);
+        if (sec.bars === 16) {
+          sixteens++;
+          const names = mat.bars!.map((b) => b.map((c) => c.name(song.key)).join(' '));
+          expect(names.slice(0, 8)).not.toEqual(names.slice(8));
+        }
+        if (mat.bars!.some((b) => b.length > 1)) split++; // reharmonised
+        const first = mat.bars![0][0];
+        if (first.root === song.key.tonic && first.cls === TONALITIES[song.key.mode].tonic) fromHome++;
+        if (song.key.mode === 'minor') {
+          minorHalfDiminished.push(mat.bars!.flat().filter((c) => c.symbol === 'm7b5').length);
+        }
+      }
+    }
+    expect(sixteens).toBeGreaterThan(10);
+    expect(split).toBeGreaterThan(20);
+    expect(fromHome).toBeGreaterThan(10);
+    // Minor solos move through minor ii-Vs.
+    expect(minorHalfDiminished.filter((n) => n >= 2).length).toBeGreaterThan(minorHalfDiminished.length / 2);
   });
 
   it('varies the pre-chorus', () => {
@@ -337,6 +439,16 @@ describe('music', () => {
     expect(new Key(0).fifthsTo(new Key(9, 'minor'))).toBe(0);
     expect(new Key(0).fifthsTo(new Key(2, 'dorian'))).toBe(0);
     expect(new Key(0).fifthsTo(new Key(6))).toBe(6);
+  });
+
+  it('romanises katakana in Hepburn, without diacritics or apostrophes', () => {
+    expect(romanise('ミッドナイト・ドライブ')).toBe('middonaito doraibu');
+    expect(romanise('トーキョー')).toBe('tokyo');
+    expect(romanise('ウィークエンド')).toBe('wikuendo');
+    expect(romanise('アベニュー')).toBe('abenyu');
+    expect(romanise('ランデヴー')).toBe('randevu');
+    expect(romanise('プラスティック')).toBe('purasutikku');
+    expect(romanise('シーサイド')).toBe('shisaido');
   });
 
   it('treats every mode as its relative major', () => {

@@ -147,6 +147,9 @@ export interface Bass {
 // ---- Song -----------------------------------------------------------
 
 export type IntroHarmony = 'chorus' | 'planing' | 'template';
+// How the drums start the opening vamp: after two bars, with kick and
+// hats for two bars, or the whole kit from the first.
+export type DrumEntry = 'late' | 'light' | 'full';
 export type IntroTexture = 'pads' | 'keys' | 'groove' | 'bassFirst';
 export type PreFlavour = 'climb' | 'pedal' | 'drop' | 'stops' | 'borrowed';
 export interface DrumPlan {
@@ -171,6 +174,7 @@ export interface Material {
   harmony?: IntroHarmony;
   texture?: IntroTexture;
   flavour?: PreFlavour; // pre-chorus only
+  entry?: DrumEntry; // vamp only: how the drums start the opening vamp
   lifts?: Lift[]; // lift only: one per lift in the form, in order
   drums?: Drums;
   bass?: Bass;
@@ -224,7 +228,21 @@ export interface Tonality {
   pre: Readonly<Record<PreFlavour, readonly string[]>>;
   bridgeKeys: readonly BridgeKey[];
   turnarounds: Readonly<Record<string, Turnaround>>;
+  solo: SoloChanges;
 }
+
+// How a mode's solos are built, eight bars at a time, each eight ending
+// with its cadence home (`approach`): `pair` is two bars in a key, played
+// in keys a step apart (`steps`, else SOLO_CHANGES.steps); a shape picks
+// what leads up to the cadence.
+export interface SoloChanges {
+  pair: readonly (readonly ChordSpec[])[];
+  steps?: Weighted<number>;
+  shapes: Weighted<SoloShape>;
+}
+// cycle: three pairs moving through keys. home: two bars on the home
+// tonic, then two pairs. vamp: six bars of one of the mode's vamps.
+export type SoloShape = 'cycle' | 'home' | 'vamp';
 export type PaletteName = ChordClass | 'majLydian' | 'domToMinor' | 'susToMinor' | 'minTonic' | 'domTonic';
 
 // ---- Arrangement ----------------------------------------------------
@@ -266,6 +284,26 @@ export type PickedPart =
   | 'stabs'
   | 'hornDouble'
   | 'bass';
+
+// ---- Titles -------------------------------------------------------
+
+// A title word in English, Japanese and katakana English (TITLE_WORDS).
+export interface TitleWord {
+  en: string;
+  ja: string;
+  kana?: string;
+  adj?: boolean;
+  romaji?: string; // the reading of `ja`, unless it is katakana
+}
+
+// A title's two halves (one Japanese, one English or romaji), how they
+// join, and whether the English is romaji.
+export interface TitleParts {
+  title: string;
+  aside: string;
+  join: 'brackets' | 'dash' | 'space';
+  romanised: boolean;
+}
 
 // Unset (or undefined) options are chosen from the seed.
 export interface SongOptions {

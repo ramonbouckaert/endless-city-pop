@@ -13,11 +13,7 @@ const player = createPlayer({
   onUpdate: (state) => {
     document.body.classList.toggle('playing', !!state.started);
     if (state.error)
-      setStatus(
-        `Strudel: ${typeof state.error === 'string' ? state.error : (state.error.message ?? state.error)}`,
-        'error',
-      );
-    else if (state.started) setStatus('Playing. The first notes can take a moment while instruments load.');
+      showError(`Strudel: ${typeof state.error === 'string' ? state.error : (state.error.message ?? state.error)}`);
   },
 });
 
@@ -50,48 +46,57 @@ function generate() {
   try {
     arrangeSong(Song.generate({ seed: randomSeed() }));
   } catch (e) {
-    setStatus(`Could not generate a song: ${(e as Error).message}`, 'error');
+    showError(`Could not generate a song: ${(e as Error).message}`);
     throw e;
   }
   showSong(current.song);
   debug?.showSong(current.song);
-  setStatus(playing() ? 'Playing.' : 'Press Play.');
 }
 
 // Starts the song from its first bar, or while one plays, swaps in the
 // current song: from cycle `from` on the player's clock, or where the
 // last one started (a new arrangement of the same song).
 async function play(from?: number) {
-  if (!playing()) {
-    setStatus('Loading instruments…');
+  showError('');
+  if (!playing())
     start = 0; // the clock restarts too
-  } else if (from !== undefined) start = from;
+  else if (from !== undefined) start = from;
   try {
     await player.play(current.pattern.late(start), current.cps);
   } catch (e) {
-    setStatus(`Strudel: ${(e as Error).message ?? e}`, 'error');
+    showError(`Strudel: ${(e as Error).message ?? e}`);
   }
 }
 
-// Reading every bar of the pattern takes a moment, so the status shows first.
+// Reading every bar of the pattern takes a few seconds: the button shows
+// a spinner, drawn before the work starts, until the file is ready.
 function exportMidi() {
   const { song, pattern } = current;
-  setStatus('Writing MIDI…');
-  setTimeout(() => {
-    try {
-      const bytes = songToMidi(song, pattern);
-      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'audio/midi' }));
-      const a = Object.assign(document.createElement('a'), {
-        href: url,
-        download: `${song.title} (${song.key.name}).mid`.replace(/[\\/:*?"<>|#]/g, '-'),
-      });
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setStatus(`Saved ${a.download}.`);
-    } catch (e) {
-      setStatus(`Could not write MIDI: ${(e as Error).message}`, 'error');
-    }
-  }, 20);
+  const button = $<HTMLButtonElement>('midi');
+  if (button.disabled) return;
+  button.disabled = true;
+  button.classList.add('busy');
+  const done = () => {
+    button.disabled = false;
+    button.classList.remove('busy');
+  };
+  requestAnimationFrame(() =>
+    setTimeout(() => {
+      try {
+        const bytes = songToMidi(song, pattern);
+        const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'audio/midi' }));
+        const a = Object.assign(document.createElement('a'), {
+          href: url,
+          download: `${song.title}.mid`.replace(/[\\/:*?"<>|#]/g, '-'),
+        });
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (e) {
+        showError(`Could not write MIDI: ${(e as Error).message}`);
+      }
+      done();
+    }),
+  );
 }
 
 // While a song plays, the section under the playhead glows and a line
@@ -102,6 +107,9 @@ function exportMidi() {
 function followPlayhead() {
   const now = player.now();
   const pos = now === undefined || now < start ? -1 : (now - start) % current.cycles;
+  // The time played, held at the end through the silence after the final chord.
+  const played = clock(seconds(Math.min(Math.max(pos, 0), current.song.bars), current.song.bpm));
+  if ($('position').textContent !== played) $('position').textContent = played;
   const items = [...$('form').children] as HTMLElement[];
   let bar = 0;
   let at: { item: HTMLElement; through: number } | undefined;
@@ -125,8 +133,10 @@ function followPlayhead() {
 
 function showSong(song: Song) {
   const info = song.describe();
-  $('title').textContent = song.title;
-  $('meta').textContent = `${info.key} · ${info.bpm} BPM · ${info.bars} bars`;
+  showTitle(song);
+  $('meta').textContent = `${info.key} · ${info.bpm} BPM`;
+  $('length').textContent = clock(seconds(info.bars, song.bpm));
+  $('position').textContent = clock(0);
   const list = $('form');
   list.replaceChildren();
   for (const s of song.form) {
@@ -139,19 +149,66 @@ function showSong(song: Song) {
   }
 }
 
-function setStatus(text: string, kind = '') {
-  const status = $('status');
-  status.textContent = text;
-  status.className = `status ${kind}`;
+// The title on one line, the second language lighter. One too long for
+// its space scrolls slowly past like a CD player's display: a pause, then
+// a glide left, with a copy following so the loop has no seam.
+const MARQUEE = { speed: 40, gap: 64, pause: 0.2 }; // px a second, px, share of each loop held still
+
+function showTitle(song: Song) {
+  const { title: main, aside, join } = Song.titleParts(song.seed);
+  const span = (className: string, ...kids: (Node | string)[]) => {
+    const el = Object.assign(document.createElement('span'), { className });
+    el.append(...kids);
+    return el;
+  };
+  const second = join === 'brackets' ? `(${aside})` : join === 'dash' ? `– ${aside}` : aside;
+  const text = () => span('marquee-text', main, ' ', span('title-aside', second));
+  const copy = text();
+  copy.setAttribute('aria-hidden', 'true');
+  $('title').replaceChildren(span('marquee-track', text(), copy));
+  fitTitle();
+}
+
+// Scrolls the title if it doesn't fit.
+function fitTitle() {
+  const box = $('title');
+  const track = box.querySelector<HTMLElement>('.marquee-track');
+  const text = track?.firstElementChild as HTMLElement | null;
+  if (!track || !text) return;
+  const width = text.getBoundingClientRect().width;
+  const scrolling = width > box.clientWidth + 1;
+  box.classList.toggle('scrolling', scrolling);
+  if (!scrolling) return;
+  const distance = width + MARQUEE.gap;
+  track.style.setProperty('--distance', `${distance}px`);
+  track.style.setProperty('--gap', `${MARQUEE.gap}px`);
+  track.style.setProperty('--duration', `${distance / MARQUEE.speed / (1 - MARQUEE.pause)}s`);
+}
+
+// How long a number of bars plays, in seconds: four beats a bar.
+const seconds = (bars: number, bpm: number) => (bars * 4 * 60) / bpm;
+
+// Seconds as m:ss, counting whole seconds like a player's clock.
+function clock(time: number): string {
+  const s = Math.floor(time);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// Something went wrong (empty: nothing has). There's no other status line.
+function showError(text: string) {
+  const error = $('error');
+  error.textContent = text;
+  error.hidden = !text;
 }
 
 // Autoplay: when a song's final chord has played, a new song takes over
 // where the old one would loop, after its second of silence (or at once,
 // if that has passed). On unless turned off, which this browser remembers.
-const AUTOPLAY = 'songsmith.autoplay';
+const AUTOPLAY = 'endless-city-pop.autoplay';
+const OLD_AUTOPLAY = 'songsmith.autoplay'; // before the app was renamed
 const autoplay = $<HTMLInputElement>('autoplay');
 try {
-  autoplay.checked = localStorage.getItem(AUTOPLAY) !== 'off';
+  autoplay.checked = (localStorage.getItem(AUTOPLAY) ?? localStorage.getItem(OLD_AUTOPLAY)) !== 'off';
 } catch {
   // On by default.
 }
@@ -177,11 +234,14 @@ $('generate').addEventListener('click', () => {
   if (playing()) void play((player.now() ?? 0) + LEAD * current.cps);
 });
 
-$('play').addEventListener('click', () => play());
-$('stop').addEventListener('click', () => player.stop());
+$('play').addEventListener('click', () => (playing() ? player.stop() : void play()));
 $('midi').addEventListener('click', exportMidi);
 
 // Clear the song links earlier versions put in the URL.
 if (location.hash) history.replaceState(null, '', location.pathname + location.search);
 generate();
 requestAnimationFrame(followPlayhead);
+// The title's room changes with the window, and its width once the serif font loads.
+new ResizeObserver(fitTitle).observe($('title'));
+void document.fonts.ready.then(fitTitle);
+document.fonts.addEventListener('loadingdone', fitTitle);

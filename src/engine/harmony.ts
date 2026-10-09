@@ -4,6 +4,9 @@
 // cadences, where its bridges go and how it lifts.
 
 import { PALETTE, PLANING_STARTS, REHARM, SOLO_CHANGES, TONALITIES } from './constants';
+
+// A bar on a mode's tonic chord, as a template.
+const TONIC_CHORDS: Readonly<Record<string, string>> = { maj: 'Imaj7', min: 'i7', dom: 'I7' };
 import { Chord, Key, Roman } from './music';
 import type { Rng } from './random';
 import type { Bar, ChordSpec, Tonality } from './types';
@@ -137,37 +140,57 @@ export class Harmonizer {
     return this.into(turnaround.bars);
   }
 
-  // Bars of "numeral:symbol|symbol" chords, with chord-scales as they
-  // resolve to the tonic.
-  private into(specs: readonly (readonly ChordSpec[])[]): Bar[] {
+  // Bars of "numeral:symbol|symbol" chords in a key (this one unless
+  // given), with chord-scales as they resolve to its tonic.
+  private into(specs: readonly (readonly ChordSpec[])[], key = this.key): Bar[] {
     const bars = specs.map((bar) =>
       bar.map((chord) => {
         const [numeral, symbols] = chord.split(':');
-        return new Chord(this.key.tonic + Roman.parse(numeral).offset, this.rng.pick(symbols.split('|')));
+        return new Chord(key.tonic + Roman.parse(numeral).offset, this.rng.pick(symbols.split('|')));
       }),
     );
-    Chord.fitScales([...bars.flat(), new Chord(this.key.tonic, this.tonality.finale[0][0])], this.key);
+    Chord.fitScales([...bars.flat(), new Chord(key.tonic, TONALITIES[key.mode].finale[0][0])], key);
     return bars;
   }
 
-  /** Solo changes: ii-V pairs moving through keys a fixed interval apart, then home. */
-  soloCycle(bars: number): Bar[] {
-    const step = this.rng.weighted(SOLO_CHANGES.steps);
-    const start = this.key.tonic + this.rng.pick(SOLO_CHANGES.starts);
+  /**
+   * Solo changes, `bars` long, in eights that each end with the cadence
+   * home: the mode's pairs moving through keys, a stretch on the home
+   * tonic first, or one of its vamps (Tonality.solo). Reharmonised by
+   * `reharm` (0..1) like any section; each chord's scale is the one it
+   * has in the key of its bar (a pair's own key, or home).
+   */
+  solo(bars: number, reharm = 0): Bar[] {
+    const { solo, templates, tonic } = this.tonality;
+    const home = this.key;
     const out: Bar[] = [];
-    for (let p = 0; p < bars / 2 - 1; p++) {
-      const t = start + p * step;
-      out.push([new Chord(t + 2, this.rng.pick(SOLO_CHANGES.ii))], [new Chord(t + 7, this.rng.pick(SOLO_CHANGES.V))]);
+    const keys: Key[] = [];
+    const add = (chords: Bar[], key: Key) => {
+      out.push(...chords);
+      keys.push(...chords.map(() => key));
+    };
+    const pairs = (n: number) => {
+      const step = this.rng.weighted(solo.steps ?? SOLO_CHANGES.steps);
+      const start = home.tonic + this.rng.pick(SOLO_CHANGES.starts);
+      for (let p = 0; p < n; p++) {
+        const key = home.transpose(start - home.tonic + p * step);
+        add(this.into(solo.pair, key), key);
+      }
+    };
+    for (let eight = 0; eight < bars / 8; eight++) {
+      const shape = this.rng.weighted(solo.shapes);
+      if (shape === 'cycle') pairs(3);
+      else if (shape === 'home') {
+        add(this.realize(new Template(TONIC_CHORDS[tonic]).fit(2)), home);
+        pairs(2);
+      } else add(this.realize(new Template(this.rng.pick(templates.vamp)).fit(6)), home);
+      add(this.approach(), home);
     }
-    out.push(...this.approach());
-    const chords = out.flat();
-    Chord.fitScales(chords, this.key);
-    // Each pair is diatonic to its own key, not the home key.
-    for (const c of chords) {
-      if (c.symbol.startsWith('m') && c.cls === 'min') c.scale = 'dorian';
-      if (c.symbol === '13' || c.symbol === '9') c.scale = 'mixolydian';
-    }
-    return out;
+    const changes = reharm ? this.reharmonize(out, reharm * this.tonality.reharm) : out;
+    changes.forEach((bar, b) =>
+      bar.forEach((chord, i) => chord.fitScale(keys[b], bar[i + 1] ?? changes[(b + 1) % changes.length][0])),
+    );
+    return changes;
   }
 
   /** add9 chords planing down in whole steps from bIII or bVI, then a sus dominant. */

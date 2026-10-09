@@ -47,7 +47,7 @@ const ROLES: readonly { path: string; label: string; plays: string; from?: strin
   })),
 ];
 const KIT = 'kit';
-const STORAGE = 'songsmith.debug';
+const STORAGE = 'endless-city-pop.debug';
 
 type Choices = Record<string, string>; // path (or KIT) -> sound (or bank, or 'default')
 

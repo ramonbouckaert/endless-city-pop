@@ -2,7 +2,7 @@
 // Arranger (arranger.ts) turns one into a Strudel pattern.
 
 import { BassWriter } from './bass';
-import { PRE_FLAVOURS, STYLE, TITLE_WORDS, TONALITIES } from './constants';
+import { PRE_FLAVOURS, STYLE, TITLE_ROMAJI, TITLE_WORDS, TONALITIES } from './constants';
 import { DrumWriter } from './drums';
 import { FormPlanner, Section } from './form';
 import { Harmonizer, Template } from './harmony';
@@ -10,6 +10,7 @@ import { BAND, KITS, PICKS, SAME_SOUND, SOUND_LEVELS, VOICES } from './instrumen
 import { MelodyWriter, Solo } from './melody';
 import { Chord, Key } from './music';
 import { Rng } from './random';
+import { romanise } from './romaji';
 import type {
   Bar,
   DrumPlan,
@@ -26,6 +27,8 @@ import type {
   PickedPart,
   SongOptions,
   Sounds,
+  TitleParts,
+  TitleWord,
   Tonality,
   Voice,
   VoiceRole,
@@ -94,11 +97,65 @@ export class Song {
     };
   }
 
-  private static titleFor(seed: string): string {
-    let h = 0;
-    for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-    const [a, b] = TITLE_WORDS;
-    return `${a[h % a.length]} ${b[(h >>> 8) % b.length]}`;
+  /** A city pop title (titleParts), the second part in brackets, after a dash, or straight after. */
+  static titleFor(seed: string): string {
+    const { title, aside, join } = Song.titleParts(seed);
+    return join === 'brackets' ? `${title} (${aside})` : join === 'dash' ? `${title} – ${aside}` : `${title} ${aside}`;
+  }
+
+  /**
+   * A city pop title in two languages, and how to join them: "真夜中の
+   * ドライブ" and "Midnight Drive", either first, or the same with the
+   * Japanese in katakana English (ミッドナイト・ドライブ). The English is as
+   * it is, in capitals, or in fullwidth letters as on Japanese record
+   * sleeves (Ｍｉｄｎｉｇｈｔ　Ｄｒｉｖｅ, ＭＩＤＮＩＧＨＴ　ＤＲＩＶＥ). One title in
+   * five (TITLE_ROMAJI) gives the Japanese in romaji instead of the English
+   * (Mayonaka no Doraibu, Middonaito Doraibu), without diacritics.
+   */
+  static titleParts(seed: string): TitleParts {
+    const rng = new Rng(`${seed}/title`);
+    const { modifiers, nouns } = TITLE_WORDS;
+    // Not "Rainy Rain" or "Midsummer Summer".
+    const clash = (a: string, b: string) => a.toLowerCase().includes(b.toLowerCase().slice(0, 4));
+    let mod, noun;
+    do [mod, noun] = [rng.pick(modifiers), rng.pick(nouns)];
+    while (clash(mod.en, noun.en) || clash(noun.en, mod.en));
+    const en = `${mod.en} ${noun.en}`;
+    const katakana = /^[゠-ヿ]+$/;
+    const both = katakana.test(mod.ja) && katakana.test(noun.ja);
+    const ja = mod.adj ? mod.ja + noun.ja : both ? `${mod.ja}・${noun.ja}` : `${mod.ja}の${noun.ja}`;
+    const kana = mod.kana && noun.kana ? `${mod.kana}・${noun.kana}` : undefined;
+    const [title, aside] = rng.pick([
+      [ja, en],
+      [en, ja],
+      ...(kana
+        ? [
+            [kana, en],
+            [en, kana],
+          ]
+        : []),
+    ]);
+    const style = rng.pick(['plain', 'caps', 'fullwidth', 'fullwidth caps'] as const);
+    const join = rng.pick(['brackets', 'dash', 'space'] as const);
+    // The Japanese side read aloud, each word capitalised but の (no).
+    const romanised = rng.chance(TITLE_ROMAJI);
+    const japanese = title === en ? aside : title;
+    const read = (w: TitleWord) => w.romaji ?? romanise(w.ja);
+    const capital = (s: string) => s.replace(/(^| )(\p{L})/gu, (_, gap, c: string) => gap + c.toUpperCase());
+    const reading =
+      japanese === kana
+        ? capital(romanise(kana))
+        : capital(`${read(mod)}${mod.adj || both ? ' ' : ' no '}${read(noun)}`).replace(/ No /, ' no ');
+    const english = romanised ? reading : en;
+    // ASCII letters to their fullwidth forms, spaces to ideographic ones.
+    const fullwidth = (s: string) =>
+      s
+        .replace(/[!-~]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0xfee0))
+        .replace(/ /g, String.fromCharCode(0x3000));
+    const cased = style.endsWith('caps') ? english.toUpperCase() : english;
+    const styled = style.startsWith('fullwidth') ? fullwidth(cased) : cased;
+    const side = (s: string) => (s === en ? styled : s);
+    return { title: side(title), aside: side(aside), join, romanised };
   }
 
   get bars(): number {
@@ -188,6 +245,7 @@ class SongBuilder {
     for (const type of ['vamp', 'riff'] as const) {
       if (this.has(type)) this.add(type, { bars: this.progression(type, rng.pick(templates[type]), 4) });
     }
+    if (this.m.vamp) this.m.vamp.entry = rng.fork('vampEntry').weighted(STYLE.vampEntry);
     const breakdown = this.section('breakdown');
     if (breakdown) this.add('breakdown', { bars: this.chorusBars.slice(0, breakdown.bars) });
     this.lifts();
@@ -261,7 +319,7 @@ class SongBuilder {
     for (const type of ['solo', 'solo2'] as const) {
       if (!this.has(type)) continue;
       const rng = this.rng.fork(type);
-      const bars = new Harmonizer(this.key, rng).soloCycle(8);
+      const bars = new Harmonizer(this.key, rng).solo(this.section(type)!.bars, STYLE.reharm);
       this.add(type, { bars, solo: Solo.improvise(bars, rng.fork('line')) });
     }
   }

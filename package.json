@@ -1,7 +1,7 @@
 {
-  "name": "strudel-songsmith",
+  "name": "endless-city-pop",
   "version": "0.1.0",
-  "description": "Procedurally generated pop, rock, jazz and jazz-funk songs from music theory rules, played by Strudel.",
+  "description": "Endless procedurally generated city pop: jazz-funk harmony from music theory rules, bilingual titles, played in the browser by Strudel.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

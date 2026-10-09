@@ -1,5 +1,6 @@
-// Every table and tunable the engine uses: music theory facts, the
-// jazz-funk style, and the shapes of melodies, bass lines and drums.
+// Every table and tunable the engine uses: music theory facts, the city
+// pop style (jazz-funk harmony), and the shapes of melodies, bass lines
+// and drums. Which sounds play which part is in instruments.ts.
 
 import type {
   BassFeel,
@@ -9,6 +10,7 @@ import type {
   ChordDef,
   DrumFeel,
   DrumRecipe,
+  DrumEntry,
   DrumPlan,
   DrumVoice,
   IntroTexture,
@@ -24,6 +26,7 @@ import type {
   Turnaround,
   SectionType,
   StepGains,
+  TitleWord,
   Weighted,
 } from './types';
 
@@ -209,7 +212,8 @@ export const REHARM = {
   toMajor: ['13', '9', '7#9'],
 };
 
-// Solo changes: ii-V pairs in keys `step` semitones apart, then home.
+// Solo changes: a mode's pairs (Tonality.solo) in keys `step` semitones
+// apart, the first `starts` semitones above the tonic.
 export const SOLO_CHANGES = {
   steps: [
     [3, 3], // up a minor third
@@ -218,8 +222,6 @@ export const SOLO_CHANGES = {
     [-1, 1], // down a half step
   ] as Weighted<number>,
   starts: [0, 2, 9],
-  ii: ['m9', 'm11', 'm7'],
-  V: ['13', '9', '13'],
 };
 
 // Turnarounds into a lifted major key, relative to that key. Each
@@ -268,7 +270,7 @@ export const PLANING_STARTS = [3, 8];
 
 export const FORM = {
   preBars: [0, 2, 4, 4, 6, 8], // 0: no pre-chorus
-  chorusTag: 0.6, // chance of a two-bar tag (10 bars, not 8)
+  chorusTag: 0.45, // chance of a two-bar tag (10 bars, not 8)
   rounds: [
     [1, 2],
     [2, 5],
@@ -276,7 +278,14 @@ export const FORM = {
   ] as Weighted<number>,
   riffChance: [0, 0.4, 0.7],
   introBars: [4, 4, 8],
-  vamp: { chance: 0.6, bars: [4, 8] },
+  // An opening vamp, which may come back once later: after a chorus, riff,
+  // bridge, solo or breakdown (`after`), never straight after a verse.
+  vamp: {
+    chance: 0.6,
+    bars: [4, 8],
+    returns: 0.45,
+    after: ['chorus', 'riff', 'bridge', 'solo', 'solo2', 'breakdown'] as SectionType[],
+  },
   verseBars: [8, 8, 16],
   bridgeChance: 0.65,
   soloists: [0, 1, 2, 3],
@@ -287,12 +296,12 @@ export const FORM = {
   ] as Weighted<number>,
   soloBars: [8, 8, 16],
   breakdown: { chance: 0.45, bars: [4, 8] },
-  drumBreakChance: 0.55,
+  drumBreakChance: 0.7,
   // Lifts before the final choruses: always up, each by a step from
   // `steps`, never past `maxShift` semitones above home.
   lift: {
-    first: 5 / 7, // chance the first final chorus lifts
-    again: 0.4, // chance each later one lifts again
+    first: 0.55, // chance the first final chorus lifts
+    again: 0.3, // chance each later one lifts again
     steps: [
       [1, 2],
       [2, 3],
@@ -766,13 +775,13 @@ export const FILLS = {
 };
 
 // =====================================================================
-// Style: jazz-funk
+// Style: city pop
 // =====================================================================
 
 export const STYLE = {
   reharm: 0.5,
   adventurous: 0.8,
-  tempo: [100, 116] as Range,
+  tempo: [92, 124] as Range, // BPM: city pop's easy end to its brisker one
   swing: [0.06, 0.12] as Range,
   approachChromatic: 0.75,
   // How an intro gets its harmony: the chorus's first four bars (with
@@ -783,6 +792,13 @@ export const STYLE = {
     ['template', 6],
   ] as Weighted<'chorus' | 'planing' | 'template'>,
   introMelodyChance: 0.5,
+  // How the drums start the opening vamp: in after two bars, kick and
+  // hats alone for two bars, or the whole kit from the first.
+  vampEntry: [
+    ['late', 5],
+    ['light', 3],
+    ['full', 2],
+  ] as Weighted<DrumEntry>,
   // Drums per section: the feels it may take, and how likely it starts
   // with a crash and ends with a fill.
   drums: {
@@ -885,7 +901,7 @@ export const PRE_FLAVOURS: Readonly<Record<PreFlavour, PreFlavourDef>> = {
 export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
   // Jazz-funk in a major key: ii-V-I, secondary dominants, borrowed iv.
   major: {
-    weight: 3,
+    weight: 4,
     tonics: [5, 10, 3, 0, 7, 2],
     tonic: 'maj',
     reharm: 1,
@@ -946,6 +962,15 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
       { offset: 8, weight: 3, adventurous: true }, // bVI
       { offset: 2, weight: 1, adventurous: true },
     ],
+    // ii-V pairs: a jazz blowing chorus.
+    solo: {
+      pair: [['ii:m9|m11|m7'], ['V:13|9']],
+      shapes: [
+        ['cycle', 3],
+        ['home', 2],
+        ['vamp', 1],
+      ],
+    },
     turnarounds: LIFT_TURNAROUNDS,
   },
 
@@ -954,7 +979,7 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
   // cycle iv-bVII-bIII-bVI, the Andalusian fall i-bVII-bVI-V, and the
   // dorian IV7 of minor funk. The tonic is a m9, m6/9 or m(maj9).
   minor: {
-    weight: 3,
+    weight: 1,
     tonics: [2, 7, 0, 5, 9, 4], // D G C F A E
     tonic: 'min',
     tonicPalette: 'minTonic',
@@ -1008,6 +1033,15 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
       { offset: 10, weight: 1, adventurous: true }, // bVII major
       { offset: 1, weight: 1, adventurous: true }, // bII: Neapolitan
     ],
+    // Minor ii-V pairs: half-diminished ii, altered V.
+    solo: {
+      pair: [['ii:m7b5'], ['V:7alt|7b9|13b9']],
+      shapes: [
+        ['cycle', 3],
+        ['home', 2],
+        ['vamp', 1],
+      ],
+    },
     turnarounds: {
       'ii-V': { weight: 3, bars: [['ii:m7b5'], ['V:7alt|7b9']] },
       'bVI-V': { weight: 2, bars: [['bVI:^7#11|^9#11'], ['V:7alt|13b9']] },
@@ -1033,7 +1067,7 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
   // major. Few cadences, so less reharmonisation; it comes home by the
   // plagal IV7-i, not V-i.
   dorian: {
-    weight: 2,
+    weight: 3,
     tonics: [2, 7, 0, 9, 4, 5], // D G C A E F
     tonic: 'min',
     reharm: 0.5,
@@ -1086,6 +1120,21 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
       { offset: 8, weight: 2, adventurous: true }, // bVI major
       { offset: 1, weight: 1, adventurous: true, mode: 'minor' }, // a half step up, as in So What
     ],
+    // Modal: the i-IV vamp, moving a half step up as in Impressions, or
+    // more often the song's own vamp.
+    solo: {
+      pair: [['i:m11|m9'], ['IV:13|9']],
+      steps: [
+        [1, 3],
+        [3, 2],
+        [-2, 1],
+      ],
+      shapes: [
+        ['cycle', 1],
+        ['home', 1],
+        ['vamp', 3],
+      ],
+    },
     turnarounds: {
       plagal: { weight: 3, bars: [['bVII:^9|69'], ['IV:13|9']] },
       'ii-V': { weight: 2, bars: [['ii:m9|m11'], ['V:7alt|7b9']] },
@@ -1101,7 +1150,7 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
   // I7 against bVII and IV, blues changes, and the funk 7#9. It comes
   // home from bVII, the mixolydian cadence.
   mixolydian: {
-    weight: 1,
+    weight: 2,
     tonics: [7, 2, 0, 5, 9, 10], // G D C F A Bb
     tonic: 'dom',
     tonicPalette: 'domTonic',
@@ -1159,6 +1208,15 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
       { offset: 8, weight: 2, adventurous: true }, // bVI major
       { offset: 9, weight: 1, adventurous: true, mode: 'minor' }, // vi minor
     ],
+    // The I7-bVII vamp moving through keys, or more often the song's own vamp.
+    solo: {
+      pair: [['I:13|9|7#9'], ['bVII:^9|69']],
+      shapes: [
+        ['cycle', 1],
+        ['home', 1],
+        ['vamp', 3],
+      ],
+    },
     turnarounds: {
       mixolydian: { weight: 3, bars: [['IV:^9|69'], ['bVII:^9|^7#11']] },
       'ii-V': LIFT_TURNAROUNDS['ii-V'],
@@ -1197,33 +1255,90 @@ export const TAIL_SECONDS = 1;
 // Titles
 // =====================================================================
 
-export const TITLE_WORDS = [
-  [
-    'Velvet',
-    'Midnight',
-    'Copper',
-    'Neon',
-    'Golden',
-    'Lazy',
-    'Electric',
-    'Paper',
-    'Silver',
-    'Crimson',
-    'Hollow',
-    'Sunday',
+// City pop titles, one language with the other in brackets: a modifier
+// and a noun, each in English, in Japanese, and (where it reads
+// naturally) in katakana English. In Japanese a noun modifier takes の
+// (真夜中のドア), an adjective (`adj`) comes straight before its noun
+// (青いハイウェイ), and katakana words join with ・ (ミッドナイト・ドライブ).
+// A word not written in katakana carries its reading (`romaji`), for
+// titles that give the Japanese in romaji instead of the English.
+
+// The chance a title gives the Japanese in romaji instead of the English.
+export const TITLE_ROMAJI = 0.2;
+
+export const TITLE_WORDS: { modifiers: readonly TitleWord[]; nouns: readonly TitleWord[] } = {
+  modifiers: [
+    { en: 'Midnight', ja: '真夜中', romaji: 'mayonaka', kana: 'ミッドナイト' },
+    { en: 'Summer', ja: '夏', romaji: 'natsu', kana: 'サマー' },
+    { en: 'Midsummer', ja: '真夏', romaji: 'manatsu', kana: 'ミッドサマー' },
+    { en: 'Rainy', ja: '雨', romaji: 'ame', kana: 'レイニー' },
+    { en: 'Blue', ja: '青い', romaji: 'aoi', kana: 'ブルー', adj: true },
+    { en: 'Neon', ja: 'ネオン', kana: 'ネオン' },
+    { en: 'Tokyo', ja: '東京', romaji: 'tokyo', kana: 'トーキョー' },
+    { en: 'Sunset', ja: '夕暮れ', romaji: 'yugure', kana: 'サンセット' },
+    { en: 'Ocean', ja: '海', romaji: 'umi', kana: 'オーシャン' },
+    { en: 'Last', ja: '最後', romaji: 'saigo', kana: 'ラスト' },
+    { en: 'Secret', ja: '秘密', romaji: 'himitsu', kana: 'シークレット' },
+    { en: 'Moonlight', ja: '月明かり', romaji: 'tsukiakari', kana: 'ムーンライト' },
+    { en: 'Starlit', ja: '星降る', romaji: 'hoshifuru', adj: true },
+    { en: 'Lonely', ja: 'ひとりぼっち', romaji: 'hitoribotchi', kana: 'ロンリー' },
+    { en: 'Weekend', ja: '週末', romaji: 'shumatsu', kana: 'ウィークエンド' },
+    { en: 'Morning', ja: '朝', romaji: 'asa', kana: 'モーニング' },
+    { en: 'Endless', ja: '終わらない', romaji: 'owaranai', kana: 'エンドレス', adj: true },
+    { en: 'Silver', ja: '銀色', romaji: 'giniro', kana: 'シルバー' },
+    { en: 'Golden', ja: '金色', romaji: 'kiniro', kana: 'ゴールデン' },
+    { en: 'Glass', ja: 'ガラス', kana: 'グラス' },
+    { en: 'Crystal', ja: 'クリスタル', kana: 'クリスタル' },
+    { en: 'Plastic', ja: 'プラスティック', kana: 'プラスティック' },
+    { en: 'Velvet', ja: 'ビロード', kana: 'ベルベット' },
+    { en: 'Faded', ja: '色あせた', romaji: 'iroaseta', adj: true },
+    { en: 'Distant', ja: '遠い', romaji: 'toi', adj: true },
+    { en: 'Sweet', ja: '甘い', romaji: 'amai', kana: 'スウィート', adj: true },
+    { en: 'Electric', ja: 'エレクトリック', kana: 'エレクトリック' },
+    { en: 'Seaside', ja: '海辺', romaji: 'umibe', kana: 'シーサイド' },
+    { en: 'Downtown', ja: '下町', romaji: 'shitamachi', kana: 'ダウンタウン' },
+    { en: 'Twilight', ja: '黄昏', romaji: 'tasogare', kana: 'トワイライト' },
   ],
-  [
-    'Groove',
-    'Avenue',
-    'Skyline',
-    'Machine',
-    'Harbour',
-    'Lights',
-    'Parade',
-    'Static',
-    'Garden',
-    'Engine',
-    'River',
-    'Signal',
+  nouns: [
+    { en: 'Drive', ja: 'ドライブ', kana: 'ドライブ' },
+    { en: 'City', ja: '街', romaji: 'machi', kana: 'シティ' },
+    { en: 'Love', ja: '恋', romaji: 'koi', kana: 'ラブ' },
+    { en: 'Lover', ja: '恋人', romaji: 'koibito', kana: 'ラヴァー' },
+    { en: 'Door', ja: 'ドア', kana: 'ドア' },
+    { en: 'Highway', ja: 'ハイウェイ', kana: 'ハイウェイ' },
+    { en: 'Station', ja: '駅', romaji: 'eki', kana: 'ステーション' },
+    { en: 'Telephone', ja: '電話', romaji: 'denwa', kana: 'テレフォン' },
+    { en: 'Rendezvous', ja: 'ランデヴー', kana: 'ランデヴー' },
+    { en: 'Breeze', ja: '風', romaji: 'kaze', kana: 'ブリーズ' },
+    { en: 'Rain', ja: '雨', romaji: 'ame', kana: 'レイン' },
+    { en: 'Night', ja: '夜', romaji: 'yoru', kana: 'ナイト' },
+    { en: 'Harbour', ja: '港', romaji: 'minato', kana: 'ハーバー' },
+    { en: 'Resort', ja: 'リゾート', kana: 'リゾート' },
+    { en: 'Dancer', ja: 'ダンサー', kana: 'ダンサー' },
+    { en: 'Memories', ja: '思い出', romaji: 'omoide', kana: 'メモリーズ' },
+    { en: 'Skyline', ja: 'スカイライン', kana: 'スカイライン' },
+    { en: 'Avenue', ja: '通り', romaji: 'tori', kana: 'アベニュー' },
+    { en: 'Parade', ja: 'パレード', kana: 'パレード' },
+    { en: 'Signal', ja: 'シグナル', kana: 'シグナル' },
+    { en: 'Lights', ja: '灯り', romaji: 'akari', kana: 'ライツ' },
+    { en: 'Window', ja: '窓', romaji: 'mado', kana: 'ウィンドウ' },
+    { en: 'Waltz', ja: 'ワルツ', kana: 'ワルツ' },
+    { en: 'Kiss', ja: 'キス', kana: 'キス' },
+    { en: 'Shoreline', ja: '海岸線', romaji: 'kaigansen', kana: 'ショアライン' },
+    { en: 'Dream', ja: '夢', romaji: 'yume', kana: 'ドリーム' },
+    { en: 'Romance', ja: 'ロマンス', kana: 'ロマンス' },
+    { en: 'Cocktail', ja: 'カクテル', kana: 'カクテル' },
+    { en: 'Paradise', ja: 'パラダイス', kana: 'パラダイス' },
+    { en: 'Moon', ja: '月', romaji: 'tsuki', kana: 'ムーン' },
+    { en: 'Summer', ja: '夏', romaji: 'natsu', kana: 'サマー' },
+    { en: 'Cruising', ja: 'クルージング', kana: 'クルージング' },
+    { en: 'Flight', ja: '飛行', romaji: 'hiko', kana: 'フライト' },
+    { en: 'Groove', ja: 'グルーヴ', kana: 'グルーヴ' },
+    { en: 'Heartbeat', ja: '鼓動', romaji: 'kodo', kana: 'ハートビート' },
+    { en: 'Girl', ja: '少女', romaji: 'shojo', kana: 'ガール' },
+    { en: 'Boulevard', ja: '大通り', romaji: 'odori', kana: 'ブールバード' },
+    { en: 'Island', ja: '島', romaji: 'shima', kana: 'アイランド' },
+    { en: 'Sunrise', ja: '夜明け', romaji: 'yoake', kana: 'サンライズ' },
+    { en: 'Mirage', ja: '蜃気楼', romaji: 'shinkiro', kana: 'ミラージュ' },
   ],
-];
+};
