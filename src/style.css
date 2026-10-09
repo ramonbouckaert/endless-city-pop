@@ -7,6 +7,7 @@
   --accent: #c2410c;
   --accent-text: #ffffff;
   --error: #b91c1c;
+  --playhead: #dc2626;
   --sec-intro: #a8a29e;
   --sec-verse: #60a5fa;
   --sec-pre: #818cf8;
@@ -29,6 +30,7 @@
     --accent: #fb923c;
     --accent-text: #1c1a17;
     --error: #f87171;
+    --playhead: #f87171;
     color-scheme: dark;
   }
 }
@@ -75,35 +77,6 @@ h1 {
   color: var(--muted);
 }
 
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
-  margin: 20px 0;
-  padding: 16px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-}
-
-.controls label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.controls .seed-row {
-  display: flex;
-  gap: 6px;
-}
-
-select,
-input,
 button {
   font: inherit;
   font-size: 14px;
@@ -113,15 +86,6 @@ button {
   border-radius: 8px;
   padding: 7px 10px;
   min-height: 36px;
-}
-
-input[type='number'] {
-  width: 84px;
-}
-
-#seed {
-  width: 110px;
-  font-family: ui-monospace, monospace;
 }
 
 button {
@@ -143,6 +107,7 @@ button:hover {
 }
 
 .song {
+  margin: 20px 0;
   padding: 16px;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -173,16 +138,36 @@ button:hover {
   align-items: flex-start;
 }
 
+/* A checkbox in the row of buttons. */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 4px;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 body.playing #play {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
+/* Padded (and the margin pulled in to match) so the glow isn't clipped. */
 .form {
   display: flex;
   gap: 3px;
   list-style: none;
-  margin: 16px 0 0;
-  padding: 0;
+  margin: 8px -8px -8px;
+  padding: 8px;
   overflow: hidden;
 }
 
@@ -193,7 +178,7 @@ body.playing #play {
   border-radius: 4px;
   font-size: 11px;
   color: #1c1917;
-  background: var(--sec-quiet);
+  background: var(--c, var(--sec-quiet));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -203,31 +188,201 @@ body.playing #play {
 .sec-intro,
 .sec-outro,
 .sec-finale {
-  background: var(--sec-intro);
+  --c: var(--sec-intro);
 }
 .sec-verse,
 .sec-vamp {
-  background: var(--sec-verse);
+  --c: var(--sec-verse);
 }
 .sec-pre {
-  background: var(--sec-pre);
+  --c: var(--sec-pre);
 }
 .sec-chorus,
 .sec-lift {
-  background: var(--sec-chorus);
+  --c: var(--sec-chorus);
 }
 .sec-bridge {
-  background: var(--sec-bridge);
+  --c: var(--sec-bridge);
 }
 .sec-solo,
 .sec-solo2 {
-  background: var(--sec-solo);
+  --c: var(--sec-solo);
 }
 .sec-riff {
-  background: var(--sec-riff);
+  --c: var(--sec-riff);
 }
 .sec-drumBreak {
-  background: var(--sec-break);
+  --c: var(--sec-break);
+}
+
+/* The playhead: a line over the strip, moved by transform. */
+.timeline {
+  position: relative;
+}
+
+.playhead {
+  position: absolute;
+  left: -1px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--playhead);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--panel) 70%, transparent);
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* An inverted triangle capping the line. */
+.playhead::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-style: solid;
+  border-width: 7px 5px 0;
+  border-color: var(--playhead) transparent transparent;
+}
+
+.playhead[hidden] {
+  display: none;
+}
+
+/* The section playing now. */
+.sec.now {
+  position: relative;
+  font-weight: 600;
+  filter: brightness(1.12) saturate(1.15);
+  box-shadow:
+    0 0 0 2px var(--panel),
+    0 0 10px 3px var(--c, var(--sec-quiet));
+  animation: glow 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    box-shadow:
+      0 0 0 2px var(--panel),
+      0 0 6px 1px var(--c, var(--sec-quiet));
+  }
+  to {
+    box-shadow:
+      0 0 0 2px var(--panel),
+      0 0 14px 5px var(--c, var(--sec-quiet));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sec.now {
+    animation: none;
+  }
+}
+
+/* The ?debug=true instrument panel. */
+.debug {
+  margin: 0 0 20px;
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.debug h2,
+.debug h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.debug-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.debug-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.debug-rows {
+  display: grid;
+  grid-template-columns: max-content 1fr minmax(180px, 280px);
+  align-items: center;
+  gap: 4px 16px;
+  margin: 12px 0 20px;
+}
+
+.debug-row {
+  display: contents;
+}
+
+.debug-label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.debug-row.changed .debug-label::after {
+  content: ' •';
+  color: var(--accent);
+}
+
+.debug-plays {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.debug select {
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 8px;
+  min-width: 0;
+}
+
+.debug-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.debug-changes {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Phones: each row its own grid, label and menu side by side, what it
+   plays below. */
+@media (max-width: 640px) {
+  .debug-rows {
+    display: block;
+  }
+  .debug-row {
+    display: grid;
+    grid-template-columns: 1fr minmax(0, 1.4fr);
+    grid-template-areas: 'label menu' 'plays plays';
+    align-items: center;
+    gap: 2px 12px;
+    margin-bottom: 10px;
+  }
+  .debug-label {
+    grid-area: label;
+  }
+  .debug-row select {
+    grid-area: menu;
+  }
+  .debug-plays {
+    grid-area: plays;
+  }
 }
 
 .status {

@@ -528,19 +528,6 @@ export const BASS = {
 // Drums
 // =====================================================================
 
-// The default sample kit, or a drum machine with every sound used here.
-export const KITS: Weighted<string | null> = [
-  [null, 4],
-  ['LinnDrum', 1],
-  ['LinnLM2', 1],
-  ['RolandTR626', 1],
-  ['RolandR8', 1],
-  ['RolandMT32', 1],
-  ['BossDR550', 1],
-  ['AkaiXR10', 1],
-  ['YamahaRY30', 1],
-];
-
 export const empty = (): StepGains => Array(16).fill(0);
 export const at = (hits: Record<number, number>): StepGains => {
   const bar = empty();
@@ -838,39 +825,7 @@ export const STYLE = {
     outro: ['pedal'],
   } as Partial<Record<SectionType, BassFeel[]>>,
   comp: { main: '~ [~ x] ~ [~ ~ x ~]', chorus: '[~ x]*4', bossa: '[x ~ ~ x] [~ ~ x ~] [~ x ~ ~] [x ~ ~ ~]' },
-  sounds: {
-    keys: 'gm_epiano1',
-    guitar: 'gm_electric_guitar_muted',
-    pads: ['gm_voice_oohs', 'gm_string_ensemble_1', 'gm_choir_aahs'],
-    lead: ['gm_alto_sax', 0.5],
-    double: ['gm_flute', 0.13],
-    answer: ['gm_trumpet', 0.3],
-    bell: ['gm_vibraphone', 0.3],
-    soloists: [
-      ['gm_overdriven_guitar', 0.34],
-      ['gm_vibraphone', 0.42],
-      ['gm_tenor_sax', 0.45],
-      ['gm_trumpet', 0.36],
-    ],
-    horns: ['gm_brass_section', 'gm_alto_sax'],
-    bass: 'gm_electric_bass_finger',
-  } as {
-    keys: string;
-    guitar: string;
-    pads: [string, string, string];
-    lead: Voice;
-    double: Voice;
-    answer: Voice;
-    bell: Voice;
-    soloists: Voice[];
-    horns: [string, string];
-    bass: string;
-  },
-  // Highest playable MIDI note for soundfonts whose top samples are
-  // broken (the vibraphone's C6-and-up zone won't decode).
-  soundTops: { gm_vibraphone: 83 } as Record<string, number>,
 };
-type Voice = [sound: string, gain: number];
 
 // =====================================================================
 // Pre-chorus flavours

@@ -227,6 +227,46 @@ export interface Tonality {
 }
 export type PaletteName = ChordClass | 'majLydian' | 'domToMinor' | 'susToMinor' | 'minTonic' | 'domTonic';
 
+// ---- Arrangement ----------------------------------------------------
+
+// A sound and its level.
+export type Voice = [sound: string, gain: number];
+
+// The band's instruments, as Strudel sound names: BAND (instruments.ts),
+// with the parts each song picks.
+export interface Sounds {
+  keys: string;
+  clav: string;
+  guitar: string;
+  pad: string;
+  strings: string;
+  choir: string;
+  answer: Voice;
+  bell: Voice;
+  stabs: string; // horn stabs
+  hornDouble: string; // the horn line's second voice
+  bass: string;
+  lead: Voice;
+  double: Voice; // the lead an octave up
+  soloists: Voice[];
+}
+
+// The melody voices, picked from VOICES.pool; the rest of the band.
+export type VoiceRole = 'lead' | 'double' | 'soloists';
+export type BandSounds = Omit<Sounds, VoiceRole>;
+// Band parts a song picks a sound for, from PICKS.
+export type PickedPart =
+  | 'keys'
+  | 'guitar'
+  | 'pad'
+  | 'strings'
+  | 'choir'
+  | 'answer'
+  | 'bell'
+  | 'stabs'
+  | 'hornDouble'
+  | 'bass';
+
 // Unset (or undefined) options are chosen from the seed.
 export interface SongOptions {
   seed?: string | number | undefined;

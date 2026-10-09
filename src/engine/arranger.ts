@@ -7,16 +7,17 @@ import { mini, miniAllStrings } from '@strudel/mini';
 import '@strudel/tonal';
 import { BassWriter } from './bass';
 import { DOUBLE_TOP, FIGURES, FORM, STYLE, TAIL_SECONDS } from './constants';
+import { BAND, KIT_GAPS, SOUND_LEVELS, SOUND_TOPS } from './instruments';
 import type { Section } from './form';
 import type { Key } from './music';
 import type { Song } from './song';
-import type { Bar, DrumFill, Material, SectionType, StepGains } from './types';
+import type { Bar, BandSounds, DrumFill, Material, PickedPart, SectionType, Sounds, StepGains } from './types';
 
 // Plain strings passed to Strudel functions are mini-notation, as in the
 // Strudel REPL.
 miniAllStrings();
 
-const { comp, sounds } = STYLE;
+const { comp } = STYLE;
 type Pat = Pattern | string;
 type Parts = { drums: Pattern[]; pitched: (Pattern | null | false | undefined)[] };
 
@@ -48,18 +49,39 @@ const Mini = {
 
 /** The instruments. Harmony parts take a chord pattern; lines take degrees against a scale. */
 class Band {
-  constructor(private readonly kit: string | null) {}
+  constructor(
+    private readonly kit: string | null,
+    readonly sounds: Sounds,
+  ) {}
 
-  /** A drum part on this song's kit. */
+  /**
+   * How much louder or quieter a picked part plays than with its sound in
+   * BAND, which its gains were set for. Applied as postgain, so a
+   * section's own gain for the part still holds.
+   */
+  trim(part: PickedPart): number {
+    const sound = (s: BandSounds) => {
+      const v = s[part];
+      return typeof v === 'string' ? v : v[0];
+    };
+    const level = (s: string) => SOUND_LEVELS[s] ?? 1;
+    return level(sound(this.sounds)) / level(sound(BAND));
+  }
+
+  /** A drum part on this song's kit; sounds the kit lacks play from the default samples. */
   drum(p: Pattern): Pattern {
-    return this.kit ? p.bank(this.kit) : p;
+    const { kit } = this;
+    if (!kit) return p;
+    // Bank names are case-insensitive in Strudel (the debug panel lists them lower case).
+    const gaps = Object.entries(KIT_GAPS).find(([k]) => k.toLowerCase() === kit.toLowerCase())?.[1] ?? [];
+    return p.withValue((v: { s?: string }) => (v.s && gaps.includes(v.s) ? v : { ...v, bank: kit }));
   }
 
   // Sets the sound, dropping notes above its top by octaves. Sections
   // shifted up a key transpose after this, so the top allows for the
   // highest lift.
   voiced(p: Pattern, sound: string): Pattern {
-    const top = STYLE.soundTops[sound];
+    const top = SOUND_TOPS[sound];
     if (top === undefined) return p.sound(sound);
     return p
       .withValue((v: { note?: number | string }) => {
@@ -72,41 +94,64 @@ class Band {
   }
 
   keys(c: Pattern, rhythm = comp.main) {
-    return c.struct(rhythm).voicing().sound(sounds.keys).gain(0.34).velocity(rand.range(0.8, 1)).room(0.2);
+    return c
+      .struct(rhythm)
+      .voicing()
+      .sound(this.sounds.keys)
+      .gain(0.34)
+      .postgain(this.trim('keys'))
+      .velocity(rand.range(0.8, 1))
+      .room(0.2);
   }
   softKeys(c: Pattern) {
-    return c.voicing().sound(sounds.keys).gain(0.32).room(0.35);
+    return c.voicing().sound(this.sounds.keys).gain(0.32).postgain(this.trim('keys')).room(0.35);
   }
   arp(c: Pattern) {
-    return n(FIGURES.arp).set(c).voicing().sound(sounds.keys).gain(0.24).room(0.4).delay(0.2).delaytime(0.375);
+    return n(FIGURES.arp)
+      .set(c)
+      .voicing()
+      .sound(this.sounds.keys)
+      .gain(0.24)
+      .postgain(this.trim('keys'))
+      .room(0.4)
+      .delay(0.2)
+      .delaytime(0.375);
   }
   clav(c: Pattern) {
-    return n(FIGURES.clav).set(c).voicing().sound('gm_clavinet').gain(0.19).velocity(rand.range(0.7, 1)).pan(0.28);
+    return n(FIGURES.clav).set(c).voicing().sound(this.sounds.clav).gain(0.19).velocity(rand.range(0.7, 1)).pan(0.28);
   }
   scratch(c: Pattern) {
     return n(FIGURES.scratch)
       .set(c)
       .voicing()
-      .sound(sounds.guitar)
+      .sound(this.sounds.guitar)
+      .postgain(this.trim('guitar'))
       .clip(0.5)
       .gain(0.28)
       .velocity(rand.range(0.7, 1))
       .pan(0.72);
   }
   pad(c: Pattern) {
-    return c.anchor('a4').voicing().sound(sounds.pads[0]).gain(0.14).room(0.4);
+    return c.anchor('a4').voicing().sound(this.sounds.pad).gain(0.14).postgain(this.trim('pad')).room(0.4);
   }
   strings(c: Pattern) {
-    return c.anchor('d6').voicing().sound(sounds.pads[1]).gain(0.11).room(0.45);
+    return c.anchor('d6').voicing().sound(this.sounds.strings).gain(0.11).postgain(this.trim('strings')).room(0.45);
   }
   choir(c: Pattern) {
-    return c.anchor('e5').voicing().sound(sounds.pads[2]).gain(0.09).room(0.45);
+    return c.anchor('e5').voicing().sound(this.sounds.choir).gain(0.09).postgain(this.trim('choir')).room(0.45);
   }
   stabs(c: Pattern, rhythm: Pat = FIGURES.stab) {
-    return c.struct(rhythm).anchor('g5').voicing().sound(sounds.horns[0]).clip(0.3).gain(0.22);
+    return c
+      .struct(rhythm)
+      .anchor('g5')
+      .voicing()
+      .sound(this.sounds.stabs)
+      .clip(0.3)
+      .gain(0.22)
+      .postgain(this.trim('stabs'));
   }
   bass(degrees: Pat, scales: Pat) {
-    return n(degrees).scale(scales).sound(sounds.bass).clip(0.8).gain(0.75);
+    return n(degrees).scale(scales).sound(this.sounds.bass).clip(0.8).gain(0.75).postgain(this.trim('bass'));
   }
   /** Degrees against a key or chord-scale, optionally shifted up. */
   line(degrees: Pat, scales: Pat, up = 0) {
@@ -117,36 +162,56 @@ class Band {
     return stack(p, ...steps.map((st) => p.sub(st)));
   }
   lead(p: Pattern) {
-    return p.sound(sounds.lead[0]).gain(sounds.lead[1]).room(0.25);
+    return this.voiced(p, this.sounds.lead[0]).gain(this.sounds.lead[1]).room(0.25);
   }
   double(p: Pattern, up = 12) {
-    return p.transpose(up).sound(sounds.double[0]).gain(sounds.double[1]).room(0.35);
+    return this.voiced(p.transpose(up), this.sounds.double[0]).gain(this.sounds.double[1]).room(0.35);
   }
   counter(p: Pattern) {
-    return p.sound(sounds.answer[0]).gain(sounds.answer[1]).pan(0.62).room(0.25);
+    const [sound, gain] = this.sounds.answer;
+    return this.voiced(p, sound).gain(gain).postgain(this.trim('answer')).pan(0.62).room(0.25);
   }
   bell(p: Pattern) {
-    return this.voiced(p, sounds.bell[0]).gain(sounds.bell[1]).room(0.4);
+    const [sound, gain] = this.sounds.bell;
+    return this.voiced(p, sound).gain(gain).postgain(this.trim('bell')).room(0.4);
   }
   horns(p: Pattern) {
-    return stack(p.sound(sounds.horns[0]).gain(0.3), p.sound(sounds.horns[1]).gain(0.18)).room(0.25);
+    const { stabs, hornDouble } = this.sounds;
+    return stack(
+      this.voiced(p, stabs).gain(0.3).postgain(this.trim('stabs')),
+      this.voiced(p, hornDouble).gain(0.18).postgain(this.trim('hornDouble')),
+    ).room(0.25);
   }
 }
 
 // ---- Song ------------------------------------------------------------
 
+/**
+ * Instruments to play a song with instead of its own: `sounds` in place
+ * of the song's, `kit` in place of its drum kit (null: the default
+ * samples).
+ */
+export interface Instruments {
+  sounds?: Sounds;
+  kit?: string | null;
+}
+
 export class Arranger {
   private readonly band: Band;
 
-  constructor(private readonly song: Song) {
-    this.band = new Band(song.kit);
+  constructor(
+    private readonly song: Song,
+    { sounds = song.sounds, kit = song.kit }: Instruments = {},
+  ) {
+    this.band = new Band(kit, sounds);
   }
 
   /**
-   * The whole song as one pattern, plus its tempo in cycles per second
-   * (a cycle is a bar). The pattern ends with TAIL_SECONDS of silence.
+   * The whole song as one pattern, its tempo in cycles per second (a
+   * cycle is a bar), and how many cycles it lasts before it loops: the
+   * song's bars and TAIL_SECONDS of silence.
    */
-  pattern(): { pattern: Pattern; cps: number } {
+  pattern(): { pattern: Pattern; cps: number; cycles: number } {
     const { song } = this;
     const cps = song.bpm / 4 / 60;
     const sections = song.form.map((sec, index): [number, Pattern] => {
@@ -158,7 +223,8 @@ export class Arranger {
     });
     // The tail is a fraction of a bar. Coming last, it shifts no bar line
     // but the loop's own: the next time round starts a second later.
-    return { pattern: arrange(...sections, [TAIL_SECONDS * cps, silence]), cps };
+    const tail = TAIL_SECONDS * cps;
+    return { pattern: arrange(...sections, [tail, silence]), cps, cycles: song.bars + tail };
   }
 }
 
@@ -395,7 +461,8 @@ class SectionArranger {
   // The first soloist plays over the band; the second over a bossa comp.
   private solo(): Parts {
     const { band, C } = this;
-    const [sound, gain] = sounds.soloists[this.sec.opts.soloist! % sounds.soloists.length];
+    const { soloists } = band.sounds;
+    const [sound, gain] = soloists[this.sec.opts.soloist! % soloists.length];
     const bossa = this.sec.type === 'solo2';
     return {
       drums: this.drums(),
@@ -460,12 +527,13 @@ class SectionArranger {
   // The final chord, built one instrument at a time.
   private finale(): Parts {
     const { band, song } = this;
+    const { sounds } = band;
     const fin = this.mat.bars![0][0];
     const name = fin.name(song.key);
     const voices = [
       [sounds.lead[0], sounds.lead[1] * 0.6],
       ...sounds.soloists,
-      [sounds.bell[0], sounds.bell[1]],
+      [sounds.bell[0], sounds.bell[1] * band.trim('bell')],
       [sounds.double[0], sounds.double[1] * 1.5],
     ] as const;
     const enters = FIGURES.finaleDegrees.map((d, i) => {
@@ -481,7 +549,7 @@ class SectionArranger {
         band.drum(s('rd*16').gain(0.09).velocity(saw.slow(2).range(0.3, 1))),
       ],
       pitched: [
-        chord(name).voicing().slow(2).sound(sounds.keys).gain(0.4).room(0.5),
+        chord(name).voicing().slow(2).sound(sounds.keys).gain(0.4).postgain(band.trim('keys')).room(0.5),
         band.strings(chord(name)).slow(2),
         band.bass('0', fin.bassScale(song.key)).slow(2),
         ...enters,

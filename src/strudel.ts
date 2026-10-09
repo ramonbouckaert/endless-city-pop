@@ -2,7 +2,14 @@
 // strudel.cc loads (drum machines, General MIDI soundfonts).
 
 import type { Pattern } from '@strudel/core';
-import { initAudioOnFirstClick, registerSynthSounds, samples, webaudioRepl, type ReplState } from '@strudel/webaudio';
+import {
+  initAudioOnFirstClick,
+  registerSynthSounds,
+  samples,
+  soundMap,
+  webaudioRepl,
+  type ReplState,
+} from '@strudel/webaudio';
 
 const DOUGH = 'https://raw.githubusercontent.com/felixroos/dough-samples/main';
 const UZU = 'https://raw.githubusercontent.com/tidalcycles/uzu-drumkit/main';
@@ -20,10 +27,22 @@ function loadSounds(): Promise<unknown> {
   return sounds;
 }
 
-/** A player for patterns: play(pattern, cps) starts or swaps the pattern; stop() stops. */
+/** A sound Strudel can play, by name: a synth, a General MIDI soundfont or a sample. */
+export interface SoundInfo {
+  name: string;
+  type: string;
+}
+
+/**
+ * A player for patterns: play(pattern, cps) starts or swaps the pattern;
+ * stop() stops; now() is how many cycles it has played, or undefined
+ * when stopped; sounds() lists every sound once they have loaded.
+ */
 export interface Player {
   play(pattern: Pattern, cps: number): Promise<void>;
   stop(): void;
+  now(): number | undefined;
+  sounds(): Promise<SoundInfo[]>;
 }
 
 export function createPlayer({ onUpdate }: { onUpdate?: (state: ReplState) => void } = {}): Player {
@@ -38,5 +57,10 @@ export function createPlayer({ onUpdate }: { onUpdate?: (state: ReplState) => vo
       await repl.setPattern(pattern, true);
     },
     stop: () => repl.stop(),
+    now: () => (repl.scheduler.started ? repl.scheduler.now() : undefined),
+    async sounds() {
+      await loadSounds();
+      return Object.entries(soundMap.get()).map(([name, { data }]) => ({ name, type: data?.type ?? 'other' }));
+    },
   };
 }

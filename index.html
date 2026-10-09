@@ -18,37 +18,6 @@
     </header>
 
     <main>
-      <form id="controls" class="controls" autocomplete="off">
-        <label>
-          <span>Key</span>
-          <select name="key" id="key">
-            <option value="">Any</option>
-          </select>
-        </label>
-        <label>
-          <span>Mode</span>
-          <select name="mode" id="mode">
-            <option value="">Any</option>
-            <option value="major">Major</option>
-            <option value="minor">Minor</option>
-            <option value="dorian">Dorian</option>
-            <option value="mixolydian">Mixolydian</option>
-          </select>
-        </label>
-        <label>
-          <span>BPM</span>
-          <input name="bpm" id="bpm" type="number" min="60" max="200" placeholder="auto" />
-        </label>
-        <label class="seed">
-          <span>Seed</span>
-          <span class="seed-row">
-            <input name="seed" id="seed" type="text" spellcheck="false" />
-            <button type="button" id="dice" title="New random seed">🎲</button>
-          </span>
-        </label>
-        <button type="submit" class="primary" id="generate">Generate</button>
-      </form>
-
       <section class="song" aria-live="polite">
         <div class="song-head">
           <div>
@@ -56,14 +25,24 @@
             <p id="meta" class="meta"></p>
           </div>
           <div class="actions">
+            <button type="button" id="generate" title="Write a new song">Generate</button>
             <button type="button" class="primary" id="play">▶ Play</button>
             <button type="button" id="stop">■ Stop</button>
             <button type="button" id="midi" title="Download this song as a MIDI file">⬇ Export as MIDI</button>
+            <label class="toggle" title="Play a new song when this one ends">
+              <input type="checkbox" id="autoplay" checked />
+              Autoplay
+            </label>
           </div>
         </div>
-        <ol id="form" class="form" aria-label="Song form"></ol>
+        <div class="timeline">
+          <ol id="form" class="form" aria-label="Song form"></ol>
+          <div id="playhead" class="playhead" aria-hidden="true" hidden></div>
+        </div>
         <p id="status" class="status"></p>
       </section>
+
+      <section id="debug" class="debug" hidden></section>
     </main>
 
     <footer>

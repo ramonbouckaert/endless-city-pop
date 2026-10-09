@@ -28,7 +28,7 @@ seed ─▶ mode, key ─▶ form ─▶ harmony ─▶ melody, bass ─▶ Stru
 
 ### Modes
 
-A seed picks a mode (or the Mode menu sets one), and the mode's
+A seed picks a mode (`npm run song -- mySeed minor` sets one), and the mode's
 **tonality** (`TONALITIES` in `src/engine/constants.ts`) supplies its
 progressions, tonic chord, cadence, bridge keys, key-change turnarounds
 and final chord:
@@ -62,6 +62,51 @@ exactly as they did before modes existed.
 The song model (everything but `arranger.ts`) has no dependencies. `src/strudel.ts` runs Strudel's scheduler on Web Audio
 (`@strudel/webaudio`, General MIDI soundfonts and the same drum samples
 strudel.cc loads).
+
+## Playing
+
+**Generate** writes a new song; **Play** starts it from its first bar,
+with the section playing glowing and a playhead line moving across the
+form. With **Autoplay** on (the default; the browser remembers if you
+turn it off), a new song takes over a second after each song's final
+chord, so the music keeps going; with it off, a song loops.
+
+## Instruments
+
+`src/engine/instruments.ts` says which Strudel sounds play which part.
+Strudel's samples are drums and effects, so pitched parts use its General
+MIDI soundfonts and synths. Each song picks:
+
+- **Melody voices**: a lead, its octave double and four soloists from
+  `VOICES.pool`: saxes, clarinet, flute, harmonica, trumpets, trombone,
+  French horn, brass, jazz and overdriven guitar, piano, organs,
+  glockenspiel, vibraphone, pads, effects and oohs.
+- **The band's other parts** from `PICKS`: keys (electric pianos,
+  clavinet, piano, organs), rhythm guitar (muted, jazz, clean,
+  nylon), pad, strings, choir, answering brass or flute, bell (vibes and
+  other mallets), horn stabs and their second voice, and bass (electric,
+  slap, fretless, upright, synth).
+- **A drum kit** from `KITS`: the default samples or one of 16 drum
+  machines, including the TR-808, TR-909 and Oberheim DMX. The drum
+  sounds a machine lacks (`KIT_GAPS`) come from the default samples.
+
+No song plays one sound in two parts while a part has another to choose,
+counting soundfonts that are the same recording under another name
+(`SAME_SOUND`) as one. Sounds play louder or quieter by their level in
+`SOUND_LEVELS`, measured by rendering each with Strudel playing the same
+phrase and comparing loudness; notes above a soundfont's top
+(`SOUND_TOPS`, where its samples are missing) drop an octave.
+
+### Trying other instruments
+
+Open the app with `?debug=true` (e.g. `http://localhost:5173/?debug=true`)
+for an **Instruments** panel under the player: every part the band plays
+(keys, clavinet, bass, pads, lead, soloists, horns, drum kit, ...), what
+it plays, and a menu that starts on the song's own pick and lists every
+sound Strudel has loaded (General MIDI soundfonts, synths, samples, drum
+machines). A choice re-arranges the song at once, even while it plays,
+carries over to new songs, and is remembered in the browser. **Copy
+changes** copies your choices and what each replaced.
 
 ## MIDI export
 

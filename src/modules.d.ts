@@ -43,10 +43,12 @@ declare module '@strudel/webaudio' {
     error?: { message?: string } | string;
   }
   export interface Repl {
+    scheduler: { started: boolean; now(): number };
     setCps(cps: number): void;
     setPattern(pattern: Pattern, autostart?: boolean): Promise<void>;
     stop(): void;
   }
+  export const soundMap: { get(): Record<string, { data?: { type?: string } }> };
   export function initAudioOnFirstClick(): void;
   export function registerSynthSounds(): Promise<void>;
   export function samples(url: string): Promise<void>;

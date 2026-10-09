@@ -1,16 +1,13 @@
 import type { Pattern } from '@strudel/core';
-import { pcName, randomSeed, Song, type Mode, type SongOptions } from './engine';
+import { randomSeed, Song } from './engine';
 // The engine's index leaves out Arranger, so it loads no Strudel.
 // noinspection ES6PreferShortImport
 import { Arranger } from './engine/arranger';
 import { songToMidi } from './engine/midi-song';
+import { createDebugPanel } from './debug';
 import { createPlayer } from './strudel';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-const form = $<HTMLFormElement>('controls');
-const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null;
-
-for (let pc = 0; pc < 12; pc++) $('key').append(new Option(pcName(pc, pc !== 6), String(pc)));
 
 const player = createPlayer({
   onUpdate: (state) => {
@@ -24,56 +21,53 @@ const player = createPlayer({
   },
 });
 
-let current: { song: Song; pattern: Pattern; cps: number };
+let current: { song: Song; pattern: Pattern; cps: number; cycles: number };
+// Where the current song starts on the player's clock, in cycles: songs
+// after the first start where the one before ended, or a moment after a
+// Generate, not wherever the clock has got to.
+let start = 0;
+// Seconds' notice the player needs to start a song cleanly.
+const LEAD = 0.2;
 
-// Options live in the URL hash, so a song can be shared as a link.
-function readHash(): Record<string, string> {
-  return Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+const playing = () => document.body.classList.contains('playing');
+
+// With ?debug=true, a panel to try other Strudel sounds for each
+// instrument; a change re-arranges the song, live if it is playing.
+const debug =
+  new URLSearchParams(location.search).get('debug') === 'true'
+    ? createDebugPanel($('debug'), player.sounds(), () => {
+        arrangeSong(current.song);
+        if (playing()) void play();
+      })
+    : undefined;
+
+function arrangeSong(song: Song) {
+  current = { song, ...new Arranger(song, debug?.instruments(song)).pattern() };
 }
 
-function writeHash(opts: Record<string, string | number | null | undefined>) {
-  const params = new URLSearchParams();
-  for (const [k, v] of Object.entries(opts)) if (v !== '' && v != null) params.set(k, String(v));
-  history.replaceState(null, '', `#${params}`);
-}
-
-function formOptions(): SongOptions & { seed: string } {
-  const data = new FormData(form);
-  const value = (name: string) => String(data.get(name) ?? '');
-  return {
-    seed: value('seed') || randomSeed(),
-    key: value('key') === '' ? undefined : Number(value('key')),
-    mode: (value('mode') || undefined) as Mode | undefined,
-    bpm: value('bpm') ? Number(value('bpm')) : undefined,
-  };
-}
-
-function fillForm(opts: Record<string, string>) {
-  for (const name of ['seed', 'key', 'mode', 'bpm']) {
-    const input = field(name);
-    if (opts[name] !== undefined && input) input.value = opts[name];
-  }
-}
-
+// A new song from a random seed, its key, mode and tempo left to the seed.
 function generate() {
-  const opts = formOptions();
-  field('seed')!.value = opts.seed;
-  writeHash({ seed: opts.seed, key: opts.key, mode: opts.mode, bpm: opts.bpm });
   try {
-    const song = Song.generate(opts);
-    current = { song, ...new Arranger(song).pattern() };
+    arrangeSong(Song.generate({ seed: randomSeed() }));
   } catch (e) {
     setStatus(`Could not generate a song: ${(e as Error).message}`, 'error');
     throw e;
   }
   showSong(current.song);
-  setStatus('Press Play.');
+  debug?.showSong(current.song);
+  setStatus(playing() ? 'Playing.' : 'Press Play.');
 }
 
-async function play() {
-  setStatus('Loading instruments…');
+// Starts the song from its first bar, or while one plays, swaps in the
+// current song: from cycle `from` on the player's clock, or where the
+// last one started (a new arrangement of the same song).
+async function play(from?: number) {
+  if (!playing()) {
+    setStatus('Loading instruments…');
+    start = 0; // the clock restarts too
+  } else if (from !== undefined) start = from;
   try {
-    await player.play(current.pattern, current.cps);
+    await player.play(current.pattern.late(start), current.cps);
   } catch (e) {
     setStatus(`Strudel: ${(e as Error).message ?? e}`, 'error');
   }
@@ -89,7 +83,7 @@ function exportMidi() {
       const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'audio/midi' }));
       const a = Object.assign(document.createElement('a'), {
         href: url,
-        download: `${song.title} (${song.key.name}, ${song.seed}).mid`.replace(/[\\/:*?"<>|#]/g, '-'),
+        download: `${song.title} (${song.key.name}).mid`.replace(/[\\/:*?"<>|#]/g, '-'),
       });
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -98,6 +92,35 @@ function exportMidi() {
       setStatus(`Could not write MIDI: ${(e as Error).message}`, 'error');
     }
   }, 20);
+}
+
+// While a song plays, the section under the playhead glows and a line
+// marks the playhead, placed by how far through its section it is (the
+// strip's gaps make a straight bar count drift). The song loops every
+// `cycles` bars; in the silence after the final chord, no section glows
+// and the line waits at the end.
+function followPlayhead() {
+  const now = player.now();
+  const pos = now === undefined || now < start ? -1 : (now - start) % current.cycles;
+  const items = [...$('form').children] as HTMLElement[];
+  let bar = 0;
+  let at: { item: HTMLElement; through: number } | undefined;
+  current.song.form.forEach((s, i) => {
+    const here = pos >= bar && pos < bar + s.bars;
+    items[i]?.classList.toggle('now', here);
+    if (here && items[i]) at = { item: items[i], through: (pos - bar) / s.bars };
+    bar += s.bars;
+  });
+  if (pos >= bar && items.length) at = { item: items[items.length - 1], through: 1 };
+  const line = $('playhead');
+  line.hidden = !at;
+  if (at) {
+    const { item, through } = at;
+    line.style.transform = `translateX(${item.offsetLeft + through * item.offsetWidth}px)`;
+    line.style.top = `${item.offsetTop - 5}px`;
+    line.style.height = `${item.offsetHeight + 10}px`;
+  }
+  requestAnimationFrame(followPlayhead);
 }
 
 function showSong(song: Song) {
@@ -122,20 +145,43 @@ function setStatus(text: string, kind = '') {
   status.className = `status ${kind}`;
 }
 
-form.addEventListener('submit', (e) => {
-  e.preventDefault();
+// Autoplay: when a song's final chord has played, a new song takes over
+// where the old one would loop, after its second of silence (or at once,
+// if that has passed). On unless turned off, which this browser remembers.
+const AUTOPLAY = 'songsmith.autoplay';
+const autoplay = $<HTMLInputElement>('autoplay');
+try {
+  autoplay.checked = localStorage.getItem(AUTOPLAY) !== 'off';
+} catch {
+  // On by default.
+}
+autoplay.addEventListener('change', () => {
+  try {
+    localStorage.setItem(AUTOPLAY, autoplay.checked ? 'on' : 'off');
+  } catch {
+    // Not remembered.
+  }
+});
+// A timer, not animation frames, so it runs while the tab is in the background.
+setInterval(() => {
+  const now = player.now();
+  if (!autoplay.checked || !playing() || now === undefined || now < start + current.song.bars) return;
+  const end = start + current.cycles;
   generate();
-  if (document.body.classList.contains('playing')) void play();
+  void play(Math.max(end, now + LEAD * current.cps));
+}, 100);
+
+// A new song, playing from its start straight away if one was playing.
+$('generate').addEventListener('click', () => {
+  generate();
+  if (playing()) void play((player.now() ?? 0) + LEAD * current.cps);
 });
 
-$('dice').addEventListener('click', () => {
-  field('seed')!.value = randomSeed();
-  generate();
-});
-
-$('play').addEventListener('click', play);
+$('play').addEventListener('click', () => play());
 $('stop').addEventListener('click', () => player.stop());
 $('midi').addEventListener('click', exportMidi);
 
-fillForm({ seed: randomSeed(), ...readHash() });
+// Clear the song links earlier versions put in the URL.
+if (location.hash) history.replaceState(null, '', location.pathname + location.search);
 generate();
+requestAnimationFrame(followPlayhead);

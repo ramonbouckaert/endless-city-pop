@@ -2,10 +2,11 @@
 // Arranger (arranger.ts) turns one into a Strudel pattern.
 
 import { BassWriter } from './bass';
-import { KITS, PRE_FLAVOURS, STYLE, TITLE_WORDS, TONALITIES } from './constants';
+import { PRE_FLAVOURS, STYLE, TITLE_WORDS, TONALITIES } from './constants';
 import { DrumWriter } from './drums';
 import { FormPlanner, Section } from './form';
 import { Harmonizer, Template } from './harmony';
+import { BAND, KITS, PICKS, SAME_SOUND, SOUND_LEVELS, VOICES } from './instruments';
 import { MelodyWriter, Solo } from './melody';
 import { Chord, Key } from './music';
 import { Rng } from './random';
@@ -21,8 +22,13 @@ import type {
   Mode,
   PreFlavour,
   SectionType,
+  BandSounds,
+  PickedPart,
   SongOptions,
+  Sounds,
   Tonality,
+  Voice,
+  VoiceRole,
 } from './types';
 
 export class Song {
@@ -33,6 +39,7 @@ export class Song {
     readonly bpm: number,
     readonly swing: number,
     readonly kit: string | null,
+    readonly sounds: Sounds,
     readonly form: Section[],
     readonly materials: Materials,
   ) {}
@@ -51,7 +58,40 @@ export class Song {
     const swing = Math.round(rng.range(STYLE.swing) * 100) / 100;
     const form = new FormPlanner(rng.fork('form'), tonality.turnarounds).plan();
     const materials = new SongBuilder(key, form, rng.fork('materials')).build();
-    return new Song(seed, Song.titleFor(seed), key, bpm, swing, rng.fork('kit').weighted(KITS), form, materials);
+    const kit = rng.fork('kit').weighted(KITS);
+    const sounds = Song.soundsFor(rng.fork('voices'));
+    return new Song(seed, Song.titleFor(seed), key, bpm, swing, kit, sounds, form, materials);
+  }
+
+  /** A sound playing a melody part, at the part's gain and the sound's level. */
+  static voice(sound: string, role: VoiceRole): Voice {
+    return [sound, Math.round(VOICES.gains[role] * (SOUND_LEVELS[sound] ?? 1) * 1000) / 1000];
+  }
+
+  // A lead, its double and the soloists from the pool, then a sound for
+  // each picked part: never a sound another part plays (or its twin, in
+  // SAME_SOUND), where its list allows.
+  private static soundsFor(rng: Rng): Sounds {
+    const used = new Set<string>();
+    const recording = (s: string) => SAME_SOUND[s] ?? s;
+    const free = (s: string) => !used.has(recording(s));
+    const take = (s: string) => (used.add(recording(s)), s);
+    const melody: string[] = [];
+    for (const s of rng.shuffle(VOICES.pool)) if (melody.length < 2 + VOICES.soloists && free(s)) melody.push(take(s));
+    const [lead, double, ...soloists] = melody;
+    const band: Record<string, BandSounds[keyof BandSounds]> = { ...BAND };
+    for (const part of Object.keys(PICKS) as PickedPart[]) {
+      const options = PICKS[part].filter(free);
+      const sound = take(rng.pick(options.length ? options : PICKS[part]));
+      const was = BAND[part];
+      band[part] = typeof was === 'string' ? sound : [sound, was[1]];
+    }
+    return {
+      ...(band as unknown as BandSounds),
+      lead: Song.voice(lead, 'lead'),
+      double: Song.voice(double, 'double'),
+      soloists: soloists.map((s) => Song.voice(s, 'soloists')),
+    };
   }
 
   private static titleFor(seed: string): string {

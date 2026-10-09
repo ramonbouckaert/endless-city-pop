@@ -4,26 +4,9 @@
 // this loads Strudel; midi.ts writes the bytes.
 
 import { noteToMidi, type Fraction, type Hap, type Pattern } from '@strudel/core';
+import { GM_PROGRAMS } from './instruments';
 import { DRUM_CHANNEL, TICKS_PER_BAR, writeMidi, type MidiNote, type MidiTrack } from './midi';
 import type { Song } from './song';
-
-// General MIDI programs (counting from 0) for the sounds the band uses.
-const PROGRAMS: Readonly<Record<string, number>> = {
-  gm_epiano1: 4,
-  gm_clavinet: 7,
-  gm_vibraphone: 11,
-  gm_electric_guitar_muted: 28,
-  gm_overdriven_guitar: 29,
-  gm_electric_bass_finger: 33,
-  gm_string_ensemble_1: 48,
-  gm_choir_aahs: 52,
-  gm_voice_oohs: 53,
-  gm_trumpet: 56,
-  gm_brass_section: 61,
-  gm_alto_sax: 65,
-  gm_tenor_sax: 66,
-  gm_flute: 73,
-};
 
 // Drum sounds as General MIDI percussion keys. Sounds not listed (the
 // noise riser) are left out.
@@ -62,7 +45,7 @@ export function songToMidi(song: Song, pattern: Pattern): Uint8Array {
       const melodic = [...tracks.values()].filter((x) => x.channel !== DRUM_CHANNEL).length;
       const channel = drums ? DRUM_CHANNEL : [...Array(16).keys()].filter((c) => c !== DRUM_CHANNEL)[melodic % 15];
       t = { name: drums ? 'Drums' : sound.replace(/^gm_/, '').replace(/_/g, ' '), channel, notes: [] };
-      if (!drums) t.program = PROGRAMS[sound] ?? 0;
+      if (!drums) t.program = GM_PROGRAMS[sound] ?? 0;
       tracks.set(sound, t);
     }
     return t;
