@@ -194,12 +194,14 @@ button:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* The buttons stay on one line at any width (narrow screens below). */
 .actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   flex: 0 1 auto;
   gap: 8px;
   align-items: flex-start;
+  white-space: nowrap;
 }
 
 /* A checkbox in the row of buttons. */
@@ -228,6 +230,24 @@ button:hover {
   min-width: 84px;
 }
 
+/* Narrow screens: Export as MIDI shows just its icon, and the row tightens. */
+@media (max-width: 520px) {
+  .actions {
+    gap: 6px;
+  }
+  #midi {
+    justify-content: center;
+    width: 36px;
+    padding: 0;
+  }
+  #midi .label {
+    display: none;
+  }
+  #play {
+    min-width: 72px;
+  }
+}
+
 .when-playing,
 body.playing .when-stopped {
   display: none;
@@ -244,7 +264,8 @@ body.playing .when-playing {
   padding: 0;
 }
 
-.icon-button svg {
+/* Icons drawn in lines, in the button's text colour. */
+.line-icon {
   fill: none;
   stroke: currentColor;
   stroke-width: 2.2;
@@ -260,6 +281,22 @@ body.playing .when-playing {
   margin: 8px -8px -8px;
   padding: 8px;
   overflow: hidden;
+}
+
+/* A block shows its section's full name, or its short one (main.ts) when
+   that won't fit. */
+.sec .short,
+.sec.short .full {
+  display: none;
+}
+
+.sec.short .short {
+  display: inline;
+}
+
+/* Too narrow for any name. */
+.sec.bare .short {
+  display: none;
 }
 
 .sec {
@@ -490,12 +527,15 @@ body.playing .when-playing {
 .icon {
   display: inline-grid;
   place-items: center;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
+}
+
+.busy .icon svg {
+  display: none;
 }
 
 .busy .icon {
-  font-size: 0;
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;

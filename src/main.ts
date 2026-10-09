@@ -1,5 +1,5 @@
 import type { Pattern } from '@strudel/core';
-import { randomSeed, Song } from './engine';
+import { randomSeed, Song, type SectionType } from './engine';
 // The engine's index leaves out Arranger, so it loads no Strudel.
 // noinspection ES6PreferShortImport
 import { Arranger } from './engine/arranger';
@@ -144,8 +144,44 @@ function showSong(song: Song) {
     li.className = `sec sec-${s.type}`;
     li.style.flexGrow = String(s.bars);
     li.title = `${s.type}, ${s.bars} bars${s.opts.shift ? `, up ${s.opts.shift}` : ''}`;
-    li.textContent = s.type === 'drumBreak' ? 'drums' : s.type;
+    const label = (text: string, className: string) =>
+      Object.assign(document.createElement('span'), { className, textContent: text });
+    li.append(label(s.type === 'drumBreak' ? 'drums' : s.type, 'full'), label(SECTION_SHORT[s.type], 'short'));
     list.append(li);
+  }
+  fitSections();
+}
+
+// Section names for blocks too narrow for the full one (verse: v).
+const SECTION_SHORT: Readonly<Record<SectionType, string>> = {
+  intro: 'i',
+  vamp: 'vp',
+  verse: 'v',
+  pre: 'p',
+  chorus: 'c',
+  riff: 'r',
+  bridge: 'b',
+  solo: 's',
+  solo2: 's2',
+  breakdown: 'bd',
+  drumBreak: 'd',
+  lift: 'l',
+  outro: 'o',
+  finale: 'f',
+};
+
+// Each block shows its section's full name if it fits, bold as when
+// playing (a tenth wider), else the short one, else none: its colour and
+// tooltip still say what it is.
+function fitSections() {
+  for (const li of $('form').children as HTMLCollectionOf<HTMLElement>) {
+    li.classList.remove('short', 'bare');
+    const style = getComputedStyle(li);
+    const room = li.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const fits = (label: string) => li.querySelector(label)!.getBoundingClientRect().width * 1.1 <= room;
+    if (fits('.full')) continue;
+    li.classList.add('short');
+    if (!fits('.short')) li.classList.add('bare');
   }
 }
 
@@ -243,5 +279,6 @@ generate();
 requestAnimationFrame(followPlayhead);
 // The title's room changes with the window, and its width once the serif font loads.
 new ResizeObserver(fitTitle).observe($('title'));
+new ResizeObserver(fitSections).observe($('form'));
 void document.fonts.ready.then(fitTitle);
 document.fonts.addEventListener('loadingdone', fitTitle);

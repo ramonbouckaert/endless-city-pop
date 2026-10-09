@@ -27,6 +27,47 @@ function loadSounds(): Promise<unknown> {
   return sounds;
 }
 
+// iPhones mute Web Audio with the ring/silent switch, as they would a
+// game's sound effects; music played by an <audio> element plays on. So
+// the page asks for media playback: through Safari's Audio Session API
+// (iOS 16.4 on), or on older iPhones and iPads by keeping a silent
+// <audio> loop going while a song plays. Called from Play's tap, as iOS
+// only starts audio in answer to one.
+let silence: HTMLAudioElement | undefined;
+function playThroughSilentMode(): void {
+  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+  if (session) {
+    session.type = 'playback';
+    return;
+  }
+  const ios =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!ios) return;
+  silence ??= Object.assign(new Audio(silentWav()), { loop: true });
+  if (silence.paused) void silence.play().catch(() => {});
+}
+
+// A tenth of a second of silence, as a WAV file: 8 kHz, 8-bit, mono.
+function silentWav(): string {
+  const samples = 800;
+  const wav = new DataView(new ArrayBuffer(44 + samples));
+  const text = (at: number, s: string) => [...s].forEach((c, i) => wav.setUint8(at + i, c.charCodeAt(0)));
+  text(0, 'RIFF');
+  wav.setUint32(4, 36 + samples, true);
+  text(8, 'WAVEfmt ');
+  wav.setUint32(16, 16, true); // format chunk size
+  wav.setUint16(20, 1, true); // PCM
+  wav.setUint16(22, 1, true); // mono
+  wav.setUint32(24, 8000, true); // sample rate
+  wav.setUint32(28, 8000, true); // bytes a second
+  wav.setUint16(32, 1, true); // bytes a sample
+  wav.setUint16(34, 8, true); // bits a sample
+  text(36, 'data');
+  wav.setUint32(40, samples, true);
+  for (let i = 0; i < samples; i++) wav.setUint8(44 + i, 128); // 8-bit silence is the midpoint
+  return URL.createObjectURL(new Blob([wav], { type: 'audio/wav' }));
+}
+
 /** A sound Strudel can play, by name: a synth, a General MIDI soundfont or a sample. */
 export interface SoundInfo {
   name: string;
@@ -52,11 +93,15 @@ export function createPlayer({ onUpdate }: { onUpdate?: (state: ReplState) => vo
   const repl = webaudioRepl({ onUpdateState: (state) => onUpdate?.(state) });
   return {
     async play(pattern, cps) {
+      playThroughSilentMode(); // before any await: still in the tap
       await loadSounds();
       repl.setCps(cps);
       await repl.setPattern(pattern, true);
     },
-    stop: () => repl.stop(),
+    stop() {
+      repl.stop();
+      silence?.pause();
+    },
     now: () => (repl.scheduler.started ? repl.scheduler.now() : undefined),
     async sounds() {
       await loadSounds();
