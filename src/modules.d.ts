@@ -9,6 +9,7 @@ declare module '@strudel/core' {
     n: number;
     d: number;
     s: number;
+    valueOf(): number;
   }
   export interface Hap {
     whole?: { begin: Fraction; end: Fraction };
@@ -17,6 +18,7 @@ declare module '@strudel/core' {
   }
   type PatternArg = Pattern | string | number;
   export const saw: Pattern;
+  export const silence: Pattern;
   export const rand: Pattern;
   export function arrange(...sections: [number, Pattern][]): Pattern;
   export function chord(p: PatternArg): Pattern;

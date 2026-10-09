@@ -1,10 +1,12 @@
 // Chord progressions: roman-numeral templates realised in a key as
-// extended jazz chords, reharmonised with the usual substitutions.
+// extended jazz chords, reharmonised with the usual substitutions. The
+// key's mode decides its tonality (TONALITIES): its tonic chord, how it
+// cadences, where its bridges go and how it lifts.
 
-import { APPROACH, BRIDGE_KEYS, LIFT_TURNAROUNDS, PALETTE, PLANING_STARTS, REHARM, SOLO_CHANGES } from './constants';
+import { PALETTE, PLANING_STARTS, REHARM, SOLO_CHANGES, TONALITIES } from './constants';
 import { Chord, Key, Roman } from './music';
 import type { Rng } from './random';
-import type { Bar } from './types';
+import type { Bar, ChordSpec, Tonality } from './types';
 
 /** A progression template, such as `I vi [ii7 V7] IV`: one token per bar, with brackets around two chords sharing a bar. */
 export class Template {
@@ -40,6 +42,10 @@ export class Harmonizer {
     private readonly rng: Rng,
   ) {}
 
+  get tonality(): Tonality {
+    return TONALITIES[this.key.mode];
+  }
+
   /**
    * A template filled to `bars` bars (ending on its cadence if
    * `ending`), coloured and reharmonised by `reharm` (0..1).
@@ -47,7 +53,7 @@ export class Harmonizer {
   progression(template: string, bars: number, reharm = 0, ending = false): Bar[] {
     const t = new Template(template);
     const realized = this.realize(ending ? t.fitEnding(bars) : t.fit(bars));
-    return reharm ? this.reharmonize(realized, reharm) : realized;
+    return reharm ? this.reharmonize(realized, reharm * this.tonality.reharm) : realized;
   }
 
   /** Each numeral as a concrete extended chord. */
@@ -59,12 +65,19 @@ export class Harmonizer {
       const down5 = (root - next.root(this.key) + 12) % 12 === 7;
       // In jazz harmony an unadorned V is still a dominant.
       const cls = rn.cls === 'maj' && rn.offset === 7 && down5 ? 'dom' : rn.cls;
+      const { tonic, tonicPalette } = this.tonality;
+      // A minor key's V is altered wherever it goes, even into the next section.
+      const minorV = this.key.minor && rn.offset === 7;
       const palette =
-        cls === 'dom' && down5 && (next.cls === 'min' || next.cls === 'hdim')
-          ? 'domToMinor'
-          : cls === 'maj' && rn.offset !== 0
-            ? 'majLydian' // major chords away from the tonic take #11
-            : cls;
+        rn.offset === 0 && cls === tonic && tonicPalette
+          ? tonicPalette
+          : cls === 'dom' && ((down5 && (next.cls === 'min' || next.cls === 'hdim')) || minorV)
+            ? 'domToMinor'
+            : cls === 'sus' && minorV
+              ? 'susToMinor'
+              : cls === 'maj' && this.key.modeAt(root) !== 'major'
+                ? 'majLydian' // major chords take #11 unless they are the key's ionian chord
+                : cls;
       return new Chord(root, this.rng.weighted(PALETTE[palette]));
     });
     let i = 0;
@@ -77,7 +90,12 @@ export class Harmonizer {
     out.forEach((bar, b) => {
       const target = out[(b + 1) % out.length][0];
       const last = bar[bar.length - 1];
-      if (last.dominant && last.fallsFifthTo(target) && this.rng.chance(amount * REHARM.tritone)) {
+      if (
+        last.dominant &&
+        last.fallsFifthTo(target) &&
+        !this.isTonic(last) &&
+        this.rng.chance(amount * REHARM.tritone)
+      ) {
         bar[bar.length - 1] = new Chord(last.root + 6, '13#11');
       } else if (bar.length === 1) {
         out[b] = this.substitute(bar[0], target, amount) ?? bar;
@@ -102,22 +120,33 @@ export class Harmonizer {
     return [only, new Chord(target.root + 7, rng.pick(target.minorish ? REHARM.toMinor : REHARM.toMajor))];
   }
 
-  /** Two bars leading into the key's tonic: ii-V. */
-  approach(): Bar[] {
-    const t = this.key.tonic;
-    return this.scaled([[new Chord(t + 2, this.rng.pick(APPROACH.ii))], [new Chord(t + 7, this.rng.pick(APPROACH.V))]]);
+  // The key's own tonic chord (a mixolydian I7, not a secondary dominant).
+  private isTonic(chord: Chord): boolean {
+    return chord.root === this.key.tonic && chord.cls === this.tonality.tonic;
   }
 
-  /** A named turnaround (LIFT_TURNAROUNDS) into the key's tonic. */
+  /** Two bars leading into the key's tonic: ii-V in major, iiø-V7alt in minor, bVII-IV in dorian. */
+  approach(): Bar[] {
+    return this.into(this.tonality.approach);
+  }
+
+  /** A named turnaround (the tonality's turnarounds) into the key's tonic. */
   turnaround(name: string): Bar[] {
-    const bars = LIFT_TURNAROUNDS[name].bars.map((bar) =>
+    const turnaround = this.tonality.turnarounds[name];
+    if (!turnaround) throw new Error(`No ${name} turnaround in ${this.key.mode}`);
+    return this.into(turnaround.bars);
+  }
+
+  // Bars of "numeral:symbol|symbol" chords, with chord-scales as they
+  // resolve to the tonic.
+  private into(specs: readonly (readonly ChordSpec[])[]): Bar[] {
+    const bars = specs.map((bar) =>
       bar.map((chord) => {
         const [numeral, symbols] = chord.split(':');
         return new Chord(this.key.tonic + Roman.parse(numeral).offset, this.rng.pick(symbols.split('|')));
       }),
     );
-    // Chord-scales as it resolves to the tonic.
-    Chord.fitScales([...bars.flat(), new Chord(this.key.tonic, '^9')], this.key);
+    Chord.fitScales([...bars.flat(), new Chord(this.key.tonic, this.tonality.finale[0][0])], this.key);
     return bars;
   }
 
@@ -154,15 +183,16 @@ export class Harmonizer {
   }
 
   /**
-   * A major key for a bridge. Closely related keys suit a cautious
-   * bridge; distant ones add colour to an adventurous one.
+   * A key for a bridge (major, unless the tonality says otherwise).
+   * Closely related keys suit a cautious bridge; distant ones add colour
+   * to an adventurous one.
    */
   bridgeKey(adventurous: number): Key {
     return this.rng.weighted(
-      BRIDGE_KEYS.map(({ offset, weight, adventurous: bold }) => {
-        const key = this.key.transpose(offset);
+      this.tonality.bridgeKeys.map(({ offset, weight, adventurous: bold, mode = 'major' }) => {
+        const key = new Key(this.key.tonic + offset, mode);
         const w = (bold ? weight * adventurous : weight) * (this.key.fifthsTo(key) <= 1 ? 1.5 - adventurous : 1);
-        return [new Key(key.tonic), w] as const;
+        return [key, w] as const;
       }),
     );
   }

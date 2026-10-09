@@ -74,8 +74,9 @@ export class Key {
     return Scale.named(this.mode);
   }
 
+  // Spelled like its relative major: D dorian and A minor as C major.
   get usesFlats(): boolean {
-    return FLAT_TONICS[this.mode].has(this.tonic);
+    return FLAT_TONICS.has(this.majorTonic);
   }
 
   get tonicName(): string {
@@ -90,9 +91,19 @@ export class Key {
     return new Key(this.tonic + semis, this.mode);
   }
 
+  /** Is its tonic chord minor (minor, dorian)? Then its V is a minor key's dominant. */
+  get minor(): boolean {
+    return this.scale.has(3);
+  }
+
   /** Is a pitch class in the key? */
   has(pc: number): boolean {
     return this.scale.has(pc - this.tonic);
+  }
+
+  /** The mode a diatonic root takes in this key (D: dorian in C major), or undefined off the key. */
+  modeAt(pc: number): string | undefined {
+    return CHURCH_MODES[MODES.major.indexOf(mod12(pc - this.majorTonic))];
   }
 
   /**
@@ -115,14 +126,15 @@ export class Key {
     return Math.min(d, 12 - d);
   }
 
-  // C = 0, G = 1, F = -1 ...; minor keys at their relative major.
+  // C = 0, G = 1, F = -1 ...; other modes at their relative major.
   private get fifthsPosition(): number {
     const pos = mod12(this.majorTonic * 7);
     return pos > 6 ? pos - 12 : pos;
   }
 
+  /** The tonic of the major key with the same notes: C for A minor, D dorian or G mixolydian. */
   get majorTonic(): number {
-    return this.mode === 'major' ? this.tonic : this.tonic + 3;
+    return mod12(this.tonic - MODES.major[CHURCH_MODES.indexOf(this.mode)]);
   }
 }
 
@@ -170,16 +182,27 @@ export class Chord {
     return mod12(this.root - other.root) === 7;
   }
 
+  /** A dominant into a minor chord, or the V of a minor key wherever it goes. */
+  resolvesToMinor(key: Key, next: Chord): boolean {
+    return (this.fallsFifthTo(next) && next.minorish) || (key.minor && mod12(this.root - key.tonic) === 7);
+  }
+
+  // Does a scale hold every chord tone? (A 13 has no place in phrygian dominant.)
+  private fits(scale: string): boolean {
+    const s = Scale.named(scale);
+    return this.tones.every((t) => s.has(t));
+  }
+
   /**
    * The chord-scale in a key: the symbol's own, else the key's mode when
    * the chord is diatonic, else the usual one for its family.
    */
   fitScale(key: Key, next: Chord): void {
     if (SYMBOL_SCALES[this.symbol]) this.scale = SYMBOL_SCALES[this.symbol];
-    else if (this.pcs.every((pc) => key.has(pc))) {
-      this.scale = CHURCH_MODES[MODES.major.indexOf(mod12(this.root - key.majorTonic))];
-    } else if (this.dominant && this.fallsFifthTo(next) && next.minorish) this.scale = DOM_TO_MINOR_SCALE;
-    else this.scale = FAMILY_SCALES[this.cls];
+    else if (this.pcs.every((pc) => key.has(pc))) this.scale = key.modeAt(this.root)!;
+    else if (this.dominant && this.resolvesToMinor(key, next) && this.fits(DOM_TO_MINOR_SCALE)) {
+      this.scale = DOM_TO_MINOR_SCALE;
+    } else this.scale = FAMILY_SCALES[this.cls];
   }
 
   /**

@@ -2,7 +2,7 @@
 // Arranger (arranger.ts) turns one into a Strudel pattern.
 
 import { BassWriter } from './bass';
-import { KITS, PRE_FLAVOURS, STYLE, TITLE_WORDS } from './constants';
+import { KITS, PRE_FLAVOURS, STYLE, TITLE_WORDS, TONALITIES } from './constants';
 import { DrumWriter } from './drums';
 import { FormPlanner, Section } from './form';
 import { Harmonizer, Template } from './harmony';
@@ -18,9 +18,11 @@ import type {
   Material,
   Materials,
   MelodyKind,
+  Mode,
   PreFlavour,
   SectionType,
   SongOptions,
+  Tonality,
 } from './types';
 
 export class Song {
@@ -35,14 +37,19 @@ export class Song {
     readonly materials: Materials,
   ) {}
 
-  /** A song from a seed (and optionally a tonic and tempo). */
+  /** A song from a seed (and optionally a tonic, mode and tempo). */
   static generate(options: SongOptions = {}): Song {
     const seed = String(options.seed ?? 'strudel');
     const rng = new Rng(seed);
-    const key = new Key(options.key ?? rng.pick(STYLE.tonics));
+    // The mode has its own stream, so it doesn't reshuffle the rest.
+    const mode =
+      options.mode ??
+      rng.fork('mode').weighted(Object.entries(TONALITIES).map(([m, t]) => [m as Mode, t.weight] as const));
+    const tonality = TONALITIES[mode];
+    const key = new Key(options.key ?? rng.pick(tonality.tonics), mode);
     const bpm = options.bpm ?? rng.int(...STYLE.tempo);
     const swing = Math.round(rng.range(STYLE.swing) * 100) / 100;
-    const form = new FormPlanner(rng.fork('form')).plan();
+    const form = new FormPlanner(rng.fork('form'), tonality.turnarounds).plan();
     const materials = new SongBuilder(key, form, rng.fork('materials')).build();
     return new Song(seed, Song.titleFor(seed), key, bpm, swing, rng.fork('kit').weighted(KITS), form, materials);
   }
@@ -68,6 +75,7 @@ export class Song {
   describe() {
     return {
       key: this.key.name,
+      mode: this.key.mode,
       bpm: this.bpm,
       bars: this.bars,
       sections: this.form.map((s) => s.describe()),
@@ -88,6 +96,10 @@ class SongBuilder {
     private readonly form: Section[],
     private readonly rng: Rng,
   ) {}
+
+  private get tonality(): Tonality {
+    return TONALITIES[this.key.mode];
+  }
 
   build(): Materials {
     this.harmony();
@@ -119,7 +131,7 @@ class SongBuilder {
   // Verse, chorus (perhaps with a tag), pre-chorus, vamp and riff
   // changes, the lift into a key change, and the final chord.
   private harmony(): void {
-    const { templates } = STYLE;
+    const { templates, finale } = this.tonality;
     const { rng, key } = this;
     this.add('verse', { bars: this.progression('verse', rng.pick(templates.verse), 8) });
 
@@ -139,7 +151,8 @@ class SongBuilder {
     const breakdown = this.section('breakdown');
     if (breakdown) this.add('breakdown', { bars: this.chorusBars.slice(0, breakdown.bars) });
     this.lifts();
-    this.add('finale', { bars: [[new Chord(key.tonic, '^9', 'lydian')]] });
+    const [symbol, scale] = rng.fork('finale').pick(finale);
+    this.add('finale', { bars: [[new Chord(key.tonic, symbol, scale)]] });
   }
 
   // The pre-chorus, in one of its flavours: a template of its length if
@@ -151,7 +164,7 @@ class SongBuilder {
     const flavour = rng.weighted(
       Object.entries(PRE_FLAVOURS).map(([name, def]) => [name as PreFlavour, def.weight] as const),
     );
-    const { templates } = PRE_FLAVOURS[flavour];
+    const templates = this.tonality.pre[flavour];
     const fitting = templates.filter((t) => new Template(t).length === section.bars);
     const template = rng.pick(fitting.length ? fitting : templates);
     const bars = new Harmonizer(this.key, rng).progression(template, section.bars, STYLE.reharm, true);
@@ -182,7 +195,7 @@ class SongBuilder {
         ? this.chorusBars.slice(0, 4)
         : this.introHarmony === 'planing'
           ? new Harmonizer(this.key, rng).planing()
-          : this.progression('intro', rng.pick(STYLE.templates.intro), 4, rng);
+          : this.progression('intro', rng.pick(this.tonality.templates.intro), 4, rng);
     this.texture = rng.pick(Object.keys(STYLE.introTextures) as IntroTexture[]);
     this.add('intro', { bars, harmony: this.introHarmony, texture: this.texture });
     if (this.has('outro')) this.add('outro', { bars });
@@ -197,7 +210,9 @@ class SongBuilder {
     const after = this.form
       .slice(this.form.findIndex((s) => s.type === 'bridge') + 1)
       .find((s) => s.type !== 'drumBreak');
-    const body = this.progression('bridge', rng.pick(STYLE.templates.bridge), 6, rng, key);
+    const templates = TONALITIES[key.mode].templates.bridge;
+    if (!templates) throw new Error(`No bridge templates in ${key.mode}`);
+    const body = this.progression('bridge', rng.pick(templates), 6, rng, key);
     const cadence = new Harmonizer(this.key.transpose(after?.shift ?? 0), rng).approach();
     this.add('bridge', { bars: [...body, ...cadence], key });
   }

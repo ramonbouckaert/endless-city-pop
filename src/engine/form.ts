@@ -5,9 +5,9 @@
 // soloists, a bridge, a breakdown and a key change. Every instance of a
 // type plays the same material; a section longer than it loops it.
 
-import { FORM, LIFT_TURNAROUNDS } from './constants';
+import { FORM } from './constants';
 import type { Rng } from './random';
-import type { SectionOpts, SectionType } from './types';
+import type { SectionOpts, SectionType, Turnaround } from './types';
 
 export class Section {
   constructor(
@@ -32,7 +32,11 @@ export class FormPlanner {
   private readonly preBars: number;
   private readonly chorusBars: number;
 
-  constructor(private readonly rng: Rng) {
+  /** `turnarounds`: the lifts into a final chorus the song's tonality offers. */
+  constructor(
+    private readonly rng: Rng,
+    private readonly turnarounds: Readonly<Record<string, Turnaround>>,
+  ) {
     this.preBars = rng.pick(FORM.preBars); // 0: no pre-chorus
     this.chorusBars = rng.chance(FORM.chorusTag) ? 10 : 8;
   }
@@ -92,7 +96,7 @@ export class FormPlanner {
   private ending(): Section[] {
     const { rng } = this;
     const { lift } = FORM;
-    const turnarounds = Object.entries(LIFT_TURNAROUNDS).map(([name, t]) => [name, t.weight] as const);
+    const turnarounds = Object.entries(this.turnarounds).map(([name, t]) => [name, t.weight] as const);
     const s: Section[] = [];
     let shift = 0;
     const finals = rng.weighted(FORM.finalChoruses);
@@ -101,7 +105,7 @@ export class FormPlanner {
       if (shift + step <= lift.maxShift && rng.chance(i ? lift.again : lift.first)) {
         shift += step;
         const turnaround = rng.weighted(turnarounds);
-        const bars = LIFT_TURNAROUNDS[turnaround].bars.length;
+        const bars = this.turnarounds[turnaround].bars.length;
         s.push(new Section('lift', bars, { liftTo: shift, turnaround }));
       }
       const big = i === finals - 1;

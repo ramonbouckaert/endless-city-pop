@@ -6,7 +6,9 @@ import type { Melody, Solo } from './melody';
 
 export type Bar = Chord[];
 
-export type Mode = 'major' | 'minor';
+// The modes a song can be in. Each has a tonality (TONALITIES) with its
+// own progressions; all are church modes, named as Strudel's scale() wants.
+export type Mode = 'major' | 'minor' | 'dorian' | 'mixolydian';
 
 export type ChordClass = 'maj' | 'min' | 'dom' | 'hdim' | 'dim' | 'sus' | 'power';
 export interface ChordDef {
@@ -154,7 +156,6 @@ export interface DrumPlan {
 }
 export interface PreFlavourDef {
   weight: number;
-  templates: string[];
   melody: PreMelody;
   drums: DrumPlan;
   bass: BassFeel[];
@@ -189,15 +190,47 @@ export interface Lift {
 }
 
 // A turnaround's chords relative to the key it leads into, one array per
-// bar: "numeral:symbol", with alternative symbols split by "|".
+// bar of ChordSpecs.
 export interface Turnaround {
   weight: number;
-  bars: readonly (readonly string[])[];
+  bars: readonly (readonly ChordSpec[])[];
 }
+
+// A chord as "numeral:symbol", with alternative symbols split by "|".
+export type ChordSpec = string;
+
+export type TemplateKind = 'vamp' | 'verse' | 'chorus' | 'tag' | 'riff' | 'intro';
+
+// A key a bridge may move to: semitones above home, and its mode.
+export interface BridgeKey {
+  offset: number;
+  weight: number;
+  adventurous: boolean;
+  mode?: Mode; // default major
+}
+
+// How a mode sounds as a key: its progressions, where it cadences, what
+// its tonic chord is, and how it moves away and comes home. Templates are
+// roman numerals relative to the tonic, so they are written per mode.
+export interface Tonality {
+  weight: number; // how often a seed picks this mode
+  tonics: readonly number[]; // pitch classes a seed may pick
+  tonic: ChordClass; // the tonic chord's family
+  tonicPalette?: PaletteName; // its colours, if not the family's own
+  reharm: number; // times the style's reharm amount
+  finale: readonly (readonly [symbol: string, scale: string])[];
+  approach: readonly (readonly ChordSpec[])[]; // two bars into the tonic
+  templates: Readonly<Record<TemplateKind, readonly string[]>> & { bridge?: readonly string[] };
+  pre: Readonly<Record<PreFlavour, readonly string[]>>;
+  bridgeKeys: readonly BridgeKey[];
+  turnarounds: Readonly<Record<string, Turnaround>>;
+}
+export type PaletteName = ChordClass | 'majLydian' | 'domToMinor' | 'susToMinor' | 'minTonic' | 'domTonic';
 
 // Unset (or undefined) options are chosen from the seed.
 export interface SongOptions {
   seed?: string | number | undefined;
   key?: number | null | undefined;
+  mode?: Mode | null | undefined;
   bpm?: number | undefined;
 }

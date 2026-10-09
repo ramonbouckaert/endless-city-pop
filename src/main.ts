@@ -1,8 +1,9 @@
 import type { Pattern } from '@strudel/core';
-import { pcName, randomSeed, Song, type SongOptions } from './engine';
+import { pcName, randomSeed, Song, type Mode, type SongOptions } from './engine';
 // The engine's index leaves out Arranger, so it loads no Strudel.
 // noinspection ES6PreferShortImport
 import { Arranger } from './engine/arranger';
+import { songToMidi } from './engine/midi-song';
 import { createPlayer } from './strudel';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -42,12 +43,13 @@ function formOptions(): SongOptions & { seed: string } {
   return {
     seed: value('seed') || randomSeed(),
     key: value('key') === '' ? undefined : Number(value('key')),
+    mode: (value('mode') || undefined) as Mode | undefined,
     bpm: value('bpm') ? Number(value('bpm')) : undefined,
   };
 }
 
 function fillForm(opts: Record<string, string>) {
-  for (const name of ['seed', 'key', 'bpm']) {
+  for (const name of ['seed', 'key', 'mode', 'bpm']) {
     const input = field(name);
     if (opts[name] !== undefined && input) input.value = opts[name];
   }
@@ -56,7 +58,7 @@ function fillForm(opts: Record<string, string>) {
 function generate() {
   const opts = formOptions();
   field('seed')!.value = opts.seed;
-  writeHash({ seed: opts.seed, key: opts.key, bpm: opts.bpm });
+  writeHash({ seed: opts.seed, key: opts.key, mode: opts.mode, bpm: opts.bpm });
   try {
     const song = Song.generate(opts);
     current = { song, ...new Arranger(song).pattern() };
@@ -75,6 +77,27 @@ async function play() {
   } catch (e) {
     setStatus(`Strudel: ${(e as Error).message ?? e}`, 'error');
   }
+}
+
+// Reading every bar of the pattern takes a moment, so the status shows first.
+function exportMidi() {
+  const { song, pattern } = current;
+  setStatus('Writing MIDI…');
+  setTimeout(() => {
+    try {
+      const bytes = songToMidi(song, pattern);
+      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'audio/midi' }));
+      const a = Object.assign(document.createElement('a'), {
+        href: url,
+        download: `${song.title} (${song.key.name}, ${song.seed}).mid`.replace(/[\\/:*?"<>|#]/g, '-'),
+      });
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setStatus(`Saved ${a.download}.`);
+    } catch (e) {
+      setStatus(`Could not write MIDI: ${(e as Error).message}`, 'error');
+    }
+  }, 20);
 }
 
 function showSong(song: Song) {
@@ -112,6 +135,7 @@ $('dice').addEventListener('click', () => {
 
 $('play').addEventListener('click', play);
 $('stop').addEventListener('click', () => player.stop());
+$('midi').addEventListener('click', exportMidi);
 
 fillForm({ seed: randomSeed(), ...readHash() });
 generate();

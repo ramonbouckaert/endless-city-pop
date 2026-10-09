@@ -9,6 +9,7 @@
     "test": "vitest run && npm run check:songs -- 12",
     "check:songs": "scripts/run-node.sh scripts/sweep.ts",
     "song": "scripts/run-node.sh scripts/generate.ts",
+    "midi": "scripts/run-node.sh scripts/midi.ts",
     "smoke": "node scripts/smoke.ts",
     "format": "prettier --write .",
     "typecheck": "tsc -p tsconfig.json"

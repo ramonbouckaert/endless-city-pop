@@ -15,10 +15,12 @@ import type {
   MelodyKind,
   Mode,
   MotifLetter,
+  PaletteName,
   PreFlavour,
   PreFlavourDef,
   PreMelody,
   Range,
+  Tonality,
   Turnaround,
   SectionType,
   StepGains,
@@ -51,12 +53,10 @@ export const MODES: Readonly<Record<string, readonly number[]>> = {
 // Rotations of the major scale, in order.
 export const CHURCH_MODES = ['major', 'dorian', 'phrygian', 'lydian', 'mixolydian', 'minor', 'locrian'];
 
-// Tonics spelled with flats (C major and A minor count as flat keys, so
-// their chromatic chords read Bb and Eb rather than A# and D#).
-export const FLAT_TONICS: Readonly<Record<Mode, ReadonlySet<number>>> = {
-  major: new Set([0, 5, 10, 3, 8, 1, 6]), // C F Bb Eb Ab Db Gb
-  minor: new Set([9, 2, 7, 0, 5, 10, 3]), // A D G C F Bb Eb
-};
+// Major tonics spelled with flats (C counts as a flat key, so its
+// chromatic chords read Bb and Eb rather than A# and D#). Other modes
+// spell like their relative major.
+export const FLAT_TONICS: ReadonlySet<number> = new Set([0, 5, 10, 3, 8, 1, 6]); // C F Bb Eb Ab Db Gb
 
 // Spelling in a key: chromatic notes are flattened degrees, except the
 // raised fourth. Index: semitones above the tonic -> letters above it.
@@ -78,6 +78,9 @@ export const CHORDS: Readonly<Record<string, ChordDef>> = {
   m7: { cls: 'min', tones: [0, 3, 7, 10] },
   madd9: { cls: 'min', tones: [0, 3, 7, 14] },
   m6: { cls: 'min', tones: [0, 3, 7, 9] },
+  m69: { cls: 'min', tones: [0, 3, 7, 9, 14] },
+  'm^7': { cls: 'min', tones: [0, 3, 7, 11] },
+  'm^9': { cls: 'min', tones: [0, 3, 7, 11, 14] },
   m9: { cls: 'min', tones: [0, 3, 7, 10, 14] },
   m11: { cls: 'min', tones: [0, 3, 7, 10, 14, 17] },
   7: { cls: 'dom', tones: [0, 4, 7, 10] },
@@ -85,6 +88,7 @@ export const CHORDS: Readonly<Record<string, ChordDef>> = {
   13: { cls: 'dom', tones: [0, 4, 7, 10, 14, 21] },
   '7sus': { cls: 'dom', tones: [0, 5, 7, 10] },
   '9sus': { cls: 'dom', tones: [0, 5, 7, 10, 14] },
+  '7b9sus': { cls: 'dom', tones: [0, 5, 7, 10, 13] }, // the phrygian chord
   '7b9': { cls: 'dom', tones: [0, 4, 7, 10, 13] },
   '13b9': { cls: 'dom', tones: [0, 4, 7, 10, 13, 21] },
   '7#9': { cls: 'dom', tones: [0, 4, 7, 10, 15] },
@@ -107,8 +111,12 @@ export const SYMBOL_SCALES: Readonly<Record<string, string>> = {
   m7b5: 'locrian',
   o7: 'locrian',
   m6: 'dorian',
+  m69: 'dorian',
+  'm^7': 'melodic:minor', // the jazz minor tonic
+  'm^9': 'melodic:minor',
   '7sus': 'mixolydian',
   '9sus': 'mixolydian',
+  '7b9sus': 'phrygian',
   sus: 'mixolydian',
   '7#9': 'mixolydian',
 };
@@ -133,8 +141,9 @@ export const NUMERALS: Readonly<Record<string, number>> = { i: 0, ii: 2, iii: 4,
 // =====================================================================
 
 // Colours for each chord family; majLydian is a major chord away from
-// the tonic, domToMinor a dominant resolving to a minor chord.
-export const PALETTE: Readonly<Record<ChordClass | 'majLydian' | 'domToMinor', Weighted<string>>> = {
+// the tonic, domToMinor a dominant resolving to a minor chord (or a
+// minor key's V), susToMinor a minor key's sus V.
+export const PALETTE: Readonly<Record<PaletteName, Weighted<string>>> = {
   maj: [
     ['^9', 3],
     ['^7', 1],
@@ -160,6 +169,11 @@ export const PALETTE: Readonly<Record<ChordClass | 'majLydian' | 'domToMinor', W
     ['7b9', 1],
     ['13b9', 1],
   ],
+  // A minor key's suspended V: phrygian, or the plain 9sus.
+  susToMinor: [
+    ['7b9sus', 2],
+    ['9sus', 1],
+  ],
   hdim: [['m7b5', 1]],
   dim: [['o7', 1]],
   sus: [
@@ -167,6 +181,21 @@ export const PALETTE: Readonly<Record<ChordClass | 'majLydian' | 'domToMinor', W
     ['13', 1],
   ],
   power: [['9sus', 1]],
+  // A minor key's tonic: aeolian m9, dorian m6/9, or the melodic-minor
+  // m(maj9) of a jazz minor ending.
+  minTonic: [
+    ['m9', 3],
+    ['m69', 2],
+    ['m^9', 1],
+    ['m11', 1],
+  ],
+  // A mixolydian key's tonic: a dominant that doesn't resolve, sometimes
+  // the funk #9.
+  domTonic: [
+    ['13', 3],
+    ['9', 2],
+    ['7#9', 1],
+  ],
 };
 
 // Substitution odds (times the style's reharm amount) and colours.
@@ -179,9 +208,6 @@ export const REHARM = {
   toMinor: ['7alt', '7b9'],
   toMajor: ['13', '9', '7#9'],
 };
-
-// Two bars into a key: ii-V.
-export const APPROACH = { ii: ['m9', 'm11'], V: ['13', '7alt', '9sus'] };
 
 // Solo changes: ii-V pairs in keys `step` semitones apart, then home.
 export const SOLO_CHANGES = {
@@ -196,17 +222,8 @@ export const SOLO_CHANGES = {
   V: ['13', '9', '13'],
 };
 
-// Bridge keys above home, with weights; adventurous ones scale with the
-// style's appetite for distant keys.
-export const BRIDGE_KEYS: readonly { offset: number; weight: number; adventurous: boolean }[] = [
-  { offset: 5, weight: 3, adventurous: false }, // IV: one step round the circle
-  { offset: 7, weight: 2, adventurous: false }, // V
-  { offset: 3, weight: 3, adventurous: true }, // bIII: chromatic mediant
-  { offset: 8, weight: 3, adventurous: true }, // bVI
-  { offset: 2, weight: 1, adventurous: true },
-];
-
-// Turnarounds into a lifted key, relative to that key.
+// Turnarounds into a lifted major key, relative to that key. Each
+// tonality has its own (TONALITIES); these are the major key's.
 export const LIFT_TURNAROUNDS: Readonly<Record<string, Turnaround>> = {
   'bVI-V': { weight: 2, bars: [['bVI:^7#11|^9#11'], ['V:7alt|13b9']] },
   'ii-V': { weight: 3, bars: [['ii:m9|m11'], ['V:7alt|13']] },
@@ -765,46 +782,12 @@ export const FILLS = {
 // Style: jazz-funk
 // =====================================================================
 
-// Templates are roman numerals in a major key, one token per bar;
-// "[ii7 V7]" puts two chords in a bar. A template's length is its
-// natural phrase; it is repeated to fill the section.
 export const STYLE = {
   reharm: 0.5,
   adventurous: 0.8,
   tempo: [100, 116] as Range,
   swing: [0.06, 0.12] as Range,
-  tonics: [5, 10, 3, 0, 7, 2],
   approachChromatic: 0.75,
-  templates: {
-    vamp: ['ii7 V7', 'ii7 [ii7 V7]', 'vi7 II7'],
-    verse: [
-      'vi7 II7 vi7 II7 IVmaj7 [iii7 bIII7] ii7 V7',
-      'ii7 V7 iii7 VI7 ii7 V7 Imaj7 Imaj7',
-      'Imaj7 vi7 ii7 V7 iii7 VI7 ii7 V7',
-      'IVmaj7 iii7 ii7 Imaj7 IVmaj7 iii7 ii7 V7sus',
-      'vi7 vi7 II7 II7 IVmaj7 iii7 ii7 V7',
-    ],
-    chorus: [
-      'IVmaj7 III7 vi7 [v7 I7] IVmaj7 III7 [vi7 II7] [ii7 V7]',
-      'Imaj7 VI7 ii7 V7 iii7 VI7 ii7 V7',
-      'IVmaj7 V7 iii7 vi7 ii7 V7 Imaj7 [ii7 V7]',
-      'vi7 ii7 V7 Imaj7 IVmaj7 ii7 V7sus V7',
-    ],
-    tag: ['bVImaj7 V7sus', 'bVImaj7 bVII7'],
-    bridge: ['IVmaj7 bVIImaj7 ii7 V7 Imaj7 IVmaj7', 'ii7 V7 Imaj7 vi7 ii7 V7', 'Imaj7 vi7 IVmaj7 V7 iii7 vi7'],
-    riff: ['ii7 V7', 'vi7 II7'],
-    // Intros besides the chorus tease and the planing add9 chords.
-    intro: [
-      'Imaj7 IVmaj7', // tonic vamp
-      'ii7 V7', // ii-V vamp
-      'Imaj7 bVIImaj7', // I to bVII, a funk staple
-      'Imaj7 vi7 ii7 V7', // turnaround
-      'iii7 VI7 ii7 V7', // turnaround from iii
-      'V7sus V7sus V7sus V7', // dominant pedal
-      'bVImaj7 bVII7 Imaj7 [ii7 V7]', // rising backdoor
-      'IVmaj7 iii7 ii7 V7sus', // falling to the dominant
-    ],
-  },
   // How an intro gets its harmony: the chorus's first four bars (with
   // the hook as a teaser), planing add9 chords, or an intro template.
   introHarmony: [
@@ -900,12 +883,6 @@ export const PRE_FLAVOURS: Readonly<Record<PreFlavour, PreFlavourDef>> = {
   // A stepwise rise to the dominant, the band opening up.
   climb: {
     weight: 3,
-    templates: [
-      'ii7 iii7 IVmaj7 V7sus',
-      'ii7 iii7 iv7 #iv° V7sus V7',
-      'IVmaj7 #iv° V7sus V7',
-      'ii7 [iii7 IVmaj7] V7sus V7',
-    ],
     melody: 'climb',
     drums: { feels: ['build', 'funk', 'disco'], crash: 0.2, fill: 1 },
     bass: ['drive', 'funk', 'disco'],
@@ -913,7 +890,6 @@ export const PRE_FLAVOURS: Readonly<Record<PreFlavour, PreFlavourDef>> = {
   // Suspense over a held dominant (or IV over it): long notes, strings swelling.
   pedal: {
     weight: 2,
-    templates: ['V7sus V7sus V7sus V7', 'IVmaj7 IVmaj7 V7sus V7sus', 'ii7 ii7 V7sus V7sus', 'V7sus V7'],
     melody: 'hold',
     drums: { feels: ['halfTime', 'introRide'], crash: 0, fill: 1 },
     bass: ['pedal', 'halfTime'],
@@ -921,7 +897,6 @@ export const PRE_FLAVOURS: Readonly<Record<PreFlavour, PreFlavourDef>> = {
   // The drums drop out and come back halfway.
   drop: {
     weight: 2,
-    templates: ['IVmaj7 iii7 ii7 V7sus', 'vi7 IVmaj7 ii7 V7sus', 'IVmaj7 V7 iii7 vi7 ii7 V7sus'],
     melody: 'question',
     drums: { feels: ['funk', 'disco'], crash: 0, fill: 1 },
     bass: ['halfTime', 'pedal', 'funk'],
@@ -929,7 +904,6 @@ export const PRE_FLAVOURS: Readonly<Record<PreFlavour, PreFlavourDef>> = {
   // Stop-time: the band hits together under a free lead, all in for the last bar.
   stops: {
     weight: 2,
-    templates: ['IVmaj7 V7 iii7 vi7', 'IVmaj7 V7 [iii7 VI7] [ii7 V7sus]', 'ii7 V7 iii7 VI7 ii7 V7sus'],
     melody: 'question',
     drums: { feels: ['funk', 'disco'], crash: 0.5, fill: 1 },
     bass: ['drive', 'disco'],
@@ -937,15 +911,307 @@ export const PRE_FLAVOURS: Readonly<Record<PreFlavour, PreFlavourDef>> = {
   // Darker colour borrowed from the minor key: iv, bIII, bVI, bVII.
   borrowed: {
     weight: 2,
-    templates: [
-      'IVmaj7 iv7 iii7 VI7 ii7 V7sus',
-      'bVImaj7 bVII7 IVmaj7 V7sus',
-      'IVmaj7 iv7 iii7 bIIImaj7 ii7 V7sus',
-      'ii7 bIIImaj7 IVmaj7 bVImaj7 bVII7 V7sus',
-    ],
     melody: 'climb',
     drums: { feels: ['halfTime', 'build'], crash: 0.3, fill: 1 },
     bass: ['halfTime', 'drive'],
+  },
+};
+
+// =====================================================================
+// Tonalities: the modes a song can be in
+// =====================================================================
+
+// Each mode's progressions, as roman numerals relative to its tonic, one
+// token per bar; "[ii7 V7]" puts two chords in a bar. A template's
+// length is its natural phrase; it is repeated to fill the section.
+// Chord-scales follow from the key: a diatonic chord takes its mode in
+// the key (so iv in a minor key plays dorian, bVI lydian), a chromatic
+// one its family's usual scale.
+export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
+  // Jazz-funk in a major key: ii-V-I, secondary dominants, borrowed iv.
+  major: {
+    weight: 3,
+    tonics: [5, 10, 3, 0, 7, 2],
+    tonic: 'maj',
+    reharm: 1,
+    finale: [['^9', 'lydian']],
+    approach: [['ii:m9|m11'], ['V:13|7alt|9sus']],
+    templates: {
+      vamp: ['ii7 V7', 'ii7 [ii7 V7]', 'vi7 II7'],
+      verse: [
+        'vi7 II7 vi7 II7 IVmaj7 [iii7 bIII7] ii7 V7',
+        'ii7 V7 iii7 VI7 ii7 V7 Imaj7 Imaj7',
+        'Imaj7 vi7 ii7 V7 iii7 VI7 ii7 V7',
+        'IVmaj7 iii7 ii7 Imaj7 IVmaj7 iii7 ii7 V7sus',
+        'vi7 vi7 II7 II7 IVmaj7 iii7 ii7 V7',
+      ],
+      chorus: [
+        'IVmaj7 III7 vi7 [v7 I7] IVmaj7 III7 [vi7 II7] [ii7 V7]',
+        'Imaj7 VI7 ii7 V7 iii7 VI7 ii7 V7',
+        'IVmaj7 V7 iii7 vi7 ii7 V7 Imaj7 [ii7 V7]',
+        'vi7 ii7 V7 Imaj7 IVmaj7 ii7 V7sus V7',
+      ],
+      tag: ['bVImaj7 V7sus', 'bVImaj7 bVII7'],
+      bridge: ['IVmaj7 bVIImaj7 ii7 V7 Imaj7 IVmaj7', 'ii7 V7 Imaj7 vi7 ii7 V7', 'Imaj7 vi7 IVmaj7 V7 iii7 vi7'],
+      riff: ['ii7 V7', 'vi7 II7'],
+      // Intros besides the chorus tease and the planing add9 chords.
+      intro: [
+        'Imaj7 IVmaj7', // tonic vamp
+        'ii7 V7', // ii-V vamp
+        'Imaj7 bVIImaj7', // I to bVII, a funk staple
+        'Imaj7 vi7 ii7 V7', // turnaround
+        'iii7 VI7 ii7 V7', // turnaround from iii
+        'V7sus V7sus V7sus V7', // dominant pedal
+        'bVImaj7 bVII7 Imaj7 [ii7 V7]', // rising backdoor
+        'IVmaj7 iii7 ii7 V7sus', // falling to the dominant
+      ],
+    },
+    pre: {
+      climb: [
+        'ii7 iii7 IVmaj7 V7sus',
+        'ii7 iii7 iv7 #iv° V7sus V7',
+        'IVmaj7 #iv° V7sus V7',
+        'ii7 [iii7 IVmaj7] V7sus V7',
+      ],
+      pedal: ['V7sus V7sus V7sus V7', 'IVmaj7 IVmaj7 V7sus V7sus', 'ii7 ii7 V7sus V7sus', 'V7sus V7'],
+      drop: ['IVmaj7 iii7 ii7 V7sus', 'vi7 IVmaj7 ii7 V7sus', 'IVmaj7 V7 iii7 vi7 ii7 V7sus'],
+      stops: ['IVmaj7 V7 iii7 vi7', 'IVmaj7 V7 [iii7 VI7] [ii7 V7sus]', 'ii7 V7 iii7 VI7 ii7 V7sus'],
+      // Darker colour borrowed from the minor key: iv, bIII, bVI, bVII.
+      borrowed: [
+        'IVmaj7 iv7 iii7 VI7 ii7 V7sus',
+        'bVImaj7 bVII7 IVmaj7 V7sus',
+        'IVmaj7 iv7 iii7 bIIImaj7 ii7 V7sus',
+        'ii7 bIIImaj7 IVmaj7 bVImaj7 bVII7 V7sus',
+      ],
+    },
+    bridgeKeys: [
+      { offset: 5, weight: 3, adventurous: false }, // IV: one step round the circle
+      { offset: 7, weight: 2, adventurous: false }, // V
+      { offset: 3, weight: 3, adventurous: true }, // bIII: chromatic mediant
+      { offset: 8, weight: 3, adventurous: true }, // bVI
+      { offset: 2, weight: 1, adventurous: true },
+    ],
+    turnarounds: LIFT_TURNAROUNDS,
+  },
+
+  // Jazz minor (Autumn Leaves, Blue Bossa, Summertime): the minor ii-V-i
+  // of a half-diminished ii and an altered or b9 dominant, the aeolian
+  // cycle iv-bVII-bIII-bVI, the Andalusian fall i-bVII-bVI-V, and the
+  // dorian IV7 of minor funk. The tonic is a m9, m6/9 or m(maj9).
+  minor: {
+    weight: 3,
+    tonics: [2, 7, 0, 5, 9, 4], // D G C F A E
+    tonic: 'min',
+    tonicPalette: 'minTonic',
+    reharm: 0.9,
+    finale: [
+      ['m69', 'dorian'],
+      ['m^9', 'melodic:minor'],
+    ],
+    approach: [['ii:m7b5'], ['V:7alt|7b9|13b9']],
+    templates: {
+      vamp: ['i7 IV7', 'iiø V7', 'i7 bVII7', 'i7 [iv7 bVII7]'],
+      verse: [
+        'i7 i7 iv7 iv7 iiø V7 i7 V7', // minor blues-ish
+        'i7 iv7 bVII7 bIIImaj7 bVImaj7 iiø V7 i7', // round the aeolian cycle
+        'i7 IV7 i7 IV7 bVImaj7 bVII7 iiø V7', // dorian funk, then a cadence
+        'i7 bVImaj7 iiø V7 i7 bVImaj7 iiø V7',
+        'iv7 bVII7 bIIImaj7 bVImaj7 iiø V7 i7 i7',
+      ],
+      chorus: [
+        'bVImaj7 bVII7 i7 i7 bVImaj7 bVII7 iiø V7', // rising to the tonic
+        'iv7 bVII7 bIIImaj7 bVImaj7 iiø V7 i7 [iiø V7]',
+        'i7 bIIImaj7 bVImaj7 bII7 i7 bIIImaj7 iiø V7', // bII7: V's tritone sub
+        'i7 i7 bVII7 bVII7 bVImaj7 V7 i7 V7', // Andalusian
+      ],
+      tag: ['bVImaj7 V7', 'bII7 V7'],
+      bridge: ['iv7 bVII7 bIIImaj7 bVImaj7 iiø V7', 'i7 iv7 bVII7 bIIImaj7 iiø V7', 'bVImaj7 bVII7 i7 i7 iiø V7'],
+      riff: ['i7 IV7', 'i7 bVII7'],
+      intro: [
+        'i7 iv7', // tonic vamp
+        'iiø V7', // minor ii-V vamp
+        'i7 IV7', // dorian vamp
+        'i7 bVII7 bVImaj7 V7', // Andalusian fall
+        'i7 bVImaj7 iiø V7', // minor turnaround
+        'V7sus V7sus V7sus V7', // dominant pedal
+        'bVImaj7 bVII7 i7 [iiø V7]', // rising
+      ],
+    },
+    pre: {
+      // The bass climbs ii, bIII, iv, #iv to the dominant.
+      climb: ['iiø bIIImaj7 iv7 V7', 'bIIImaj7 iv7 #iv° V7', 'iv7 #iv° V7sus V7', 'iiø [bIIImaj7 iv7] V7sus V7'],
+      pedal: ['V7sus V7sus V7sus V7', 'iv7 iv7 V7sus V7', 'bVImaj7 bVImaj7 V7sus V7sus', 'V7sus V7'],
+      drop: ['bVImaj7 bVII7 iiø V7', 'iv7 bVImaj7 iiø V7sus', 'iv7 bVII7 bIIImaj7 bVImaj7 iiø V7'],
+      stops: ['iv7 bVII7 bVImaj7 V7', 'bVImaj7 bVII7 [i7 iv7] [iiø V7]', 'iiø V7 i7 iv7 bII7 V7'],
+      // Colour from outside the key: dorian's IV7 and the Neapolitan bII.
+      borrowed: ['IV7 iv7 bIImaj7 V7', 'bVImaj7 bIImaj7 V7sus V7', 'i7 IV7 bVImaj7 bIImaj7 V7sus V7', 'bIImaj7 V7'],
+    },
+    bridgeKeys: [
+      { offset: 3, weight: 3, adventurous: false }, // bIII: the relative major
+      { offset: 8, weight: 3, adventurous: false }, // bVI major
+      { offset: 5, weight: 2, adventurous: false, mode: 'minor' }, // iv minor
+      { offset: 10, weight: 1, adventurous: true }, // bVII major
+      { offset: 1, weight: 1, adventurous: true }, // bII: Neapolitan
+    ],
+    turnarounds: {
+      'ii-V': { weight: 3, bars: [['ii:m7b5'], ['V:7alt|7b9']] },
+      'bVI-V': { weight: 2, bars: [['bVI:^7#11|^9#11'], ['V:7alt|13b9']] },
+      tritone: { weight: 2, bars: [['ii:m7b5'], ['bII:13#11']] },
+      Neapolitan: { weight: 1, bars: [['bII:^7#11|^9#11'], ['V:7alt|7b9']] },
+      Andalusian: { weight: 2, bars: [['bVII:13|9'], ['bVI:^7#11|^9'], ['V:7alt|7b9']] },
+      'sus pedal': { weight: 2, bars: [['V:9sus'], ['V:7alt|13b9']] },
+      'truck driver': { weight: 1, bars: [['V:7alt|7b9']] },
+      // iv-bVII-bIII-bVI-ii-V, two chords a bar.
+      'long way': {
+        weight: 1,
+        bars: [
+          ['iv:m9|m7', 'bVII:13'],
+          ['bIII:^9', 'bVI:^7#11'],
+          ['ii:m7b5', 'V:7alt'],
+        ],
+      },
+    },
+  },
+
+  // Modal jazz-funk (So What, Chameleon, Oye Como Va): long stretches of
+  // a dorian m7, its bright IV7, and the bIII and bVII of the parent
+  // major. Few cadences, so less reharmonisation; it comes home by the
+  // plagal IV7-i, not V-i.
+  dorian: {
+    weight: 2,
+    tonics: [2, 7, 0, 9, 4, 5], // D G C A E F
+    tonic: 'min',
+    reharm: 0.5,
+    finale: [
+      ['m11', 'dorian'],
+      ['m69', 'dorian'],
+    ],
+    approach: [['bVII:^9|69'], ['IV:13|9']],
+    templates: {
+      vamp: ['i7 IV7', 'i7 i7', 'i7 bVIImaj7', 'i7 [v7 IV7]'],
+      verse: [
+        'i7 i7 IV7 IV7 i7 i7 IV7 IV7',
+        'i7 IV7 v7 i7 bIIImaj7 IV7 i7 IV7',
+        'i7 bVIImaj7 i7 bVIImaj7 bIIImaj7 IV7 v7 i7',
+        'i7 i7 i7 i7 bIIImaj7 bIIImaj7 IV7 IV7',
+      ],
+      chorus: [
+        'bIIImaj7 IV7 i7 i7 bIIImaj7 IV7 v7 i7',
+        'bVIImaj7 bIIImaj7 IV7 i7 bVIImaj7 bIIImaj7 IV7 [v7 IV7]',
+        'i7 bVIImaj7 bVImaj7 bVIImaj7 i7 bVIImaj7 IV7 IV7', // aeolian bVI for shade
+        'IV7 IV7 i7 i7 bVIImaj7 bIIImaj7 IV7 IV7',
+      ],
+      tag: ['bVIImaj7 IV7', 'bIIImaj7 IV7'],
+      riff: ['i7 IV7', 'i7 bVIImaj7'],
+      intro: [
+        'i7 IV7', // the dorian vamp
+        'i7 i7 i7 IV7', // one chord, then its IV
+        'i7 bIIImaj7 IV7 i7',
+        'i7 bVIImaj7',
+        'IV7 IV7 i7 i7',
+      ],
+    },
+    pre: {
+      climb: ['i7 ii7 bIIImaj7 IV7', 'ii7 bIIImaj7 IV7 v7', 'bIIImaj7 IV7', 'i7 ii7 bIIImaj7 IV7 v7 IV7'],
+      pedal: ['IV7sus IV7sus IV7sus IV7', 'bVIImaj7 bVIImaj7 IV7sus IV7', 'IV7sus IV7'],
+      drop: ['bVIImaj7 bIIImaj7 IV7 IV7', 'v7 bVIImaj7 bIIImaj7 IV7', 'i7 bVIImaj7 bVImaj7 bVIImaj7 IV7 IV7'],
+      stops: ['bIIImaj7 IV7 v7 IV7', 'bVIImaj7 IV7', 'i7 bIIImaj7 IV7 v7 bVIImaj7 IV7'],
+      // Darker colour from aeolian (bVI) and phrygian (bII).
+      borrowed: [
+        'bVImaj7 bVIImaj7 IV7 IV7',
+        'bIImaj7 bIImaj7 bVIImaj7 IV7',
+        'bVImaj7 bIImaj7',
+        'i7 bVImaj7 bVIImaj7 bIImaj7 bVImaj7 IV7',
+      ],
+    },
+    bridgeKeys: [
+      { offset: 10, weight: 3, adventurous: false }, // bVII: the parent major
+      { offset: 3, weight: 2, adventurous: false }, // bIII major
+      { offset: 5, weight: 2, adventurous: true }, // IV major
+      { offset: 8, weight: 2, adventurous: true }, // bVI major
+      { offset: 1, weight: 1, adventurous: true, mode: 'minor' }, // a half step up, as in So What
+    ],
+    turnarounds: {
+      plagal: { weight: 3, bars: [['bVII:^9|69'], ['IV:13|9']] },
+      'ii-V': { weight: 2, bars: [['ii:m9|m11'], ['V:7alt|7b9']] },
+      // The new tonic's chord a half step up, sliding down onto it.
+      'side-slip': { weight: 2, bars: [['#i:m11|m9'], ['#i:m11|m9']] },
+      aeolian: { weight: 2, bars: [['bVI:^9|^7#11'], ['bVII:^9|69']] },
+      'sus pedal': { weight: 1, bars: [['IV:9sus'], ['IV:13|9']] },
+      'truck driver': { weight: 1, bars: [['V:7alt|7#9']] },
+    },
+  },
+
+  // Soul-jazz and funk on a dominant tonic (Cissy Strut, Watermelon Man):
+  // I7 against bVII and IV, blues changes, and the funk 7#9. It comes
+  // home from bVII, the mixolydian cadence.
+  mixolydian: {
+    weight: 1,
+    tonics: [7, 2, 0, 5, 9, 10], // G D C F A Bb
+    tonic: 'dom',
+    tonicPalette: 'domTonic',
+    reharm: 0.6,
+    finale: [
+      ['13', 'mixolydian'],
+      ['9sus', 'mixolydian'],
+    ],
+    approach: [['IV:^9|69'], ['bVII:^9|^7#11|69']],
+    templates: {
+      vamp: ['I7 bVIImaj7', 'I7 IV7', 'I7 I7', 'I7 [v7 I7]'],
+      verse: [
+        'I7 IV7 I7 I7 IV7 IV7 I7 [ii7 V7]', // eight-bar blues
+        'I7 bVIImaj7 I7 bVIImaj7 IVmaj7 IVmaj7 v7 bVIImaj7',
+        'I7 I7 bVIImaj7 IVmaj7 I7 I7 bVIImaj7 IVmaj7', // I-bVII-IV
+        'I7 v7 bVIImaj7 IVmaj7 I7 v7 bVIImaj7 I7',
+      ],
+      chorus: [
+        'IVmaj7 bVIImaj7 I7 I7 IVmaj7 bVIImaj7 v7 I7',
+        'I7 bIIImaj7 IVmaj7 I7 I7 bIIImaj7 IVmaj7 bVIImaj7', // the blues bIII
+        'IV7 IV7 I7 I7 V7 IV7 I7 V7', // the blues' last eight bars
+        'bVIImaj7 IVmaj7 I7 I7 bVIImaj7 IVmaj7 I7 [v7 I7]',
+      ],
+      tag: ['bVIImaj7 IVmaj7', 'bIIImaj7 IV7'],
+      riff: ['I7 bVIImaj7', 'I7 IV7'],
+      intro: [
+        'I7 I7', // the band on one chord
+        'I7 bVIImaj7',
+        'I7 IV7',
+        'bVIImaj7 IVmaj7 I7 I7',
+        'v7 bVIImaj7 IVmaj7 I7',
+      ],
+    },
+    pre: {
+      climb: ['IVmaj7 v7 vi7 bVIImaj7', 'IVmaj7 #iv° v7 bVIImaj7', 'ii7 [iiiø IVmaj7] v7 bVIImaj7', 'v7 bVIImaj7'],
+      pedal: ['V7sus V7sus V7sus V7', 'IVmaj7 IVmaj7 bVIImaj7 bVIImaj7', 'V7sus V7'],
+      drop: ['IVmaj7 v7 bVIImaj7 bVIImaj7', 'vi7 IVmaj7 bVIImaj7 V7sus', 'IVmaj7 I7 v7 vi7 bVIImaj7 IVmaj7'],
+      stops: [
+        'IVmaj7 bVIImaj7 v7 IVmaj7',
+        'IV7 [bIIImaj7 IV7] bVIImaj7 V7sus',
+        'v7 bVIImaj7 IVmaj7 I7 bVIImaj7 IVmaj7',
+      ],
+      // Minor colour: dorian's bIII, aeolian's bVI and iv.
+      borrowed: [
+        'bVImaj7 bVIImaj7 IVmaj7 IVmaj7',
+        'IVmaj7 iv7 bIIImaj7 bVIImaj7',
+        'bIIImaj7 bVImaj7 bVIImaj7 V7sus',
+        'IVmaj7 iv7 bIIImaj7 bVImaj7 bVIImaj7 V7sus',
+      ],
+    },
+    bridgeKeys: [
+      { offset: 5, weight: 3, adventurous: false }, // IV: the parent major
+      { offset: 10, weight: 2, adventurous: false }, // bVII major
+      { offset: 3, weight: 2, adventurous: true }, // bIII major
+      { offset: 8, weight: 2, adventurous: true }, // bVI major
+      { offset: 9, weight: 1, adventurous: true, mode: 'minor' }, // vi minor
+    ],
+    turnarounds: {
+      mixolydian: { weight: 3, bars: [['IV:^9|69'], ['bVII:^9|^7#11']] },
+      'ii-V': LIFT_TURNAROUNDS['ii-V'],
+      backdoor: LIFT_TURNAROUNDS.backdoor,
+      tritone: LIFT_TURNAROUNDS.tritone,
+      'sus pedal': LIFT_TURNAROUNDS['sus pedal'],
+      'truck driver': { weight: 1, bars: [['V:7alt|7#9']] },
+    },
   },
 };
 
@@ -967,6 +1233,10 @@ export const FIGURES = {
 
 // The flute doubles the hook an octave up unless that passes E7.
 export const DOUBLE_TOP = 100;
+
+// Silence after the final chord, so a looping song breathes before it
+// starts again.
+export const TAIL_SECONDS = 1;
 
 // =====================================================================
 // Titles

@@ -2,11 +2,11 @@
 // stack of drums and instruments, arranged end to end. Note sequences
 // are written in mini-notation, Strudel's sequence language.
 
-import { arrange, chord, n, noteToMidi, rand, s, saw, stack, type Pattern } from '@strudel/core';
+import { arrange, chord, n, noteToMidi, rand, s, saw, silence, stack, type Pattern } from '@strudel/core';
 import { mini, miniAllStrings } from '@strudel/mini';
 import '@strudel/tonal';
 import { BassWriter } from './bass';
-import { DOUBLE_TOP, FIGURES, FORM, STYLE } from './constants';
+import { DOUBLE_TOP, FIGURES, FORM, STYLE, TAIL_SECONDS } from './constants';
 import type { Section } from './form';
 import type { Key } from './music';
 import type { Song } from './song';
@@ -142,9 +142,13 @@ export class Arranger {
     this.band = new Band(song.kit);
   }
 
-  /** The whole song as one pattern, plus its tempo in cycles per second. */
+  /**
+   * The whole song as one pattern, plus its tempo in cycles per second
+   * (a cycle is a bar). The pattern ends with TAIL_SECONDS of silence.
+   */
   pattern(): { pattern: Pattern; cps: number } {
     const { song } = this;
+    const cps = song.bpm / 4 / 60;
     const sections = song.form.map((sec, index): [number, Pattern] => {
       const repeat = song.form.slice(0, index).filter((x) => x.type === sec.type).length;
       const { drums, pitched } = new SectionArranger(song, sec, repeat, this.band).parts();
@@ -152,7 +156,9 @@ export class Arranger {
       const parts = stack(...drums, ...(sec.shift ? [stack(...tonal).transpose(sec.shift)] : tonal));
       return [sec.bars, parts.swingBy(song.swing, 8)];
     });
-    return { pattern: arrange(...sections), cps: song.bpm / 4 / 60 };
+    // The tail is a fraction of a bar. Coming last, it shifts no bar line
+    // but the loop's own: the next time round starts a second later.
+    return { pattern: arrange(...sections, [TAIL_SECONDS * cps, silence]), cps };
   }
 }
 

@@ -2,7 +2,7 @@
 // so tests and scripts can use it as is; import Arranger from
 // './arranger' to turn a song into a Strudel pattern.
 
-export { CHORDS, FORM, KITS, LIFT_TURNAROUNDS, MODES, PRE_FLAVOURS, STYLE } from './constants';
+export { CHORDS, FORM, KITS, LIFT_TURNAROUNDS, MODES, PALETTE, PRE_FLAVOURS, STYLE, TONALITIES } from './constants';
 export { Template } from './harmony';
 export { Section } from './form';
 export { Melody, Solo } from './melody';

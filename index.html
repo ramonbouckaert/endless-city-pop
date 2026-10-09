@@ -11,7 +11,7 @@
       <div class="brand">
         <h1>Strudel Songsmith</h1>
         <p>
-          Jazz-funk songs from music theory, played by
+          Jazz-funk songs in major, minor and modal keys, from music theory, played by
           <a href="https://strudel.cc" target="_blank" rel="noopener">Strudel</a>
         </p>
       </div>
@@ -23,6 +23,16 @@
           <span>Key</span>
           <select name="key" id="key">
             <option value="">Any</option>
+          </select>
+        </label>
+        <label>
+          <span>Mode</span>
+          <select name="mode" id="mode">
+            <option value="">Any</option>
+            <option value="major">Major</option>
+            <option value="minor">Minor</option>
+            <option value="dorian">Dorian</option>
+            <option value="mixolydian">Mixolydian</option>
           </select>
         </label>
         <label>
@@ -48,6 +58,7 @@
           <div class="actions">
             <button type="button" class="primary" id="play">▶ Play</button>
             <button type="button" id="stop">■ Stop</button>
+            <button type="button" id="midi" title="Download this song as a MIDI file">⬇ Export as MIDI</button>
           </div>
         </div>
         <ol id="form" class="form" aria-label="Song form"></ol>
