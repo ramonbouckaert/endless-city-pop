@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Strudel Songsmith</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <h1>Strudel Songsmith</h1>
+        <p>
+          Whole songs from music theory, played by
+          <a href="https://strudel.cc" target="_blank" rel="noopener">Strudel</a>
+        </p>
+      </div>
+    </header>
+
+    <main>
+      <form id="controls" class="controls" autocomplete="off">
+        <label>
+          <span>Style</span>
+          <select name="style" id="style"></select>
+        </label>
+        <label>
+          <span>Key</span>
+          <select name="key" id="key">
+            <option value="">Any</option>
+          </select>
+        </label>
+        <label>
+          <span>Mode</span>
+          <select name="mode" id="mode">
+            <option value="">Any</option>
+            <option value="major">Major</option>
+            <option value="minor">Minor</option>
+          </select>
+        </label>
+        <label>
+          <span>BPM</span>
+          <input name="bpm" id="bpm" type="number" min="60" max="200" placeholder="auto" />
+        </label>
+        <label class="seed">
+          <span>Seed</span>
+          <span class="seed-row">
+            <input name="seed" id="seed" type="text" spellcheck="false" />
+            <button type="button" id="dice" title="New random seed">🎲</button>
+          </span>
+        </label>
+        <button type="submit" class="primary" id="generate">Generate</button>
+      </form>
+
+      <section class="song" aria-live="polite">
+        <div class="song-head">
+          <div>
+            <h2 id="title">…</h2>
+            <p id="meta" class="meta"></p>
+          </div>
+          <div class="actions">
+            <button type="button" class="primary" id="play">▶ Play</button>
+            <button type="button" id="stop">■ Stop</button>
+            <button type="button" id="copy">Copy code</button>
+            <button type="button" id="download">Download</button>
+            <a id="open" class="button" target="_blank" rel="noopener">Open in strudel.cc</a>
+          </div>
+        </div>
+        <ol id="form" class="form" aria-label="Song form"></ol>
+        <p id="status" class="status"></p>
+      </section>
+
+      <section class="code">
+        <div id="editor"></div>
+      </section>
+    </main>
+
+    <footer>
+      Built on <a href="https://codeberg.org/uzu/strudel" target="_blank" rel="noopener">Strudel</a> (AGPL-3.0). Edit
+      the code and press Ctrl+Enter to hear your changes.
+    </footer>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,267 @@
+:root {
+  --bg: #f6f4ef;
+  --panel: #ffffff;
+  --text: #1d1b18;
+  --muted: #6b665e;
+  --line: #e2ddd3;
+  --accent: #c2410c;
+  --accent-text: #ffffff;
+  --code-bg: #1c1917;
+  --error: #b91c1c;
+  --sec-intro: #a8a29e;
+  --sec-verse: #60a5fa;
+  --sec-pre: #818cf8;
+  --sec-chorus: #f97316;
+  --sec-bridge: #34d399;
+  --sec-solo: #e879f9;
+  --sec-riff: #facc15;
+  --sec-break: #f87171;
+  --sec-quiet: #94a3b8;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12110f;
+    --panel: #1c1a17;
+    --text: #ede9e3;
+    --muted: #a39e95;
+    --line: #2f2c27;
+    --accent: #fb923c;
+    --accent-text: #1c1a17;
+    --code-bg: #0c0b0a;
+    --error: #f87171;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    15px/1.5 system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
+
+a {
+  color: var(--accent);
+}
+
+.top,
+main,
+footer {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.top {
+  padding-top: 28px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+.brand p {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin: 20px 0;
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.controls .seed-row {
+  display: flex;
+  gap: 6px;
+}
+
+select,
+input,
+button,
+.button {
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 10px;
+  min-height: 36px;
+}
+
+input[type='number'] {
+  width: 84px;
+}
+
+#seed {
+  width: 110px;
+  font-family: ui-monospace, monospace;
+}
+
+button,
+.button {
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+button:hover,
+.button:hover {
+  border-color: var(--muted);
+}
+
+.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.song {
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.song-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.song h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.meta {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+body.playing #play {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.form {
+  display: flex;
+  gap: 3px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.sec {
+  flex-basis: 0;
+  min-width: 0;
+  padding: 6px 4px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #1c1917;
+  background: var(--sec-quiet);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.sec-intro,
+.sec-outro,
+.sec-finale {
+  background: var(--sec-intro);
+}
+.sec-verse,
+.sec-vamp {
+  background: var(--sec-verse);
+}
+.sec-pre {
+  background: var(--sec-pre);
+}
+.sec-chorus,
+.sec-lift {
+  background: var(--sec-chorus);
+}
+.sec-bridge {
+  background: var(--sec-bridge);
+}
+.sec-solo,
+.sec-solo2 {
+  background: var(--sec-solo);
+}
+.sec-riff {
+  background: var(--sec-riff);
+}
+.sec-drumBreak {
+  background: var(--sec-break);
+}
+
+.status {
+  margin: 12px 0 0;
+  min-height: 1.5em;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.status.error {
+  color: var(--error);
+}
+
+.code {
+  margin: 16px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+}
+
+#editor .cm-editor {
+  max-height: 70vh;
+  font-size: 13px;
+}
+
+footer {
+  padding-bottom: 32px;
+  color: var(--muted);
+  font-size: 13px;
+}
