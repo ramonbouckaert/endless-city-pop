@@ -6,28 +6,27 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run && npm run check:songs -- 3",
-    "check:songs": "scripts/run-node.sh scripts/sweep.mjs",
-    "check": "scripts/run-node.sh scripts/check.mjs",
-    "song": "scripts/run-node.sh scripts/generate.mjs",
-    "smoke": "node scripts/smoke.mjs",
-    "format": "prettier --write ."
+    "test": "vitest run && npm run check:songs -- 12",
+    "check:songs": "scripts/run-node.sh scripts/sweep.ts",
+    "song": "scripts/run-node.sh scripts/generate.ts",
+    "smoke": "node scripts/smoke.ts",
+    "format": "prettier --write .",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "license": "AGPL-3.0-or-later",
   "dependencies": {
-    "@strudel/codemirror": "1.3.0",
     "@strudel/core": "1.2.6",
-    "@strudel/draw": "1.2.6",
     "@strudel/mini": "1.2.6",
     "@strudel/soundfonts": "1.3.0",
     "@strudel/tonal": "1.2.6",
-    "@strudel/transpiler": "1.2.6",
     "@strudel/webaudio": "1.3.0"
   },
   "devDependencies": {
+    "@types/node": "^24.19.1",
     "esbuild": "^0.28.2",
     "playwright": "1.56",
     "prettier": "3.8.1",
+    "typescript": "^5.9.3",
     "vite": "^8.3.4",
     "vitest": "^5.0.3"
   },

@@ -6,14 +6,13 @@ const url = process.argv[2] ?? 'http://localhost:4173/';
 const shot = process.argv[3];
 const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
 const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
-const errors = [];
+const errors: string[] = [];
 page.on('console', (m) => {
   if (m.type() === 'error') errors.push(m.text());
 });
 page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(url);
-await page.waitForSelector('.cm-content');
-await page.waitForFunction(() => document.querySelector('.cm-content').innerText.includes('setCpm'));
+await page.waitForFunction(() => document.querySelector('#form li'));
 const title = await page.textContent('#title');
 const meta = await page.textContent('#meta');
 await page.click('#play');
