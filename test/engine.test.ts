@@ -32,13 +32,13 @@ const SEEDS = Array.from({ length: 40 }, (_, i) => `seed${i}`);
 
 describe('Song', () => {
   it('is deterministic for a seed', () => {
-    expect(Song.generate({ seed: 'abc' })).toEqual(Song.generate({ seed: 'abc' }));
-    expect(Song.generate({ seed: 'abc' }).materials).not.toEqual(Song.generate({ seed: 'abd' }).materials);
+    expect(Song.generate('abc')).toEqual(Song.generate('abc'));
+    expect(Song.generate('abc').materials).not.toEqual(Song.generate('abd').materials);
   });
 
   it('writes complete songs', () => {
     for (const seed of SEEDS) {
-      const song = Song.generate({ seed });
+      const song = Song.generate(seed);
       for (const mat of Object.values(song.materials)) {
         for (const chord of (mat.bars ?? []).flat()) {
           expect(CHORDS).toHaveProperty([chord.symbol]);
@@ -60,7 +60,7 @@ describe('Song', () => {
   });
 
   it('varies the form from seed to seed', () => {
-    const forms = SEEDS.map((seed) => Song.generate({ seed }).form);
+    const forms = SEEDS.map((seed) => Song.generate(seed).form);
     expect(new Set(forms.map((f) => f.reduce((n, s) => n + s.bars, 0))).size).toBeGreaterThan(10);
     expect(new Set(forms.map((f) => f.map((s) => s.type).join(' '))).size).toBeGreaterThan(20);
     for (const type of ['vamp', 'pre', 'riff', 'bridge', 'solo', 'breakdown', 'lift', 'outro', 'drumBreak']) {
@@ -70,7 +70,7 @@ describe('Song', () => {
   });
 
   it('brings a vamp back at most once, never straight after a verse', () => {
-    const forms = Array.from({ length: 300 }, (_, i) => Song.generate({ seed: `vamp${i}` }).form);
+    const forms = Array.from({ length: 300 }, (_, i) => Song.generate(`vamp${i}`).form);
     let returns = 0;
     for (const form of forms) {
       const vamps = form.flatMap((s, i) => (s.type === 'vamp' ? [i] : []));
@@ -90,7 +90,7 @@ describe('Song', () => {
   it("starts the opening vamp's drums late, light or with the whole kit", () => {
     const entries = new Set<string>();
     for (let i = 0; i < 100; i++) {
-      const song = Song.generate({ seed: `vamp${i}` });
+      const song = Song.generate(`vamp${i}`);
       if (song.materials.vamp) entries.add(song.materials.vamp.entry!);
       else expect(song.form.some((s) => s.type === 'vamp')).toBe(false);
     }
@@ -99,7 +99,7 @@ describe('Song', () => {
 
   it('titles songs in Japanese and English, one after the other', () => {
     const japanese = /[぀-ヿ一-龯]/;
-    const titles = Array.from({ length: 400 }, (_, i) => Song.generate({ seed: `title${i}` }).title);
+    const titles = Array.from({ length: 400 }, (_, i) => Song.generate(`title${i}`).title);
     const firsts = { japanese: 0, english: 0 };
     const styles = new Set<string>();
     const joins = new Set<string>();
@@ -133,11 +133,11 @@ describe('Song', () => {
     expect(new Set(titles).size).toBeGreaterThan(350);
     expect(titles.some((t) => t.includes('・'))).toBe(true); // katakana English
     expect(titles.some((t) => t.includes('の'))).toBe(true); // native Japanese
-    expect(Song.generate({ seed: 'title1' }).title).toBe(titles[1]);
+    expect(Song.generate('title1').title).toBe(titles[1]);
   });
 
   it("writes solos as long as their sections, in the song's mode", () => {
-    const songs = Array.from({ length: 300 }, (_, i) => Song.generate({ seed: `solo${i}` }));
+    const songs = Array.from({ length: 300 }, (_, i) => Song.generate(`solo${i}`));
     let sixteens = 0;
     let split = 0;
     let fromHome = 0;
@@ -171,7 +171,7 @@ describe('Song', () => {
   });
 
   it('varies the pre-chorus', () => {
-    const pres = Array.from({ length: 150 }, (_, i) => Song.generate({ seed: `pre${i}` }))
+    const pres = Array.from({ length: 150 }, (_, i) => Song.generate(`pre${i}`))
       .filter((song) => song.materials.pre)
       .map((song) => ({ mat: song.materials.pre!, bars: song.form.find((s) => s.type === 'pre')!.bars }));
     expect(new Set(pres.map((p) => p.mat.flavour))).toEqual(new Set(Object.keys(PRE_FLAVOURS)));
@@ -183,7 +183,11 @@ describe('Song', () => {
   });
 
   it.each(Object.keys(TONALITIES) as Mode[])('lifts the key up through varied %s turnarounds', (mode) => {
-    const songs = Array.from({ length: 200 }, (_, i) => Song.generate({ seed: `lift${i}`, mode }));
+    const songs: Song[] = [];
+    for (let i = 0; songs.length < 200; i++) {
+      const song = Song.generate(`lift${i}`);
+      if (song.key.mode === mode) songs.push(song);
+    }
     const used = new Set<string>();
     let multiple = 0;
     for (const song of songs) {
@@ -226,20 +230,13 @@ describe('Song', () => {
     expect(texts(6)).toEqual(['IVmaj7', 'V7sus', 'ii7', 'iii7', 'IVmaj7', 'V7sus']);
   });
 
-  it('honours key, mode and tempo choices', () => {
-    const song = Song.generate({ seed: 'x', key: 2, bpm: 99 });
-    expect(song.key.tonic).toBe(2);
-    expect(song.bpm).toBe(99);
-    expect(Song.generate({ seed: 'x', key: 2, mode: 'dorian' }).key).toEqual(new Key(2, 'dorian'));
-  });
-
   it('picks every mode from seeds', () => {
-    const modes = SEEDS.map((seed) => Song.generate({ seed }).key.mode);
+    const modes = SEEDS.map((seed) => Song.generate(seed).key.mode);
     expect(new Set(modes)).toEqual(new Set(Object.keys(TONALITIES)));
   });
 
   it('writes a major-key song as it did before there were modes', () => {
-    const song = Song.generate({ seed: 'snap0', mode: 'major' });
+    const song = Song.generate('snap0');
     expect(song.key.name).toBe('G major');
     expect(song.materials.chorus!.bars!.flat().map((c) => c.name(song.key))).toEqual([
       'G^9',
@@ -257,8 +254,12 @@ describe('Song', () => {
 
   it.each(Object.keys(TONALITIES) as Mode[])('writes complete %s songs', (mode) => {
     const { tonic, tonics, finale } = TONALITIES[mode];
-    for (const seed of SEEDS) {
-      const song = Song.generate({ seed, mode });
+    const songs: Song[] = [];
+    for (let i = 0; songs.length < SEEDS.length; i++) {
+      const song = Song.generate(`complete${i}`);
+      if (song.key.mode === mode) songs.push(song);
+    }
+    for (const song of songs) {
       expect(song.key.mode).toBe(mode);
       expect(tonics).toContain(song.key.tonic);
       for (const mat of Object.values(song.materials)) {
@@ -284,7 +285,7 @@ describe('instruments', () => {
     const v = song.sounds[part];
     return typeof v === 'string' ? v : v[0];
   };
-  const songs = Array.from({ length: 200 }, (_, i) => Song.generate({ seed: `band${i}` }));
+  const songs = Array.from({ length: 200 }, (_, i) => Song.generate(`band${i}`));
   const recording = (s: string) => SAME_SOUND[s] ?? s;
 
   it('picks every part from its list, the same for a seed', () => {
@@ -298,7 +299,7 @@ describe('instruments', () => {
       }
     }
     for (const part of parts) expect(seen.get(part)).toEqual(new Set(PICKS[part]));
-    expect(Song.generate({ seed: 'band0' }).sounds).toEqual(songs[0].sounds);
+    expect(Song.generate('band0').sounds).toEqual(songs[0].sounds);
   });
 
   it('never plays one recording in two parts while a part has another to choose', () => {
@@ -354,7 +355,7 @@ describe('instruments', () => {
 });
 
 describe('rhythm', () => {
-  const songs = SEEDS.map((seed) => Song.generate({ seed }));
+  const songs = SEEDS.map((seed) => Song.generate(seed));
 
   it('gives every playing section drums with at least one part', () => {
     for (const song of songs) {

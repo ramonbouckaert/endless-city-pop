@@ -52,7 +52,7 @@ function arrangeSong(song: Song) {
 // A new song from a random seed, its key, mode and tempo left to the seed.
 function generate() {
   try {
-    arrangeSong(Song.generate({ seed: randomSeed() }));
+    arrangeSong(Song.generate(randomSeed()));
   } catch (e) {
     showError(`Could not generate a song: ${(e as Error).message}`);
     throw e;

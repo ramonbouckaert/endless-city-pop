@@ -141,7 +141,7 @@ export class Chord {
   readonly root: number;
   readonly cls: ChordClass;
   readonly tones: readonly number[];
-  scale?: string; // chord-scale, named as Strudel's scale() wants it
+  readonly scale?: string; // chord-scale, named as Strudel's scale() wants it
 
   constructor(
     root: number,
@@ -156,9 +156,13 @@ export class Chord {
     if (scale) this.scale = scale;
   }
 
-  /** Give each chord its chord-scale, given the one after it (wrapping round). */
-  static fitScales(chords: Chord[], key: Key): void {
-    chords.forEach((c, i) => c.fitScale(key, chords[(i + 1) % chords.length]));
+  withScale(scale: string): Chord {
+    return new Chord(this.root, this.symbol, scale);
+  }
+
+  /** Each chord as a new chord with its scale set, given the one after it (wrapping round). */
+  static fitScales(chords: Chord[], key: Key): Chord[] {
+    return chords.map((c, i) => c.withScale(c.fitScale(key, chords[(i + 1) % chords.length])));
   }
 
   get pcs(): number[] {
@@ -196,12 +200,11 @@ export class Chord {
    * The chord-scale in a key: the symbol's own, else the key's mode when
    * the chord is diatonic, else the usual one for its family.
    */
-  fitScale(key: Key, next: Chord): void {
-    if (SYMBOL_SCALES[this.symbol]) this.scale = SYMBOL_SCALES[this.symbol];
-    else if (this.pcs.every((pc) => key.has(pc))) this.scale = key.modeAt(this.root)!;
-    else if (this.dominant && this.resolvesToMinor(key, next) && this.fits(DOM_TO_MINOR_SCALE)) {
-      this.scale = DOM_TO_MINOR_SCALE;
-    } else this.scale = FAMILY_SCALES[this.cls];
+  fitScale(key: Key, next: Chord): string {
+    if (SYMBOL_SCALES[this.symbol]) return SYMBOL_SCALES[this.symbol];
+    if (this.pcs.every((pc) => key.has(pc))) return key.modeAt(this.root)!;
+    if (this.dominant && this.resolvesToMinor(key, next) && this.fits(DOM_TO_MINOR_SCALE)) return DOM_TO_MINOR_SCALE;
+    return FAMILY_SCALES[this.cls];
   }
 
   /**

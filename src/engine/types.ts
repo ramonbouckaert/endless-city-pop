@@ -305,10 +305,3 @@ export interface TitleParts {
   romanised: boolean;
 }
 
-// Unset (or undefined) options are chosen from the seed.
-export interface SongOptions {
-  seed?: string | number | undefined;
-  key?: number | null | undefined;
-  mode?: Mode | null | undefined;
-  bpm?: number | undefined;
-}

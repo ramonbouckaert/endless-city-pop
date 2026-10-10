@@ -141,8 +141,10 @@ export class Harmonizer {
         return new Chord(key.tonic + Roman.parse(numeral).offset, this.rng.pick(symbols.split('|')));
       }),
     );
-    Chord.fitScales([...bars.flat(), new Chord(key.tonic, TONALITIES[key.mode].finale[0][0])], key);
-    return bars;
+    const flat = [...bars.flat(), new Chord(key.tonic, TONALITIES[key.mode].finale[0][0])];
+    const scaled = Chord.fitScales(flat, key);
+    let i = 0;
+    return bars.map((bar) => bar.map(() => scaled[i++]));
   }
 
   /**
@@ -179,10 +181,9 @@ export class Harmonizer {
       add(this.approach(), home);
     }
     const changes = reharm ? this.reharmonize(out, reharm * this.tonality.reharm) : out;
-    changes.forEach((bar, b) =>
-      bar.forEach((chord, i) => chord.fitScale(keys[b], bar[i + 1] ?? changes[(b + 1) % changes.length][0])),
+    return changes.map((bar, b) =>
+      bar.map((chord, i) => chord.withScale(chord.fitScale(keys[b], bar[i + 1] ?? changes[(b + 1) % changes.length][0]))),
     );
-    return changes;
   }
 
   /** add9 chords planing down in whole steps from bIII or bVI, then a sus dominant. */
@@ -214,7 +215,9 @@ export class Harmonizer {
 
   // The bars, with chord-scales fitted in this key.
   private scaled(bars: Bar[]): Bar[] {
-    Chord.fitScales(bars.flat(), this.key);
-    return bars;
+    const flat = bars.flat();
+    const scaled = Chord.fitScales(flat, this.key);
+    let i = 0;
+    return bars.map((bar) => bar.map(() => scaled[i++]));
   }
 }
