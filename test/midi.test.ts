@@ -98,6 +98,30 @@ describe('MIDI', () => {
     expect(drums.filter((e) => e.status !== 0xff).map((e) => e.status)).toEqual([0x99, 0x89]);
   });
 
+  it('slides notes in with pitch bends', () => {
+    const notes = [
+      { tick: 0, dur: PPQ, pitch: 60, velocity: 80, slide: { semis: -1, ticks: 48 } },
+      { tick: PPQ, dur: 20, pitch: 62, velocity: 80, slide: { semis: 3, ticks: 48 } }, // slides past its end
+      { tick: 2 * PPQ, dur: PPQ, pitch: 64, velocity: 80 },
+    ];
+    const [, track] = read(writeMidi(song([{ name: 'sax', channel: 2, program: 65, notes }]))).tracks;
+    const ccs = track.filter((e) => e.status === 0xb2).map((e) => e.data);
+    // The bend range reaches the widest slide, three semitones.
+    expect(ccs).toEqual([[101, 0], [100, 0], [6, 3], [38, 0], [101, 127], [100, 127]]);
+    const bends = track
+      .filter((e) => e.status === 0xe2)
+      .map((e) => ({ tick: e.tick, bend: e.data[0] + (e.data[1] << 7) - 8192 }));
+    // A semitone below at the note-on (before it), back to centre 48 ticks on.
+    expect(track.findIndex((e) => e.status === 0xe2)).toBeLessThan(track.findIndex((e) => e.status === 0x92));
+    expect(bends[0]).toEqual({ tick: 0, bend: Math.round(-8192 / 3) });
+    expect(bends[8]).toEqual({ tick: 48, bend: 0 });
+    expect(bends.slice(0, 9).every((b, i) => !i || b.bend >= bends[i - 1].bend)).toBe(true);
+    // Three semitones above, cut to the note's 20 ticks.
+    expect(bends[9]).toEqual({ tick: PPQ, bend: 8191 });
+    expect(bends.at(-1)).toEqual({ tick: PPQ + 20, bend: 0 });
+    expect(bends).toHaveLength(18);
+  });
+
   it('never lets a note-off cut a repeated note short', () => {
     const notes = [
       { tick: 0, dur: 2 * PPQ, pitch: 60, velocity: 80 },

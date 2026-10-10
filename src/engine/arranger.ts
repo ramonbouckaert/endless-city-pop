@@ -8,6 +8,7 @@ import { Band, DOUBLE_TOP, FIGURES, type Instruments, Mini, TAIL_SECONDS } from 
 import { BassWriter } from './bass';
 import { STYLE } from './constants';
 import type { Section } from './form';
+import { Solo } from './melody';
 import type { Song } from './song';
 import type { DrumFill, DrumRole, Material, SectionType, StepGains } from './types';
 
@@ -293,6 +294,7 @@ class SectionArranger {
     const { soloists } = band.sounds;
     const [sound, gain] = soloists[this.sec.opts.soloist! % soloists.length];
     const bossa = this.sec.type === 'solo2';
+    const solo = this.mat.solo!;
     return {
       drums: this.drums(),
       pitched: [
@@ -300,7 +302,13 @@ class SectionArranger {
         bossa ? band.keys(C, STYLE.comp.bossa).gain(0.26) : band.keys(C).gain(0.3),
         bossa ? band.strings(C).gain(0.08) : band.clav(C),
         band
-          .voiced(band.line(Mini.perBar(this.mat.solo!.render()), this.S, 24), sound)
+          .voiced(
+            band
+              .line(Mini.perBar(solo.render()), this.S, 24)
+              .penv(Mini.perBar(solo.slides()))
+              .pattack(Solo.slide),
+            sound,
+          )
           .gain(gain)
           .room(0.3)
           .delay(0.15)

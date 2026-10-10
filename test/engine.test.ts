@@ -21,6 +21,7 @@ import {
   SAME_SOUND,
   SOUND_LEVELS,
   VOICES,
+  type Grace,
   type Mode,
   type PickedPart,
 } from '../src/engine';
@@ -141,6 +142,8 @@ describe('Song', () => {
     let sixteens = 0;
     let split = 0;
     let fromHome = 0;
+    let notes = 0;
+    const graces: Grace[] = [];
     const minorHalfDiminished: number[] = [];
     for (const song of songs) {
       for (const type of ['solo', 'solo2'] as const) {
@@ -150,6 +153,29 @@ describe('Song', () => {
         // The changes and the line fill the section: nothing loops.
         expect(mat.bars).toHaveLength(sec.bars);
         expect(mat.solo!.bars).toHaveLength(sec.bars);
+        for (const n of mat.solo!.bars.flat()) {
+          notes++;
+          if (n.grace) graces.push(n.grace);
+        }
+        // Grace notes render as a short note in front: "[8b 8@2]", "[9 8@5]".
+        const rendered = mat.solo!.render().join(' ');
+        for (const m of rendered.matchAll(/\[(\d+)([#b]?) (\d+)@(\d+)]/g)) {
+          const [, grace, accidental, note, weight] = m;
+          if (accidental) expect(grace).toBe(note);
+          else expect(Math.abs(Number(grace) - Number(note))).toBe(1);
+          expect(Number(weight) % 3).toBe(2);
+        }
+        // Slurred ones slide into the note, a semitone or a step: "[0 0 -1 ...]".
+        const slides = mat.solo!.slides();
+        expect(slides).toHaveLength(sec.bars);
+        for (const n of mat.solo!.bars.flat().filter((n) => n.grace)) {
+          const { from, chromatic, semis } = n.grace!;
+          expect(Math.sign(semis)).toBe(from);
+          expect(Math.abs(semis)).toBeGreaterThanOrEqual(1);
+          expect(Math.abs(semis)).toBeLessThanOrEqual(chromatic ? 1 : 3); // up to an augmented second
+        }
+        const bends = slides.join(' ').match(/(?<=[[ ])-?\d+/g)!.map(Number).filter((x) => x !== 0);
+        expect(bends.length).toBe(mat.solo!.bars.flat().filter((n) => n.grace?.slur).length);
         if (sec.bars === 16) {
           sixteens++;
           const names = mat.bars!.map((b) => b.map((c) => c.name(song.key)).join(' '));
@@ -166,6 +192,16 @@ describe('Song', () => {
     expect(sixteens).toBeGreaterThan(10);
     expect(split).toBeGreaterThan(20);
     expect(fromHome).toBeGreaterThan(10);
+    // Some notes get grace notes, mostly chromatic ones from below.
+    expect(graces.length / notes).toBeGreaterThan(0.05);
+    expect(graces.length / notes).toBeLessThan(0.2);
+    const chromaticBelow = graces.filter((g) => g.chromatic && g.from === -1).length;
+    expect(chromaticBelow).toBeGreaterThan(graces.length / 3);
+    expect(graces.some((g) => !g.chromatic)).toBe(true);
+    expect(graces.some((g) => g.from === 1)).toBe(true);
+    const slurred = graces.filter((g) => g.slur).length / graces.length;
+    expect(slurred).toBeGreaterThan(0.4);
+    expect(slurred).toBeLessThan(0.8);
     // Minor solos move through minor ii-Vs.
     expect(minorHalfDiminished.filter((n) => n >= 2).length).toBeGreaterThan(minorHalfDiminished.length / 2);
   });

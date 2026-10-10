@@ -5,10 +5,11 @@
 // bebop-ish runs in chord-scale degrees.
 
 import { Line } from './line';
-import type { Chord, Key } from './music';
+import { Scale, type Chord, type Key } from './music';
 import type { Rng } from './random';
 import type {
   Bar,
+  Grace,
   MelodyKind,
   MelodyNote,
   MotifLetter,
@@ -174,6 +175,22 @@ const SOLO = {
   hi: 18,
   turn: 0.2,
   leaps: [1, 2, 2, 3],
+  // Grace notes flick into notes that stand out: on the beat, or after a
+  // breath. Mostly a chromatic lean up from a semitone below.
+  grace: {
+    chance: 0.2,
+    from: [
+      [{ from: -1, chromatic: true }, 5],
+      [{ from: 1, chromatic: false }, 2],
+      [{ from: 1, chromatic: true }, 1],
+      [{ from: -1, chromatic: false }, 1],
+    ] as Weighted<Pick<Grace, 'from' | 'chromatic'>>,
+    // How many flicked grace notes would fill a sixteenth.
+    split: 3,
+    slur: 0.6,
+    // Seconds a slurred note takes to slide into its pitch.
+    slide: 0.05,
+  },
 };
 
 const CHROMATIC_PROB = 0.15;
@@ -233,8 +250,23 @@ export class Solo extends Line<SoloNote> {
     super(bars, 16);
   }
 
+  /** Seconds a slurred note takes to slide into its pitch (Strudel's pattack). */
+  static readonly slide = SOLO.grace.slide;
+
   render(): string[] {
-    return this.renderWith((n) => String(n.degree));
+    return this.renderWith((n) => {
+      if (!n.grace || n.grace.slur) return String(n.degree);
+      // A flicked grace note takes the front of the note: "[4b 4@2]".
+      const { from, chromatic } = n.grace;
+      const accidental = from > 0 ? '#' : 'b';
+      const grace = chromatic ? `${n.degree}${accidental}` : String(n.degree + from);
+      return `[${grace} ${n.degree}@${SOLO.grace.split * n.len - 1}]`;
+    });
+  }
+
+  /** Semitones each note slides up into its pitch (Strudel's penv), in the same rhythm. */
+  slides(): string[] {
+    return this.renderWith((n) => String(n.grace?.slur ? -n.grace.semis : 0));
   }
 
   /** An improvised solo. Chord tones are the even degrees, and beats land on them. */
@@ -243,7 +275,7 @@ export class Solo extends Line<SoloNote> {
     let deg = rng.int(lo + 2, lo + 6);
     let dir = 1;
     return new Solo(
-      bars.map((_, b) => {
+      bars.map((bar, b) => {
         let rhythm = rng.pick(SOLO.rhythms);
         // Breathe at the end of every other bar.
         if (b % 2) rhythm = rhythm.slice(0, 12) + '....';
@@ -251,6 +283,9 @@ export class Solo extends Line<SoloNote> {
         for (let s = 0; s < 16; s++) {
           if (rhythm[s] !== 'x') continue;
           const r = Solo.advance(rhythm, s, deg, dir, rng);
+          if ((s % 4 === 0 || rhythm[s - 1] !== 'x') && rng.chance(SOLO.grace.chance)) {
+            r.note.grace = Solo.grace(chordAt(bar, s, 16), r.deg, deg, rng);
+          }
           deg = r.deg;
           dir = r.dir;
           notes.push(r.note);
@@ -258,6 +293,15 @@ export class Solo extends Line<SoloNote> {
         return notes;
       }),
     );
+  }
+
+  // A grace note into `target`, never from `prev`, the note just played.
+  private static grace(chord: Chord, target: number, prev: number, rng: Rng): Grace {
+    let { from, chromatic } = rng.weighted(SOLO.grace.from);
+    if (!chromatic && target + from === prev) chromatic = true;
+    const scale = chord.scale && Scale.named(chord.scale);
+    const semis = chromatic || !scale ? from : scale.semis(target + from) - scale.semis(target);
+    return { from, chromatic, semis, slur: rng.chance(SOLO.grace.slur) };
   }
 
   private static advance(

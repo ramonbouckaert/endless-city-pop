@@ -8,12 +8,20 @@ import type { Key } from './music';
 export const PPQ = 480; // ticks per quarter note
 export const TICKS_PER_BAR = PPQ * 4;
 export const DRUM_CHANNEL = 9; // channel 10, counting from one
+const BEND_STEPS = 8; // pitch-bend messages in a slide
 
 export interface MidiNote {
   tick: number;
   dur: number; // ticks
   pitch: number; // 0-127
   velocity: number; // 1-127
+  slide?: Slide;
+}
+
+/** A note that starts `semis` off its pitch (negative: below) and slides onto it over `ticks`. */
+export interface Slide {
+  semis: number;
+  ticks: number;
 }
 
 export interface MidiTrack {
@@ -64,14 +72,35 @@ function trackEvents(track: MidiTrack): TrackEvent[] {
   const events: TrackEvent[] = [{ tick: 0, data: meta(0x03, text(track.name)) }];
   if (track.program !== undefined && ch !== DRUM_CHANNEL)
     events.push({ tick: 0, data: [0xc0 | ch, track.program & 0x7f] });
+  // Pitch bends reach the widest slide: two semitones, unless one is wider.
+  const slides = track.notes.flatMap((n) => (n.slide ? [Math.abs(n.slide.semis)] : []));
+  const range = Math.max(2, ...slides.map(Math.ceil));
+  if (slides.length) events.push(...bendRange(ch, range).map((data) => ({ tick: 0, data })));
   for (const n of separate(track.notes)) {
     const pitch = clamp(Math.round(n.pitch), 0, 127);
+    if (n.slide) events.push(...slide(ch, n, range));
     events.push(
       { tick: n.tick, data: [0x90 | ch, pitch, clamp(Math.round(n.velocity), 1, 127)] },
       { tick: n.tick + n.dur, data: [0x80 | ch, pitch, 0], off: true },
     );
   }
   return events;
+}
+
+// Pitch bend range (RPN 0) in semitones, then the RPN closed again.
+const bendRange = (ch: number, semis: number) =>
+  [[101, 0], [100, 0], [6, semis], [38, 0], [101, 127], [100, 127]].map(([cc, v]) => [0xb0 | ch, cc, v]);
+
+// A note's slide as pitch bends: off its pitch at the note-on, back to
+// centre in steps, never past the note's end.
+function slide(ch: number, n: MidiNote, range: number): TrackEvent[] {
+  const ticks = Math.min(n.slide!.ticks, n.dur);
+  const steps = Math.max(1, Math.min(BEND_STEPS, Math.floor(ticks)));
+  return Array.from({ length: steps + 1 }, (_, i) => {
+    const semis = n.slide!.semis * (1 - i / steps);
+    const bend = clamp(Math.round(8192 + (semis / range) * 8192), 0, 16383);
+    return { tick: n.tick + Math.round((i * ticks) / steps), data: [0xe0 | ch, bend & 0x7f, bend >> 7] };
+  });
 }
 
 // A repeated pitch on one channel cuts the note before it, so a note-off

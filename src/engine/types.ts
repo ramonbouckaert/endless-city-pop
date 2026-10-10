@@ -61,6 +61,16 @@ export interface MelodyNote extends Note {
 }
 export interface SoloNote extends Note {
   degree: number; // chord-scale degree
+  grace?: Grace;
+}
+// A grace note into a note from above (1) or below (-1): a semitone
+// away if chromatic, else the next degree. Flicked as a note of its own,
+// or slurred: the note starts at its pitch and slides.
+export interface Grace {
+  from: 1 | -1;
+  chromatic: boolean;
+  semis: number; // the grace note's pitch, from the note's
+  slur: boolean;
 }
 export type MelodyKind = 'verse' | 'pre' | 'chorus' | 'bridge' | 'riff';
 // How a pre-chorus melody unfolds: climbing a step each repeat, call and

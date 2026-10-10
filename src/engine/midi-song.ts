@@ -5,7 +5,7 @@
 
 import { noteToMidi, type Fraction, type Hap, type Pattern } from '@strudel/core';
 import { GM_PROGRAMS } from './instruments';
-import { DRUM_CHANNEL, TICKS_PER_BAR, writeMidi, type MidiNote, type MidiTrack } from './midi';
+import { DRUM_CHANNEL, PPQ, TICKS_PER_BAR, writeMidi, type MidiNote, type MidiTrack } from './midi';
 import type { Song } from './song';
 
 // Drum sounds as General MIDI percussion keys. Sounds not listed (the
@@ -48,7 +48,10 @@ function trackFor(sound: string, tracks: Map<string, MidiTrack>): MidiTrack {
   return t;
 }
 
-function noteFromHap(hap: Hap): { sound: string; note: MidiNote } | null {
+// Superdough's pitch-envelope attack when a pattern sets none, in seconds.
+const PATTACK = 0.2;
+
+function noteFromHap(hap: Hap, ticksPerSecond: number): { sound: string; note: MidiNote } | null {
   const { whole, part, value: v } = hap;
   if (!whole || num(whole.begin) !== num(part.begin)) return null;
   const sound: string | undefined = v.s ?? v.sound;
@@ -63,15 +66,19 @@ function noteFromHap(hap: Hap): { sound: string; note: MidiNote } | null {
   const pitch = typeof v.note === 'number' ? v.note : noteToMidi(v.note);
   if (!Number.isFinite(pitch)) return null;
   const dur = (num(whole.end) - num(whole.begin)) * TICKS_PER_BAR * (v.clip ?? v.legato ?? 1);
-  return { sound, note: { ...base, pitch, dur } };
+  const note: MidiNote = { ...base, pitch, dur };
+  // A pitch envelope (penv semitones up into the note) slides it in.
+  if (v.penv) note.slide = { semis: -v.penv, ticks: (v.pattack ?? PATTACK) * ticksPerSecond };
+  return { sound, note };
 }
 
 /** The song as a MIDI file. `pattern` is the Arranger's pattern for it. */
 export function songToMidi(song: Song, pattern: Pattern): Uint8Array {
   const tracks = new Map<string, MidiTrack>();
+  const ticksPerSecond = (song.bpm / 60) * PPQ;
   for (let bar = 0; bar < song.bars; bar++) {
     for (const hap of pattern.queryArc(bar, bar + 1) as unknown as Hap[]) {
-      const result = noteFromHap(hap);
+      const result = noteFromHap(hap, ticksPerSecond);
       if (result) trackFor(result.sound, tracks).notes.push(result.note);
     }
   }
