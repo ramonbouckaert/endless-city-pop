@@ -1,9 +1,12 @@
-// A song's form: its sections in order, and what the writers, the
+// A song's form: its sections in order, and what the sections, the
 // arranger and the page ask of it (where each section starts, what comes
-// next, how often a part has played).
+// next, how often a part has played). The planner writes a form of
+// plans (SectionPlan); the sections are built from it, into a form of
+// sections.
 
 import type { SectionType } from '../style';
-import { isSection, type Section, type SectionOf } from './sections';
+import type { SectionPlan } from './plan';
+import type { AnySection } from './sections';
 
 /** Where the playhead is: the section, and how far through it (0..1). */
 export interface Playhead {
@@ -11,13 +14,19 @@ export interface Playhead {
   through: number;
 }
 
-export class Form implements Iterable<Section> {
+/** What a form holds: a plan's sections, or a song's. */
+type Placed = SectionPlan | AnySection;
+
+/** The sections of a type, among some. */
+type OfType<S extends Placed, T extends SectionType> = Extract<S, { type: T }>;
+
+export class Form<S extends Placed = AnySection> implements Iterable<S> {
   /** The bar each section starts on. */
   readonly starts: readonly number[];
   /** The song's length in bars. */
   readonly bars: number;
 
-  constructor(readonly sections: readonly Section[]) {
+  constructor(readonly sections: readonly S[]) {
     let bar = 0;
     this.starts = sections.map((s) => {
       const start = bar;
@@ -27,7 +36,7 @@ export class Form implements Iterable<Section> {
     this.bars = bar;
   }
 
-  [Symbol.iterator](): Iterator<Section> {
+  [Symbol.iterator](): Iterator<S> {
     return this.sections[Symbol.iterator]();
   }
 
@@ -36,33 +45,33 @@ export class Form implements Iterable<Section> {
   }
 
   /** The section at an index. */
-  at(index: number): Section | undefined {
+  at(index: number): S | undefined {
     return this.sections[index];
   }
 
   /** Every section of a type, in order. */
-  ofType<T extends SectionType>(type: T): SectionOf<T>[] {
-    return this.sections.filter(isSection(type));
+  ofType<T extends SectionType>(type: T): OfType<S, T>[] {
+    return this.sections.filter((s): s is OfType<S, T> => s.type === type);
   }
 
   /** The first section of a type, if the form has one. */
-  first<T extends SectionType>(type: T): SectionOf<T> | undefined {
-    return this.sections.find(isSection(type));
+  first<T extends SectionType>(type: T): OfType<S, T> | undefined {
+    return this.sections.find((s): s is OfType<S, T> => s.type === type);
   }
 
   /** The section after `sec`. */
-  next(sec: Section): Section | undefined {
+  next(sec: S): S | undefined {
     return this.sections[this.sections.indexOf(sec) + 1];
   }
 
   /** The section after `sec`, not counting a drum break. */
-  after(sec: Section): Section | undefined {
+  after(sec: S): S | undefined {
     return this.sections.slice(this.sections.indexOf(sec) + 1).find((s) => s.type !== 'drumBreak');
   }
 
   /** The last section of `sec`'s type before it. */
-  previous<S extends Section>(sec: S): S | undefined {
-    return this.sections.slice(0, this.sections.indexOf(sec)).findLast((s): s is S => s.type === sec.type);
+  previous<P extends S>(sec: P): P | undefined {
+    return this.sections.slice(0, this.sections.indexOf(sec)).findLast((s): s is P => s.type === sec.type);
   }
 
   /** How many sections before the one at `index` play its part. */
@@ -94,7 +103,7 @@ export class Form implements Iterable<Section> {
   }
 
   /** Each section in a line: "chorus (+2) 8", "lift (to +2, ii-V) 2". */
-  describe(): string[] {
+  describe(this: Form<AnySection>): string[] {
     return this.sections.map((sec) => sec.describe());
   }
 }

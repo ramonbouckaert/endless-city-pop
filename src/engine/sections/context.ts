@@ -1,10 +1,11 @@
-// What a section works with. Its `write` writes its part's material
-// from a WriteContext (the song's key and form, other parts' material,
-// the harmony several parts share: the chorus's chords and its hook, the
-// vamp's, the intro's); its `play` turns it into notes from a
-// ScoreContext (the band, and the parts most recipes share).
-// Sections the band plays through are played from a PlayedScoreContext:
-// their chords, bass, lines and the figures built on them.
+// What a section works with. Its constructor builds it from its plan in
+// a BuildContext (the song's key and plan, the other sections, the
+// harmony several parts share: the chorus's chords and its hook, the
+// vamp's, the intro's), writing its part's material; its `play` turns it
+// into notes from a ScoreContext (the band, and the parts most recipes
+// share). Sections the band plays through are played from a
+// PlayedScoreContext: their chords, bass, lines and the figures built on
+// them.
 
 import { lazy } from '../../lib/lazy';
 import type { Rng } from '../../lib/random';
@@ -25,13 +26,14 @@ import { Template, type Bar, type Key } from '../../theory';
 import type { ScoreBand } from '../band';
 import { drumNotes } from '../drums';
 import { DOUBLE_TOP, FIGURES, lastBar, type Rhythm, RHYTHMS, spans, timed, type Timed } from '../figures';
-import type { Form } from '../form';
+import { Form } from '../form';
 import { GrooveWriter } from '../groove';
 import { Harmonizer } from '../harmony';
 import { MelodyWriter, type Melody, type Solo } from '../melody';
 import { Changes, onChord, Part, rise, scoreNote, within, type NoteSpec } from '../score';
-import type { PlayedMaterial } from '../material';
-import type { Section } from './section';
+import { materialOf, type Material, type MaterialOf, type PlayedMaterial } from '../material';
+import type { SectionPlan } from '../plan';
+import type { AnySection, Section, SectionOf } from './section';
 
 /** A section's drums, and its pitched parts (falsy ones left out). */
 export type Parts = { drums: Part[]; pitched: (Part | null | false | undefined)[] };
@@ -42,32 +44,66 @@ export type ScoreContextOf<T extends SectionType> = [T] extends [PlayedType]
   ? PlayedScoreContext<T & PlayedType>
   : ScoreContext<T>;
 
-// ---- Writing
+// ---- Building
 
-export class WriteContext {
-  // The section that wrote each part's material, by part id.
-  private readonly writers = new Map<string, Section>();
+/** Each section type's class, by type: built from a plan of its type, in a BuildContext. */
+export type SectionClasses = {
+  [T in SectionType]: new (plan: SectionPlan<T>, ctx: BuildContext) => SectionOf<T>;
+};
+
+export class BuildContext {
+  // Each section, by its plan, built on first use.
+  private readonly built = new Map<SectionPlan, AnySection>();
+  // Each part's material, by part id, written by the first of its sections built.
+  private readonly materials = new Map<string, Material>();
   // For the harmony and lines several parts share, each written once on first use.
   private readonly shared: Rng;
 
   constructor(
     readonly key: Key,
-    readonly form: Form,
+    readonly plan: Form<SectionPlan>,
     private readonly rng: Rng,
+    private readonly classes: SectionClasses,
   ) {
     this.shared = rng.fork('shared');
   }
 
-  /** A section, its part's material written (or shared) on first use. */
-  written<S extends Section>(sec: S): S {
-    const writer = this.writers.get(sec.part);
-    if (writer) {
-      if (writer !== sec) sec.share(writer);
-    } else {
-      sec.write(this, this.rng.fork(`part/${sec.part}`));
-      this.writers.set(sec.part, sec);
+  /** The song's sections, each built from its plan. */
+  build(): Form {
+    return new Form(this.plan.sections.map((plan) => this.section(plan)));
+  }
+
+  /** The section a plan's section is built into, on first use. */
+  section<P extends SectionPlan>(plan: P): SectionOf<P['type']> {
+    let sec = this.built.get(plan);
+    if (!sec) {
+      // Each type's class takes a plan of its type.
+      const Class = this.classes[plan.type] as new (plan: P, ctx: BuildContext) => AnySection;
+      sec = new Class(plan, this);
+      this.built.set(plan, sec);
     }
-    return sec;
+    return sec as SectionOf<P['type']>;
+  }
+
+  /**
+   * A section's part's material: written by `write` from the part's own
+   * stream for the first section of the part built, and the same for the
+   * rest. Like every function here that takes an Rng, `write` owns the
+   * stream it is given: a caller hands on a fork, and never draws from it
+   * again.
+   */
+  material<T extends SectionType>(sec: Section<T>, write: (rng: Rng) => MaterialOf<T>): MaterialOf<T> {
+    let mat = this.materials.get(sec.part);
+    if (!mat) {
+      mat = write(this.rng.fork(`part/${sec.part}`));
+      this.materials.set(sec.part, mat);
+    }
+    return materialOf(sec.type, mat);
+  }
+
+  /** The soloists the plan's solos go to, in order, as indexes into the song's soloists. */
+  get soloists(): number[] {
+    return this.plan.ofType('solo').map((s) => s.soloist);
   }
 
   /** The song's key's tonality. */
@@ -98,7 +134,7 @@ export class WriteContext {
   readonly chorusBars = lazy((): Bar[] => {
     const rng = this.shared.fork('chorusHarmony');
     const bars = this.progress(rng.pick(this.tonality.templatesFor('chorus')), 8, rng.fork('harmony'));
-    const len = this.form.first('chorus')?.bars ?? 8;
+    const len = this.plan.first('chorus')?.bars ?? 8;
     if (len <= 8) return bars;
     const tag = new Template(rng.pick(this.tonality.templatesFor('tag'))).fit(len - 8);
     return [...bars, ...new Harmonizer(this.key, rng.fork('tag')).realize(tag)];
@@ -184,21 +220,24 @@ export class PlayedScoreContext<T extends PlayedType = PlayedType> extends Score
     return this.played.key;
   }
 
-  /** A melody in this section's key (counting up from its tonic in octave 4), optionally shifted up. */
+  /** The key's tonic in octave 4 (MIDI), which melody notes count up from. */
+  get tonicPitch(): number {
+    return 60 + this.key.tonic;
+  }
+
+  /** A melody in this section's key, optionally shifted up. */
   line(melody: Melody, up = 0): NoteSpec[] {
-    const base = 60 + this.key.tonic + up;
-    return melody.notes(this.len, (n) => base + n.semis);
+    return melody.notes(this.len, (n) => this.tonicPitch + up + n.semis);
   }
 
   /** A melody with a second voice `below` scale steps under each note: diatonic harmony. */
   harmonized(melody: Melody, below: number): NoteSpec[] {
     const { key } = this;
-    const base = 60 + key.tonic;
     const lower = (semis: number) => {
       const { step, alter } = key.scale.degree(semis, key.usesFlats);
       return key.scale.semis(step - below) + alter;
     };
-    return [...melody.notes(this.len, (n) => base + n.semis), ...melody.notes(this.len, (n) => base + lower(n.semis))];
+    return [...this.line(melody), ...melody.notes(this.len, (n) => this.tonicPitch + lower(n.semis))];
   }
 
   /** A figure of chord-scale degrees against the section's chords (from each one's bass root), shifted up. */
@@ -206,10 +245,9 @@ export class PlayedScoreContext<T extends PlayedType = PlayedType> extends Score
     return hits.map(({ time, dur, value }) => ({ time, dur, note: onChord(this.C.at(time), value) + up }));
   }
 
-  // 12 to play a melody an octave up, or 0 if that would take it too high
-  // (melody notes count up from the tonic in octave 4).
+  // 12 to play a melody an octave up, or 0 if that would take it too high.
   octaveUp(melody: Melody): number {
-    return 60 + this.key.tonic + this.sec.shift + melody.top + 12 <= DOUBLE_TOP ? 12 : 0;
+    return this.tonicPitch + this.sec.shift + melody.top + 12 <= DOUBLE_TOP ? 12 : 0;
   }
 
   /** The intro's line on bells, if it has one: an octave up, if it fits. */

@@ -107,7 +107,7 @@ export class ScoreBand {
     return this.chords('keys', changes.spans, 'softKeys');
   }
   arp(changes: Changes): Part {
-    return this.chords('keys', this.figure(changes, FIGURES.arp), 'arp').delay(0.2, 0.375);
+    return this.chords('keys', this.figure(changes, FIGURES.arp), 'arp');
   }
   /** The final chord, held on the keys. */
   finaleKeys(changes: Changes): Part {
@@ -154,7 +154,7 @@ export class ScoreBand {
   }
   /** A line on one of the song's soloists, in the solo room. */
   soloist(index: number, specs: readonly NoteSpec[]): Part {
-    return this.play(this.instruments.soloist(index), specs, MIX.soloist).delay(0.15, 0.27);
+    return this.play(this.instruments.soloist(index), specs, MIX.soloist);
   }
   counter(specs: readonly NoteSpec[]): Part {
     return this.play('answer', specs, MIX.answer);

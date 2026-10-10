@@ -9,7 +9,7 @@ import type { Form } from './form';
 import { FormPlanner } from './form-planner';
 import { Instruments } from './orchestration';
 import { materialOf, type Material, type MaterialOf } from './material';
-import { writeMaterials } from './sections';
+import { buildForm } from './sections';
 import { formatTitle, TitleWriter, type TitleParts } from './title';
 
 export interface SongData {
@@ -19,7 +19,7 @@ export interface SongData {
   bpm: number;
   swing: number;
   instruments: Instruments;
-  /** Its sections, each with its part's material written. */
+  /** Its sections, each with its part's material. */
   form: Form;
 }
 
@@ -39,8 +39,8 @@ export class Song {
     const mode = rng.fork('mode').weightedKey(TONALITIES);
     const tonality = TONALITIES[mode];
     const key = new Key(rng.pick(tonality.tonics), mode);
-    const form = new FormPlanner(rng.fork('form'), tonality.turnarounds).plan();
-    writeMaterials(key, form, rng.fork('materials'));
+    const plan = new FormPlanner(rng.fork('form'), tonality.turnarounds).plan();
+    const form = buildForm(plan, key, rng.fork('materials'));
     return new Song({
       seed: s,
       key,

@@ -1,22 +1,23 @@
 // A loop of the key's riff chords, the riff on horns harmonised a third below.
 
-import type { Rng } from '../../lib/random';
 import { RHYTHM } from '../../style';
 import type { MaterialOf } from '../material';
-import type { Parts, PlayedScoreContext, WriteContext } from './context';
-import { SectionBase, type Placement } from './section';
+import type { SectionPlan } from '../plan';
+import type { Parts, PlayedScoreContext, BuildContext } from './context';
+import { Section } from './section';
 
-export class Riff extends SectionBase<'riff'> {
-  constructor(bars: number, placement?: Placement) {
-    super('riff', bars, placement);
-  }
+export class Riff extends Section<'riff'> {
+  readonly material: MaterialOf<'riff'>;
 
-  protected compose(ctx: WriteContext, rng: Rng): MaterialOf<'riff'> {
-    const bars = ctx.loop('riff', rng.fork('loop'));
-    return {
-      ...ctx.band('riff', ctx.key, bars, RHYTHM.riff, rng.fork('groove')),
-      melody: ctx.melody('riff', ctx.key, bars, rng.fork('melody')),
-    };
+  constructor(plan: SectionPlan<'riff'>, ctx: BuildContext) {
+    super(plan);
+    this.material = ctx.material(this, (rng) => {
+      const bars = ctx.loop('riff', rng.fork('loop'));
+      return {
+        ...ctx.band('riff', ctx.key, bars, RHYTHM.riff, rng.fork('groove')),
+        melody: ctx.melody('riff', ctx.key, bars, rng.fork('melody')),
+      };
+    });
   }
 
   play(ctx: PlayedScoreContext<'riff'>): Parts {

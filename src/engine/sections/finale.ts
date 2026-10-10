@@ -1,24 +1,30 @@
 // The key's final chord, rung out in the finale's style over its two bars.
 
 import { PERCUSSION, type Percussion } from '../../lib/general-midi';
-import type { Rng } from '../../lib/random';
 import { FINALE_STYLES } from '../../style';
 import { Chord } from '../../theory';
 import { FIGURES, FINALE_DEGREES, FINALE_HITS, spans, timed } from '../figures';
 import { Changes, onChord, Part, rise, type NoteSpec, type Span } from '../score';
 import type { MaterialOf } from '../material';
-import type { Parts, ScoreContext, WriteContext } from './context';
-import { SectionBase, type Placement } from './section';
+import type { SectionPlan } from '../plan';
+import type { Parts, ScoreContext, BuildContext } from './context';
+import { Section } from './section';
 
-export class Finale extends SectionBase<'finale'> {
-  constructor(bars: number, placement?: Placement) {
-    super('finale', bars, placement);
-  }
+export class Finale extends Section<'finale'> {
+  readonly material: MaterialOf<'finale'>;
 
-  protected compose(ctx: WriteContext, rng: Rng): MaterialOf<'finale'> {
-    const { key } = ctx;
-    const [symbol, scale] = rng.pick(ctx.tonality.finale);
-    return { type: 'finale', key, chord: new Chord(key.tonic, symbol, scale), variant: rng.weightedKey(FINALE_STYLES) };
+  constructor(plan: SectionPlan<'finale'>, ctx: BuildContext) {
+    super(plan);
+    this.material = ctx.material(this, (rng) => {
+      const { key } = ctx;
+      const [symbol, scale] = rng.pick(ctx.tonality.finale);
+      return {
+        type: 'finale',
+        key,
+        chord: new Chord(key.tonic, symbol, scale),
+        variant: rng.weightedKey(FINALE_STYLES),
+      };
+    });
   }
 
   play(ctx: ScoreContext<'finale'>): Parts {

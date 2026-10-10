@@ -1,50 +1,49 @@
 // A reprise of the intro's chords, quietly, or two soloists trading lines
 // over a vamp.
 
-import type { Rng } from '../../lib/random';
 import { FORM, OUTRO_STYLES, type OutroStyle } from '../../style';
 import { SoloWriter } from '../melody';
 import type { MaterialOf } from '../material';
-import type { Parts, PlayedScoreContext, WriteContext } from './context';
-import { SectionBase, type Placement } from './section';
+import type { SectionFields, SectionPlan } from '../plan';
+import type { Parts, PlayedScoreContext, BuildContext } from './context';
+import { Section } from './section';
 
-export class Outro extends SectionBase<'outro'> {
-  /** How it ends the song. */
+export class Outro extends Section<'outro'> implements Readonly<SectionFields['outro']> {
   readonly variant: OutroStyle;
+  readonly material: MaterialOf<'outro'>;
 
-  constructor(bars: number, { variant, ...placement }: { variant: OutroStyle } & Placement) {
-    super('outro', bars, placement);
-    this.variant = variant;
+  constructor(plan: SectionPlan<'outro'>, ctx: BuildContext) {
+    super(plan);
+    this.variant = plan.variant;
+    this.material = ctx.material(this, (rng) => {
+      const { groove } = OUTRO_STYLES[this.variant];
+      if (this.variant === 'reprise') {
+        // The intro's chords, and its teaser if it had one.
+        const intro = ctx.plan.first('intro');
+        if (!intro) throw new Error('A reprise outro needs an intro to play again');
+        const { bars, melody } = ctx.section(intro).material;
+        return {
+          ...ctx.band('outro', ctx.key, bars, groove, rng.fork('groove')),
+          variant: 'reprise',
+          ...(melody ? { melody } : {}),
+        };
+      }
+      // Two soloists trade lines over the vamp's changes, or a vamp of its
+      // own when the song has none: the song's soloists first, if it had solos.
+      const loop = ctx.plan.first('vamp') ? ctx.vampBars() : ctx.loop('vamp', rng.fork('vamp'));
+      const bars = Array.from({ length: this.bars }, (_, i) => loop[i % loop.length]);
+      const [first, second] = [...new Set([...ctx.soloists, ...FORM.soloists])];
+      return {
+        ...ctx.band('outro', ctx.key, bars, groove, rng.fork('groove')),
+        variant: 'trade',
+        solo: new SoloWriter(rng.fork('line')).write(bars),
+        soloists: [first, second],
+      };
+    });
   }
 
   protected override get label(): string {
     return `outro ${this.variant}`;
-  }
-
-  protected compose(ctx: WriteContext, rng: Rng): MaterialOf<'outro'> {
-    const { groove } = OUTRO_STYLES[this.variant];
-    if (this.variant === 'reprise') {
-      // The intro's chords, and its teaser if it had one.
-      const intro = ctx.form.first('intro');
-      if (!intro) throw new Error('A reprise outro needs an intro to play again');
-      const { bars, melody } = ctx.written(intro).material;
-      return {
-        ...ctx.band('outro', ctx.key, bars, groove, rng.fork('groove')),
-        variant: 'reprise',
-        ...(melody ? { melody } : {}),
-      };
-    }
-    // Two soloists trade lines over the vamp's changes, or a vamp of its
-    // own when the song has none: the song's soloists first, if it had solos.
-    const loop = ctx.form.first('vamp') ? ctx.vampBars() : ctx.loop('vamp', rng.fork('vamp'));
-    const bars = Array.from({ length: this.bars }, (_, i) => loop[i % loop.length]);
-    const [first, second] = [...new Set([...ctx.form.soloists, ...FORM.soloists])];
-    return {
-      ...ctx.band('outro', ctx.key, bars, groove, rng.fork('groove')),
-      variant: 'trade',
-      solo: new SoloWriter(rng.fork('line')).write(bars),
-      soloists: [first, second],
-    };
   }
 
   play(ctx: PlayedScoreContext<'outro'>): Parts {

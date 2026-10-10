@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSection, ScoreArranger, Song, type Grace } from '../src/engine';
+import { ScoreArranger, Song, type Grace } from '../src/engine';
 import {
   FINALE_STYLES,
   INTRO,
@@ -128,7 +128,7 @@ describe('section materials', () => {
       // Each lift goes up from the key before it, never past the cap.
       let shift = 0;
       for (const [i, sec] of song.form.sections.entries()) {
-        if (isSection('lift')(sec)) {
+        if (sec.type === 'lift') {
           expect(sec.liftTo).toBeGreaterThan(shift);
           expect(sec.liftTo).toBeLessThanOrEqual(MAX_SHIFT);
           expect(song.form.at(i + 1)).toMatchObject({ type: 'chorus', shift: sec.liftTo });

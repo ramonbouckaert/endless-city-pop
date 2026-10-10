@@ -2,35 +2,34 @@
 // the chorus (one as long as the section, if there is one), played in the
 // flavour's texture. Later rounds add a layer.
 
-import type { Rng } from '../../lib/random';
 import { PRE_FLAVOURS } from '../../style';
 import { RHYTHMS, spans } from '../figures';
 import { Harmonizer } from '../harmony';
 import { Part, rise } from '../score';
 import type { MaterialOf } from '../material';
-import type { Parts, PlayedScoreContext, WriteContext } from './context';
-import { SectionBase, type Placement } from './section';
+import type { SectionFields, SectionPlan } from '../plan';
+import type { Parts, PlayedScoreContext, BuildContext } from './context';
+import { Section } from './section';
 
-export class PreChorus extends SectionBase<'pre'> {
-  /** A later round adds a layer. */
+export class PreChorus extends Section<'pre'> implements Readonly<SectionFields['pre']> {
   readonly later: boolean;
+  readonly material: MaterialOf<'pre'>;
 
-  constructor(bars: number, { later, ...placement }: { later: boolean } & Placement) {
-    super('pre', bars, placement);
-    this.later = later;
-  }
-
-  protected compose(ctx: WriteContext, rng: Rng): MaterialOf<'pre'> {
-    const { key } = ctx;
-    const variant = rng.weightedKey(PRE_FLAVOURS);
-    const { groove, melody } = PRE_FLAVOURS[variant];
-    const template = rng.pick(ctx.tonality.preTemplates(variant, this.bars));
-    const bars = new Harmonizer(key, rng.fork('harmony')).progression(template, this.bars, { ending: true });
-    return {
-      ...ctx.band('pre', key, bars, groove, rng.fork('groove')),
-      variant,
-      melody: ctx.melody('pre', key, bars, rng.fork('melody'), melody),
-    };
+  constructor(plan: SectionPlan<'pre'>, ctx: BuildContext) {
+    super(plan);
+    this.later = plan.later;
+    this.material = ctx.material(this, (rng) => {
+      const { key } = ctx;
+      const variant = rng.weightedKey(PRE_FLAVOURS);
+      const { groove, melody } = PRE_FLAVOURS[variant];
+      const template = rng.pick(ctx.tonality.preTemplates(variant, this.bars));
+      const bars = new Harmonizer(key, rng.fork('harmony')).progression(template, this.bars, { ending: true });
+      return {
+        ...ctx.band('pre', key, bars, groove, rng.fork('groove')),
+        variant,
+        melody: ctx.melody('pre', key, bars, rng.fork('melody'), melody),
+      };
+    });
   }
 
   play(ctx: PlayedScoreContext<'pre'>): Parts {

@@ -1,38 +1,36 @@
 // A turnaround into the lifted key, never played the way the lift before
 // it was, leading into the next chorus.
 
-import type { Rng } from '../../lib/random';
 import { LIFT_STYLES, RHYTHM } from '../../style';
 import { FIGURES, lastBar, RHYTHMS, spans, timed } from '../figures';
 import { Harmonizer } from '../harmony';
 import { Part, within } from '../score';
 import type { MaterialOf } from '../material';
-import type { Parts, PlayedScoreContext, WriteContext } from './context';
-import { SectionBase, type Placement } from './section';
+import type { SectionFields, SectionPlan } from '../plan';
+import type { Parts, PlayedScoreContext, BuildContext } from './context';
+import { Section } from './section';
 
-export class Lift extends SectionBase<'lift'> {
-  /** The shift up the lift leads into. */
+export class Lift extends Section<'lift'> implements Readonly<SectionFields['lift']> {
   readonly liftTo: number;
-  /** The turnaround it takes there (a name in the tonality's). */
   readonly turnaround: string;
+  readonly material: MaterialOf<'lift'>;
 
-  constructor(bars: number, { liftTo, turnaround, ...placement }: { liftTo: number; turnaround: string } & Placement) {
-    super('lift', bars, placement);
-    this.liftTo = liftTo;
-    this.turnaround = turnaround;
+  constructor(plan: SectionPlan<'lift'>, ctx: BuildContext) {
+    super(plan);
+    this.liftTo = plan.liftTo;
+    this.turnaround = plan.turnaround;
+    this.material = ctx.material(this, (rng) => {
+      const { turnaround } = this;
+      const key = ctx.key.transpose(this.liftTo);
+      const bars = new Harmonizer(key, rng.fork('harmony')).turnaround(turnaround);
+      const before = ctx.plan.previous(plan);
+      const variant = rng.weightedKey(LIFT_STYLES, before && ctx.section(before).material.variant);
+      return { ...ctx.band('lift', key, bars, RHYTHM.lift, rng.fork('groove')), turnaround, variant };
+    });
   }
 
   override describe(): string {
     return `lift (to +${this.liftTo}, ${this.turnaround}) ${this.bars}`;
-  }
-
-  protected compose(ctx: WriteContext, rng: Rng): MaterialOf<'lift'> {
-    const { turnaround } = this;
-    const key = ctx.key.transpose(this.liftTo);
-    const bars = new Harmonizer(key, rng.fork('harmony')).turnaround(turnaround);
-    const before = ctx.form.previous(this);
-    const variant = rng.weightedKey(LIFT_STYLES, before && ctx.written(before).material.variant);
-    return { ...ctx.band('lift', key, bars, RHYTHM.lift, rng.fork('groove')), turnaround, variant };
   }
 
   play(ctx: PlayedScoreContext<'lift'>): Parts {

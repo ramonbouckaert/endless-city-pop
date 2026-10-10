@@ -2,32 +2,33 @@
 // or perhaps a riff of its own; the teaser (if any) on bells over the top.
 
 import { PERCUSSION } from '../../lib/general-midi';
-import type { Rng } from '../../lib/random';
 import { INTRO, INTRO_TEXTURES } from '../../style';
 import type { Melody } from '../melody';
 import { Part } from '../score';
 import type { MaterialOf } from '../material';
-import type { Parts, PlayedScoreContext, WriteContext } from './context';
-import { SectionBase, type Placement } from './section';
+import type { SectionPlan } from '../plan';
+import type { Parts, PlayedScoreContext, BuildContext } from './context';
+import { Section } from './section';
 
-export class Intro extends SectionBase<'intro'> {
-  constructor(bars: number, placement?: Placement) {
-    super('intro', bars, placement);
-  }
+export class Intro extends Section<'intro'> {
+  readonly material: MaterialOf<'intro'>;
 
-  protected compose(ctx: WriteContext, rng: Rng): MaterialOf<'intro'> {
-    const { harmony, bars } = ctx.introBars();
-    const variant = rng.weightedKey(INTRO_TEXTURES);
-    let melody: Melody | undefined;
-    if (harmony === 'chorus') melody = ctx.hook().take(4);
-    else if (harmony === 'template' && rng.chance(INTRO.melodyChance))
-      melody = ctx.melody('riff', ctx.key, bars, rng.fork('melody'));
-    return {
-      ...ctx.band('intro', ctx.key, bars, INTRO_TEXTURES[variant].groove, rng.fork('groove')),
-      harmony,
-      variant,
-      ...(melody ? { melody } : {}),
-    };
+  constructor(plan: SectionPlan<'intro'>, ctx: BuildContext) {
+    super(plan);
+    this.material = ctx.material(this, (rng) => {
+      const { harmony, bars } = ctx.introBars();
+      const variant = rng.weightedKey(INTRO_TEXTURES);
+      let melody: Melody | undefined;
+      if (harmony === 'chorus') melody = ctx.hook().take(4);
+      else if (harmony === 'template' && rng.chance(INTRO.melodyChance))
+        melody = ctx.melody('riff', ctx.key, bars, rng.fork('melody'));
+      return {
+        ...ctx.band('intro', ctx.key, bars, INTRO_TEXTURES[variant].groove, rng.fork('groove')),
+        harmony,
+        variant,
+        ...(melody ? { melody } : {}),
+      };
+    });
   }
 
   play(ctx: PlayedScoreContext<'intro'>): Parts {

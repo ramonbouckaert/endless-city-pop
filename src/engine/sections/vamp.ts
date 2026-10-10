@@ -2,27 +2,26 @@
 // and hats alone at first, or throughout. When the vamp comes back, the
 // band is already going.
 
-import type { Rng } from '../../lib/random';
 import { RHYTHM, VAMP_ENTRIES } from '../../style';
 import { Part, rise } from '../score';
 import type { MaterialOf } from '../material';
-import type { Parts, PlayedScoreContext, WriteContext } from './context';
-import { SectionBase, type Placement } from './section';
+import type { SectionFields, SectionPlan } from '../plan';
+import type { Parts, PlayedScoreContext, BuildContext } from './context';
+import { Section } from './section';
 
-export class Vamp extends SectionBase<'vamp'> {
-  /** The opening vamp back: the band already going. */
+export class Vamp extends Section<'vamp'> implements Readonly<SectionFields['vamp']> {
   readonly returning: boolean;
+  readonly material: MaterialOf<'vamp'>;
 
-  constructor(bars: number, { returning, ...placement }: { returning: boolean } & Placement) {
-    super('vamp', bars, placement);
-    this.returning = returning;
-  }
-
-  protected compose(ctx: WriteContext, rng: Rng): MaterialOf<'vamp'> {
-    return {
-      ...ctx.band('vamp', ctx.key, ctx.vampBars(), RHYTHM.vamp, rng.fork('groove')),
-      variant: rng.weightedKey(VAMP_ENTRIES),
-    };
+  constructor(plan: SectionPlan<'vamp'>, ctx: BuildContext) {
+    super(plan);
+    this.returning = plan.returning;
+    this.material = ctx.material(this, (rng) => {
+      return {
+        ...ctx.band('vamp', ctx.key, ctx.vampBars(), RHYTHM.vamp, rng.fork('groove')),
+        variant: rng.weightedKey(VAMP_ENTRIES),
+      };
+    });
   }
 
   play(ctx: PlayedScoreContext<'vamp'>): Parts {

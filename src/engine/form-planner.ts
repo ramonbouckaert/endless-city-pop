@@ -4,8 +4,7 @@
 import type { Rng } from '../lib/random';
 import { FORM, MAX_SHIFT, OUTRO_STYLES, SECTION_TYPES, type Turnaround } from '../style';
 import { Form } from './form';
-import { Breakdown, Bridge, Chorus, DrumBreak, Finale, Intro, Lift, Outro, PreChorus, Riff, SoloSection, Vamp, Verse } from './sections';
-import type { Section } from './sections';
+import { planned, type SectionPlan } from './plan';
 
 export class FormPlanner {
   private readonly preBars: number;
@@ -20,42 +19,42 @@ export class FormPlanner {
     this.chorusBars = rng.chance(FORM.chorusTag) ? 10 : 8;
   }
 
-  plan(): Form {
+  plan(): Form<SectionPlan> {
     const opening = this.opening();
     const body = [...this.rounds(), ...this.middle()];
     const vamp = opening.find((s) => s.type === 'vamp');
     return new Form([...opening, ...(vamp ? this.vampReturn(body, vamp.bars) : body), ...this.ending()]);
   }
 
-  private opening(): Section[] {
+  private opening(): SectionPlan[] {
     const { rng } = this;
-    const s: Section[] = [new Intro(rng.pick(FORM.introBars))];
-    if (rng.chance(FORM.vamp.chance)) s.push(new Vamp(rng.pick(FORM.vamp.bars), { returning: false }));
+    const s: SectionPlan[] = [planned('intro', rng.pick(FORM.introBars))];
+    if (rng.chance(FORM.vamp.chance)) s.push(planned('vamp', rng.pick(FORM.vamp.bars), { returning: false }));
     return s;
   }
 
   // The body, perhaps with the opening vamp back once, after a section
   // that hands over to anything (not a verse, which leads on to its
   // pre-chorus or chorus).
-  private vampReturn(body: Section[], bars: number): Section[] {
+  private vampReturn(body: SectionPlan[], bars: number): SectionPlan[] {
     const { rng } = this;
     if (!rng.chance(FORM.vamp.returns)) return body;
     const spots = body.flatMap((s, i) => (SECTION_TYPES[s.type].handsOver ? [i + 1] : []));
     if (!spots.length) return body;
     const at = rng.pick(spots);
-    return [...body.slice(0, at), new Vamp(bars, { returning: true }), ...body.slice(at)];
+    return [...body.slice(0, at), planned('vamp', bars, { returning: true }), ...body.slice(at)];
   }
 
   // Verse / pre-chorus / chorus rounds.
-  private rounds(): Section[] {
+  private rounds(): SectionPlan[] {
     const { rng } = this;
     const riffChance = rng.pick(FORM.riffChance);
     return Array.from({ length: rng.weighted(FORM.rounds) }, (_, r) => {
       const later = r > 0;
-      const round: Section[] = [new Verse(rng.pick(FORM.verseBars), { later })];
-      if (this.preBars) round.push(new PreChorus(this.preBars, { later }));
-      round.push(new Chorus(this.chorusBars, { answer: later, big: false }));
-      if (rng.chance(riffChance)) round.push(new Riff(4));
+      const round: SectionPlan[] = [planned('verse', rng.pick(FORM.verseBars), { later })];
+      if (this.preBars) round.push(planned('pre', this.preBars, { later }));
+      round.push(planned('chorus', this.chorusBars, { answer: later, big: false }));
+      if (rng.chance(riffChance)) round.push(planned('riff', 4));
       return round;
     }).flat();
   }
@@ -63,37 +62,36 @@ export class FormPlanner {
   // A bridge and up to two solos, in either order, then perhaps a
   // breakdown, and perhaps a drum break into a solo or the last choruses.
   // Each solo is a part of its own, with its own soloist.
-  private middle(): Section[] {
+  private middle(): SectionPlan[] {
     const { rng } = this;
-    const parts: Section[][] = [];
-    if (rng.chance(FORM.bridgeChance)) parts.push([new Bridge(8)]);
+    const parts: SectionPlan[][] = [];
+    if (rng.chance(FORM.bridgeChance)) parts.push([planned('bridge', 8)]);
     const soloCount = rng.weighted(FORM.soloCount);
     if (soloCount) {
       const soloists = rng.shuffle(FORM.soloists);
       parts.push(
-        Array.from(
-          { length: soloCount },
-          (_, i) => new SoloSection(rng.pick(FORM.soloBars), { soloist: soloists[i], part: `solo:${i}` }),
+        Array.from({ length: soloCount }, (_, i) =>
+          planned('solo', rng.pick(FORM.soloBars), { soloist: soloists[i], part: `solo:${i}` }),
         ),
       );
     }
     const body = rng.shuffle(parts).flat();
     if (rng.chance(FORM.breakdown.chance)) {
-      body.push(new Breakdown(rng.pick(FORM.breakdown.bars)));
+      body.push(planned('breakdown', rng.pick(FORM.breakdown.bars)));
     }
     if (rng.chance(FORM.drumBreakChance)) {
       const spots = body.flatMap((x, i) => (x.type === 'solo' ? [i] : []));
-      body.splice(rng.pick([...spots, body.length]), 0, new DrumBreak(2));
+      body.splice(rng.pick([...spots, body.length]), 0, planned('drumBreak', 2));
     }
     return body;
   }
 
   // The last choruses, each perhaps lifted a key by a turnaround (a part
   // of its own), then the ending.
-  private ending(): Section[] {
+  private ending(): SectionPlan[] {
     const { rng } = this;
     const { lift } = FORM;
-    const s: Section[] = [];
+    const s: SectionPlan[] = [];
     let shift = 0;
     let lifts = 0;
     const finals = rng.weighted(FORM.finalChoruses);
@@ -103,16 +101,16 @@ export class FormPlanner {
         shift += step;
         const turnaround = rng.weightedKey(this.turnarounds);
         const bars = this.turnarounds[turnaround].bars.length;
-        s.push(new Lift(bars, { liftTo: shift, turnaround, part: `lift:${lifts++}` }));
+        s.push(planned('lift', bars, { liftTo: shift, turnaround, part: `lift:${lifts++}` }));
       }
       const big = i === finals - 1;
-      s.push(new Chorus(this.chorusBars, { answer: true, big, shift }));
+      s.push(planned('chorus', this.chorusBars, { answer: true, big, shift }));
     }
     if (rng.chance(FORM.outroChance)) {
       const variant = rng.weightedKey(OUTRO_STYLES);
-      s.push(new Outro(OUTRO_STYLES[variant].bars, { variant, shift }));
+      s.push(planned('outro', OUTRO_STYLES[variant].bars, { variant, shift }));
     }
-    s.push(new Finale(2, { shift }));
+    s.push(planned('finale', 2, { shift }));
     return s;
   }
 }

@@ -1,23 +1,24 @@
 // The hook over the chorus's first bars, on pads, keys coming in halfway.
 
-import type { Rng } from '../../lib/random';
 import { RHYTHM } from '../../style';
 import { COMP, spans } from '../figures';
 import type { MaterialOf } from '../material';
-import type { Parts, PlayedScoreContext, WriteContext } from './context';
-import { SectionBase, type Placement } from './section';
+import type { SectionPlan } from '../plan';
+import type { Parts, PlayedScoreContext, BuildContext } from './context';
+import { Section } from './section';
 
-export class Breakdown extends SectionBase<'breakdown'> {
-  constructor(bars: number, placement?: Placement) {
-    super('breakdown', bars, placement);
-  }
+export class Breakdown extends Section<'breakdown'> {
+  readonly material: MaterialOf<'breakdown'>;
 
-  protected compose(ctx: WriteContext, rng: Rng): MaterialOf<'breakdown'> {
-    const bars = ctx.chorusBars().slice(0, this.bars);
-    return {
-      ...ctx.band('breakdown', ctx.key, bars, RHYTHM.breakdown, rng.fork('groove')),
-      melody: ctx.hook().take(bars.length),
-    };
+  constructor(plan: SectionPlan<'breakdown'>, ctx: BuildContext) {
+    super(plan);
+    this.material = ctx.material(this, (rng) => {
+      const bars = ctx.chorusBars().slice(0, this.bars);
+      return {
+        ...ctx.band('breakdown', ctx.key, bars, RHYTHM.breakdown, rng.fork('groove')),
+        melody: ctx.hook().take(bars.length),
+      };
+    });
   }
 
   play(ctx: PlayedScoreContext<'breakdown'>): Parts {

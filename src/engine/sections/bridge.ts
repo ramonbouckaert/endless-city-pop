@@ -2,28 +2,32 @@
 // whatever follows), on an arpeggio and strings, the lead doubled high on
 // bells.
 
-import type { Rng } from '../../lib/random';
 import { ADVENTUROUS, RHYTHM, tonalityOf } from '../../style';
 import { Harmonizer } from '../harmony';
 import type { MaterialOf } from '../material';
-import type { Parts, PlayedScoreContext, WriteContext } from './context';
-import { SectionBase, type Placement } from './section';
+import type { SectionPlan } from '../plan';
+import type { Parts, PlayedScoreContext, BuildContext } from './context';
+import { Section } from './section';
 
-export class Bridge extends SectionBase<'bridge'> {
-  constructor(bars: number, placement?: Placement) {
-    super('bridge', bars, placement);
-  }
+export class Bridge extends Section<'bridge'> {
+  readonly material: MaterialOf<'bridge'>;
 
-  protected compose(ctx: WriteContext, rng: Rng): MaterialOf<'bridge'> {
-    const key = new Harmonizer(ctx.key, rng.fork('key')).bridgeKey(ADVENTUROUS);
-    const templates = tonalityOf(key.mode).templatesFor('bridge');
-    const body = ctx.progress(rng.pick(templates), 6, rng.fork('harmony'), key);
-    const cadence = new Harmonizer(ctx.key.transpose(ctx.form.after(this)?.shift ?? 0), rng.fork('cadence')).approach();
-    const bars = [...body, ...cadence];
-    return {
-      ...ctx.band('bridge', key, bars, RHYTHM.bridge, rng.fork('groove')),
-      melody: ctx.melody('bridge', key, bars, rng.fork('melody')),
-    };
+  constructor(plan: SectionPlan<'bridge'>, ctx: BuildContext) {
+    super(plan);
+    this.material = ctx.material(this, (rng) => {
+      const key = new Harmonizer(ctx.key, rng.fork('key')).bridgeKey(ADVENTUROUS);
+      const templates = tonalityOf(key.mode).templatesFor('bridge');
+      const body = ctx.progress(rng.pick(templates), 6, rng.fork('harmony'), key);
+      const cadence = new Harmonizer(
+        ctx.key.transpose(ctx.plan.after(plan)?.shift ?? 0),
+        rng.fork('cadence'),
+      ).approach();
+      const bars = [...body, ...cadence];
+      return {
+        ...ctx.band('bridge', key, bars, RHYTHM.bridge, rng.fork('groove')),
+        melody: ctx.melody('bridge', key, bars, rng.fork('melody')),
+      };
+    });
   }
 
   play(ctx: PlayedScoreContext<'bridge'>): Parts {

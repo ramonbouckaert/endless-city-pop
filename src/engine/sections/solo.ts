@@ -2,33 +2,32 @@
 // over the band, a later one never over what the one before had (a bossa
 // comp, perhaps).
 
-import type { Rng } from '../../lib/random';
 import { SOLO_COMPS } from '../../style';
 import { COMP, spans } from '../figures';
 import { SoloWriter } from '../melody';
 import { SoloChangesWriter } from '../solo-changes';
 import type { MaterialOf } from '../material';
-import type { Parts, PlayedScoreContext, WriteContext } from './context';
-import { SectionBase, type Placement } from './section';
+import type { SectionFields, SectionPlan } from '../plan';
+import type { Parts, PlayedScoreContext, BuildContext } from './context';
+import { Section } from './section';
 
-export class SoloSection extends SectionBase<'solo'> {
-  /** Its soloist, as an index into the song's soloists. */
+export class SoloSection extends Section<'solo'> implements Readonly<SectionFields['solo']> {
   readonly soloist: number;
+  readonly material: MaterialOf<'solo'>;
 
-  constructor(bars: number, { soloist, ...placement }: { soloist: number } & Placement) {
-    super('solo', bars, placement);
-    this.soloist = soloist;
-  }
-
-  protected compose(ctx: WriteContext, rng: Rng): MaterialOf<'solo'> {
-    const before = ctx.form.previous(this);
-    const variant = before ? rng.weightedKey(SOLO_COMPS, ctx.written(before).material.variant) : 'band';
-    const bars = new SoloChangesWriter(ctx.key, rng.fork('changes')).write(this.bars);
-    return {
-      ...ctx.band('solo', ctx.key, bars, SOLO_COMPS[variant].groove, rng.fork('groove')),
-      variant,
-      solo: new SoloWriter(rng.fork('line')).write(bars),
-    };
+  constructor(plan: SectionPlan<'solo'>, ctx: BuildContext) {
+    super(plan);
+    this.soloist = plan.soloist;
+    this.material = ctx.material(this, (rng) => {
+      const before = ctx.plan.previous(plan);
+      const variant = before ? rng.weightedKey(SOLO_COMPS, ctx.section(before).material.variant) : 'band';
+      const bars = new SoloChangesWriter(ctx.key, rng.fork('changes')).write(this.bars);
+      return {
+        ...ctx.band('solo', ctx.key, bars, SOLO_COMPS[variant].groove, rng.fork('groove')),
+        variant,
+        solo: new SoloWriter(rng.fork('line')).write(bars),
+      };
+    });
   }
 
   play(ctx: PlayedScoreContext<'solo'>): Parts {

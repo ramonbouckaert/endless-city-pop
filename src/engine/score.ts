@@ -7,14 +7,11 @@ import type { PartPath } from './orchestration';
 import type { SectionType } from '../style';
 import type { Bar, Chord } from '../theory';
 
-/** Effects on a note: MIDI carries pan, reverb (room) and the filter (lpf); not delay or hpf. */
+/** Effects on a note, as MIDI carries them: pan, reverb (room) and the filter (lpf). */
 export interface Controls {
   readonly room?: number;
   readonly pan?: number;
-  readonly delay?: number;
-  readonly delaytime?: number;
   readonly lpf?: number;
-  readonly hpf?: number;
 }
 
 /** A note that starts `semis` off its pitch (negative: below) and slides onto it over `seconds`. */
@@ -48,7 +45,7 @@ export const scoreNote = (
 ): ScoreNote => ({ velocity: 1, postgain: 1, clip: 1, controls: {}, ...n });
 
 /** A value, or one that changes through a section: given a note's time in bars from the section's start. */
-export type Ramp = number | ((time: number) => number);
+type Ramp = number | ((time: number) => number);
 
 const at = (ramp: Ramp, time: number): number => (typeof ramp === 'number' ? ramp : ramp(time));
 
@@ -77,8 +74,6 @@ export const within = (spans: readonly Span[]) => (time: number) =>
 /** Some notes of a section, and what can be done to them. Each change gives a new Part. */
 export class Part {
   constructor(readonly notes: readonly ScoreNote[]) {}
-
-  static readonly none = new Part([]);
 
   /** Parts played together (falsy ones left out). */
   static stack(...parts: readonly (Part | null | false | undefined)[]): Part {
@@ -130,11 +125,6 @@ export class Part {
     return this.map((n) => ({ ...n, time: n.time + bars }));
   }
 
-  /** Every note `factor` times as slow: later and longer. */
-  slow(factor: number): Part {
-    return this.map((n) => ({ ...n, time: n.time * factor, dur: n.dur * factor }));
-  }
-
   room(value: number): Part {
     return this.control({ room: value });
   }
@@ -147,21 +137,13 @@ export class Part {
     return this.map((n) => ({ ...n, controls: { ...n.controls, lpf: at(ramp, n.time) } }));
   }
 
-  hpf(value: number): Part {
-    return this.control({ hpf: value });
-  }
-
-  delay(value: number, time: number): Part {
-    return this.control({ delay: value, delaytime: time });
-  }
-
   private control(controls: Controls): Part {
     return this.map((n) => ({ ...n, controls: { ...n.controls, ...controls } }));
   }
 }
 
 /** A chord sounding over a span. */
-export interface ChordSpan extends Span {
+interface ChordSpan extends Span {
   readonly chord: Chord;
 }
 
