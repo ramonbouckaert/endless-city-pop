@@ -2,11 +2,10 @@
 // recipe (in sections/), shifted into its key, swung, and placed at the
 // bar it starts on.
 
-import { Rng } from '../lib/random';
+import { Rng } from '../../lib/random';
 import { ScoreBand } from './band';
-import type { Instruments } from './orchestration';
+import type { Instruments, Song } from '../song';
 import { Part, type Score, type ScoreNote } from './score';
-import type { Song } from './song';
 
 export class ScoreArranger {
   /** `instruments`: to play the song with in place of its own. */

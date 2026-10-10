@@ -4,7 +4,7 @@
 // Strong beats land on chord tones; weak beats move by step. (Solos are
 // in solo-line.ts.)
 
-import type { Rng } from '../lib/random';
+import type { Rng } from '../../lib/random';
 import {
   ANSWER,
   CADENCE_WEIGHTS,
@@ -17,8 +17,8 @@ import {
   type PhraseForm,
   type PhraseFormDef,
   type ShapeName,
-} from '../style';
-import { chordAt, type Bar, type Key } from '../theory';
+} from '../../style';
+import { chordAt, type Bar, type Key } from '../../theory';
 import { Line, type Note } from './line';
 
 export interface MelodyNote extends Note {

@@ -3,8 +3,8 @@
 // next, how often a part has played). The planner writes a form of
 // plans; the sections are built from it, into a form of sections.
 
-import type { Plan, PlanOf } from './plan';
-import type { AnySection, Section, SectionKind } from './sections';
+import type { AnySection } from './index';
+import type { Plan, PlanOf, Section, SectionKind } from './section';
 
 /** Where the playhead is: the section, and how far through it (0..1). */
 export interface Playhead {

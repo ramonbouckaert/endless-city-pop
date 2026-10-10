@@ -2,14 +2,11 @@
 // over a vamp.
 
 import { FORM, OUTRO_STYLES, type OutroStyle } from '../../style';
-import type { PlayedMaterial } from '../material';
-import type { Melody } from '../melody';
-import type { Plan } from '../plan';
-import { SoloWriter, type Solo } from '../solo-line';
+import { SoloWriter, type Melody, type Solo } from '../writers';
 import type { BuildContext } from './build-context';
 import { Intro } from './intro';
 import type { Parts, PlayedScoreContext } from './score-context';
-import { PlayedSection } from './section';
+import { PlayedSection, type Plan, type PlayedMaterial } from './section';
 import { SoloSection } from './solo';
 import { Vamp } from './vamp';
 

@@ -1,25 +1,26 @@
 // Plans a song's form: the ordered sections, their lengths, and what
 // each repeat changes. The odds are in style/form.ts.
 
-import type { Rng } from '../lib/random';
-import { FORM, MAX_SHIFT, OUTRO_STYLES, type Turnaround } from '../style';
-import { Form } from './form';
-import { planned, type Plan } from './plan';
+import type { Rng } from '../../lib/random';
+import { FORM, MAX_SHIFT, OUTRO_STYLES, type Turnaround } from '../../style';
 import {
   Breakdown,
   Bridge,
   Chorus,
   DrumBreak,
   Finale,
+  Form,
   Intro,
   Lift,
   Outro,
+  planned,
   PreChorus,
   Riff,
   SoloSection,
   Vamp,
   Verse,
-} from './sections';
+  type Plan,
+} from '../sections';
 
 export class FormPlanner {
   private readonly preBars: number;

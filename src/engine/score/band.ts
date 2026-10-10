@@ -1,13 +1,12 @@
 // The instruments, as a score plays them: a song's sounds on lines of
 // pitches and on chords, each part at its level in the mix.
 
-import { PERCUSSION, type Percussion } from '../lib/general-midi';
-import type { Rng } from '../lib/random';
-import { COMP, FIGURES, MIX, RHYTHMS, type Figure, type Level, type MixName } from '../style';
-import { BASS_LOW, voice, voicingNote, type Chord } from '../theory';
-import { spans, timed } from './figures';
-import type { Instruments, SoundPath } from './orchestration';
-import { Part, scoreNote, type Changes, type NoteSpec, type Span } from './score';
+import { PERCUSSION, type Percussion } from '../../lib/general-midi';
+import type { Rng } from '../../lib/random';
+import { COMP, FIGURES, MIX, RHYTHMS, type Figure, type Level, type MixName } from '../../style';
+import { BASS_LOW, voice, voicingNote, type Chord } from '../../theory';
+import type { Instruments, SoundPath } from '../song';
+import { Part, scoreNote, spans, timed, type Changes, type NoteSpec, type Span } from './score';
 
 /** A part that plays lines, at a gain (before its sound's trim). */
 export interface LineVoice {

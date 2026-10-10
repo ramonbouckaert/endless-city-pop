@@ -1,13 +1,21 @@
 // A section of a song's form. Each kind is a class (one per file here):
 // what it is (its id, name and how it hands over, as statics), what the
-// form decides for it (its length, its part, its shift, and its own
-// fields: a chorus's answer and big, a solo's soloist, ...), its part's
-// material, written as it is built from its plan, and how it is played,
-// as notes.
+// form decides for it (its plan: its length, its part, its shift, and its
+// own fields: a chorus's answer and big, a solo's soloist, ...), its
+// part's material, written as it is built from its plan, and how it is
+// played, as notes.
+//
+// What a part plays: every kind of section has its own material, declared
+// with its class (VerseMaterial, ...), so writers and recipes can rely on
+// what's there: a section the band plays through has at least
+// PlayedMaterial's. A kind with variants (style/variants.ts) has the one
+// it plays as `variant` (an outro's is its section's, as it sets its
+// length). Material is in the song's key (a bridge's in its own): a
+// section after a key change plays it shifted up (Section.shift).
 
-import type { ScoreBand } from '../band';
-import type { PlayedMaterial } from '../material';
-import type { Plan } from '../plan';
+import type { Bar, Key } from '../../theory';
+import type { ScoreBand } from '../score';
+import type { BassLine, Drums } from '../writers';
 import type { BuildContext } from './build-context';
 import { PlayedScoreContext, type Parts } from './score-context';
 
@@ -22,6 +30,44 @@ export interface SectionKind<S extends Section = Section> {
   readonly short: string;
   /** Whether it hands over to anything (so the opening vamp may come back after it). */
   readonly handsOver: boolean;
+}
+
+// Sections with the same `part` play the same material (every chorus the
+// same chords and hook); a section longer than its material loops it.
+// `shift`: semitones up, after a key change (a lift's: the key it lifts to).
+export interface PlanBase {
+  /** Its section's class. */
+  readonly kind: SectionKind;
+  readonly bars: number;
+  readonly part: string;
+  readonly shift: number;
+}
+
+/** One section of a form's plan, with its kind's own fields (`F`, each class's own, documented there). */
+export type Plan<F extends object = object> = PlanBase & Readonly<F>;
+
+/** A plan of a kind of section: what its class is built from. */
+export type PlanOf<K extends SectionKind> = ConstructorParameters<K>[0];
+
+/** A kind's own fields in its plan. */
+type FieldsOf<K extends SectionKind> = Omit<PlanOf<K>, keyof PlanBase>;
+type Fields<K extends SectionKind> = FieldsOf<K> & { part?: string; shift?: number };
+
+/** A section of a kind in a plan: its kind's own part (unless given) and unshifted (unless given). */
+export function planned<K extends SectionKind>(
+  kind: K,
+  bars: number,
+  ...[fields]: {} extends FieldsOf<K> ? [Fields<K>?] : [Fields<K>]
+): PlanOf<K> {
+  return { kind, bars, part: kind.id, shift: 0, ...fields } as PlanOf<K>;
+}
+
+/** What a section the band plays through has: its chords in a key, groove and bass line. */
+export interface PlayedMaterial {
+  key: Key;
+  bars: Bar[];
+  drums: Drums;
+  bass: BassLine;
 }
 
 /**

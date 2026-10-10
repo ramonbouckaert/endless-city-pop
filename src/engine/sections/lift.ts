@@ -4,13 +4,11 @@
 
 import { FIGURES, GROOVES, LIFT_STYLES, RHYTHMS, type LiftStyle } from '../../style';
 import type { Chord } from '../../theory';
-import { lastBar, spans, timed } from '../figures';
-import { Harmonizer } from '../harmony';
-import type { PlayedMaterial } from '../material';
-import type { Plan } from '../plan';
+import { Harmonizer } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
-import { PlayedSection } from './section';
+import { PlayedSection, type Plan, type PlayedMaterial } from './section';
+import { lastBar, spans, timed } from '../score';
 
 export interface LiftFields {
   /** The turnaround it takes into its key (a name in the tonality's). */

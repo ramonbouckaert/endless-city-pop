@@ -3,12 +3,10 @@
 // band is already going.
 
 import { GROOVES, VAMP_ENTRIES, type VampEntry } from '../../style';
-import type { PlayedMaterial } from '../material';
-import type { Plan } from '../plan';
 import { rise } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
-import { PlayedSection } from './section';
+import { PlayedSection, type Plan, type PlayedMaterial } from './section';
 
 export interface VampFields {
   /** The opening vamp back: the band already going. */

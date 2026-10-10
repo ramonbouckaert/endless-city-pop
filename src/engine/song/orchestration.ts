@@ -1,9 +1,9 @@
 // Which sounds play a song: a sound for each part of the band, the
 // melody voices, and a drum kit, all picked per song from style/instruments.
 
-import type { Program } from '../lib/general-midi';
-import type { Rng } from '../lib/random';
-import { BAND, KITS, PICKS, SOUND_LEVELS, VOICES, type BandPart, type Kit, type PickedPart } from '../style';
+import type { Program } from '../../lib/general-midi';
+import type { Rng } from '../../lib/random';
+import { BAND, KITS, PICKS, SOUND_LEVELS, VOICES, type BandPart, type Kit, type PickedPart } from '../../style';
 
 /** The band's instruments, as General MIDI programs. */
 export type Sounds = Readonly<Record<BandPart, Program>> & {

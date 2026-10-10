@@ -12,8 +12,8 @@ import {
   Song,
   Vamp,
   Verse,
+  type Grace,
 } from '../src/engine';
-import type { Grace } from '../src/engine/solo-line';
 import {
   FINALE_STYLES,
   INTRO,

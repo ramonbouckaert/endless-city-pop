@@ -5,8 +5,7 @@
 
 import type { Rng } from '../../lib/random';
 import type { Key } from '../../theory';
-import type { Form } from '../form';
-import type { Plan } from '../plan';
+import type { Form } from './form';
 import { BuildContext } from './build-context';
 import { Breakdown } from './breakdown';
 import { Bridge } from './bridge';
@@ -18,12 +17,13 @@ import { Lift } from './lift';
 import { Outro } from './outro';
 import { PreChorus } from './pre';
 import { Riff } from './riff';
+import type { Plan } from './section';
 import { SoloSection } from './solo';
 import { Vamp } from './vamp';
 import { Verse } from './verse';
 
 /** Every kind of section. */
-export const KINDS = [
+const KINDS = [
   Intro,
   Vamp,
   Verse,
@@ -50,6 +50,5 @@ export function buildForm(plan: Form<Plan>, key: Key, rng: Rng): Form {
 }
 
 export { Breakdown, Bridge, Chorus, DrumBreak, Finale, Intro, Lift, Outro, PreChorus, Riff, SoloSection, Vamp, Verse };
-export type { BuildContext } from './build-context';
-export type { Parts } from './score-context';
-export type { Section, SectionKind } from './section';
+export { Form, type Playhead } from './form';
+export { planned, type Plan, type SectionKind } from './section';

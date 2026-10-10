@@ -5,9 +5,17 @@
 // groove follows the changes, and a bar's last note can approach the
 // next chord's root.
 
-import type { Odds, Rng } from '../lib/random';
-import { BASS, BASS_DEGREES, BASS_FEELS, BASS_NOTES, type BassFeel, type BassFeelDef, type BassToken } from '../style';
-import { BASS_LOW, type Bar, type Chord, type Degree, type Key } from '../theory';
+import type { Odds, Rng } from '../../lib/random';
+import {
+  BASS,
+  BASS_DEGREES,
+  BASS_FEELS,
+  BASS_NOTES,
+  type BassFeel,
+  type BassFeelDef,
+  type BassToken,
+} from '../../style';
+import { BASS_LOW, type Bar, type Chord, type Degree, type Key } from '../../theory';
 import { Line, type Note } from './line';
 
 /** A note in the chord-scale of the chord it sounds over (the bar's last, for an approach note). */

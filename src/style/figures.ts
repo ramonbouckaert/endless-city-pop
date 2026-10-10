@@ -1,7 +1,7 @@
 // Fixed rhythms and figures the arrangement plays, as data: for each
 // bar, its hits on a sixteenth-note grid, [step, length in steps], and
 // for a figure a value on each: an index into a chord's voicing or a
-// scale degree. engine/figures.ts places them in time.
+// scale degree. engine/score/score.ts places them in time.
 
 /** A rhythm: for each bar, its hits on a sixteenth-note grid, [step, length in steps]. It loops. */
 export type Rhythm = readonly (readonly (readonly [step: number, len: number])[])[];

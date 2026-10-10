@@ -3,9 +3,18 @@
 // key's mode decides its tonality (TONALITIES): its tonic chord, how it
 // cadences, where its bridges go and how it lifts.
 
-import type { Rng } from '../lib/random';
-import { PALETTE, PLANING_STARTS, REHARM, tonalityOf, type PaletteName, type Tonality } from '../style';
-import { Chord, Key, parseChordSpec, reshape, Template, type Bar, type ChordSpec, type Roman } from '../theory';
+import type { Rng } from '../../lib/random';
+import {
+  PALETTE,
+  PLANING_STARTS,
+  REHARM,
+  SOLO_CHANGES,
+  tonalityOf,
+  TONIC_CHORDS,
+  type PaletteName,
+  type Tonality,
+} from '../../style';
+import { Chord, Key, parseChordSpec, reshape, Template, type Bar, type ChordSpec, type Roman } from '../../theory';
 
 /** Writes harmony in a key, drawing on one random stream. */
 export class Harmonizer {
@@ -146,5 +155,66 @@ export class Harmonizer {
   // The bars, with chord-scales fitted in this key.
   private scaled(bars: Bar[]): Bar[] {
     return reshape(Chord.fitScales(bars.flat(), this.key), bars);
+  }
+}
+
+// Solo changes, in eights that each end with the cadence home: the
+// mode's pairs moving through keys, a stretch on the home tonic first, or
+// one of its vamps (Tonality.solo). Reharmonised like any section; each
+// chord's scale is the one it has in the key of its bar (a pair's own
+// key, or home).
+
+// Bars, each with the key its chord-scales come from.
+interface Keyed {
+  bars: Bar[];
+  key: Key;
+}
+
+export class SoloChangesWriter {
+  private readonly harmony: Harmonizer;
+
+  constructor(
+    private readonly key: Key,
+    private readonly rng: Rng,
+  ) {
+    this.harmony = new Harmonizer(key, rng.fork('harmony'));
+  }
+
+  /** Changes `bars` long. */
+  write(bars: number): Bar[] {
+    const keyed = Array.from({ length: Math.ceil(bars / 8) }, () => this.eight()).flat();
+    const out = keyed.flatMap((k) => k.bars);
+    const keys = keyed.flatMap((k) => k.bars.map(() => k.key));
+    const changes = this.harmony.reharmonize(out);
+    return changes.map((bar, b) =>
+      bar.map((chord, i) =>
+        chord.withScale(chord.fitScale(keys[b], bar[i + 1] ?? changes[(b + 1) % changes.length][0])),
+      ),
+    );
+  }
+
+  // Eight bars: a shape's lead-in, then the cadence home.
+  private eight(): Keyed[] {
+    const { harmony, rng, key: home } = this;
+    const { solo, templates, tonic } = harmony.tonality;
+    const shape = rng.weighted(solo.shapes);
+    let lead: Keyed[];
+    if (shape === 'cycle') lead = this.pairs(3);
+    else if (shape === 'home')
+      lead = [{ bars: harmony.realize(new Template(TONIC_CHORDS[tonic]).fit(2)), key: home }, ...this.pairs(2)];
+    else lead = [{ bars: harmony.realize(new Template(rng.pick(templates.vamp)).fit(6)), key: home }];
+    return [...lead, { bars: harmony.approach(), key: home }];
+  }
+
+  // `n` of the mode's pairs, each in a key a step on from the one before.
+  private pairs(n: number): Keyed[] {
+    const { harmony, rng, key: home } = this;
+    const { solo } = harmony.tonality;
+    const step = rng.weighted(solo.steps ?? SOLO_CHANGES.steps);
+    const start = home.tonic + rng.pick(SOLO_CHANGES.starts);
+    return Array.from({ length: n }, (_, p) => {
+      const key = home.transpose(start - home.tonic + p * step);
+      return { bars: harmony.into(solo.pair, key), key };
+    });
   }
 }

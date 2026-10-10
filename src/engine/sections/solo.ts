@@ -3,14 +3,11 @@
 // comp, perhaps).
 
 import { COMP, SOLO_COMPS, type SoloComp } from '../../style';
-import { spans } from '../figures';
-import type { PlayedMaterial } from '../material';
-import type { Plan } from '../plan';
-import { SoloChangesWriter } from '../solo-changes';
-import { SoloWriter, type Solo } from '../solo-line';
+import { SoloChangesWriter, SoloWriter, type Solo } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
-import { PlayedSection } from './section';
+import { PlayedSection, type Plan, type PlayedMaterial } from './section';
+import { spans } from '../score';
 
 export interface SoloFields {
   /** Its soloist, as an index into the song's soloists. */

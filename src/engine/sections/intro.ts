@@ -2,13 +2,11 @@
 // or perhaps a riff of its own; the teaser (if any) on bells over the top.
 
 import { INTRO, INTRO_TEXTURES, MELODIES, type IntroHarmony, type IntroTexture } from '../../style';
-import type { PlayedMaterial } from '../material';
-import type { Melody } from '../melody';
-import type { Plan } from '../plan';
+import type { Melody } from '../writers';
 import type { Part } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
-import { PlayedSection } from './section';
+import { PlayedSection, type Plan, type PlayedMaterial } from './section';
 
 export interface IntroMaterial extends PlayedMaterial {
   harmony: IntroHarmony;

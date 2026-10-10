@@ -6,14 +6,22 @@
 import { lazy } from '../../lib/lazy';
 import { DOUBLE_TOP, FIGURES, MIX, RHYTHMS, RISER, type DrumRole, type Rhythm } from '../../style';
 import type { Chord, Key } from '../../theory';
-import type { ScoreBand } from '../band';
-import { drumNotes } from '../drums';
-import { lastBar, spans, timed, type Timed } from '../figures';
-import type { PlayedMaterial } from '../material';
-import type { Melody } from '../melody';
-import type { Solo } from '../solo-line';
-import { Changes, onChord, Part, rise, scoreNote, within, type NoteSpec } from '../score';
-import type { PlayedSection, Section } from './section';
+import {
+  Changes,
+  lastBar,
+  onChord,
+  Part,
+  rise,
+  scoreNote,
+  spans,
+  timed,
+  within,
+  type NoteSpec,
+  type ScoreBand,
+  type Timed,
+} from '../score';
+import { drumNotes, type Melody, type Solo } from '../writers';
+import type { PlayedMaterial, PlayedSection, Section } from './section';
 
 /**
  * A section's parts (falsy ones left out), drums first. The arranger

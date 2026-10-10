@@ -2,12 +2,11 @@
 
 import { DRUM_BREAK } from '../../style';
 import type { Chord } from '../../theory';
-import type { ScoreBand } from '../band';
-import { DrumWriter, drumNotes, type Drums } from '../drums';
-import type { Plan } from '../plan';
+import type { ScoreBand } from '../score';
+import { drumNotes, DrumWriter, type Drums } from '../writers';
 import type { BuildContext } from './build-context';
 import { ScoreContext, type Parts } from './score-context';
-import { Section } from './section';
+import { Section, type Plan } from './section';
 
 // Drums alone, then a bass pickup into `into`, the next section's first
 // chord, played `shift` semitones up (that section's shift).

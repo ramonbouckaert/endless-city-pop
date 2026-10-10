@@ -4,26 +4,26 @@
 // part's material from it.
 
 import { lazy } from '../../lib/lazy';
-import type { Rng } from '../../lib/random';
+import type { Odds, Rng } from '../../lib/random';
 import {
+  BASS_WITH,
   INTRO,
   MELODIES,
   tonalityOf,
+  type BassFeel,
+  type DrumFeel,
   type GroovePlan,
   type IntroHarmony,
   type MelodyStyle,
   type Tonality,
 } from '../../style';
 import { Template, type Bar, type Chord, type Key } from '../../theory';
-import { Form } from '../form';
-import { GrooveWriter } from '../groove';
-import { Harmonizer } from '../harmony';
-import { MelodyWriter, type Melody } from '../melody';
-import type { Plan } from '../plan';
+import { BassWriter, DrumWriter, Harmonizer, MelodyWriter, type Melody } from '../writers';
+import { Form } from './form';
 import { Chorus } from './chorus';
 import { Intro } from './intro';
 import type { AnySection, Material } from './index';
-import type { Section, SectionKind } from './section';
+import type { Plan, PlayedMaterial, Section, SectionKind } from './section';
 import { Vamp } from './vamp';
 
 export class BuildContext {
@@ -124,9 +124,11 @@ export class BuildContext {
     return new MelodyWriter(key, style, rng).write(bars);
   }
 
-  /** A section's chords in a key, with drums and a bass line to play them. */
-  band(key: Key, bars: Bar[], plan: GroovePlan, rng: Rng) {
-    return { key, bars, ...new GrooveWriter(plan, key, rng).write(bars) };
+  /** A section's chords in a key, with drums from its plan and a bass line in a feel that sits with them. */
+  band(key: Key, bars: Bar[], plan: GroovePlan, rng: Rng): PlayedMaterial {
+    const drums = new DrumWriter(plan.drums, rng.fork('drums')).write();
+    const bass = new BassWriter(bassFeels(plan.bass, drums.feel), key, rng.fork('bass')).write(bars);
+    return { key, bars, drums, bass };
   }
 
   /** The chorus's chords (the intro's and breakdown's too): eight bars, and a tag if the chorus runs longer. */
@@ -153,4 +155,13 @@ export class BuildContext {
     if (harmony === 'planing') return { harmony, bars: new Harmonizer(this.key, rng.fork('planing')).planing() };
     return { harmony, bars: this.progress(rng.pick(this.tonality.templates.intro), 4, rng.fork('harmony')) };
   });
+}
+
+// A quiet drum feel limits the bass to feels that suit it (any of them,
+// if none of the plan's does).
+function bassFeels(feels: Odds<BassFeel>, drums: DrumFeel): Odds<BassFeel> {
+  const fits = BASS_WITH[drums];
+  if (!fits) return feels;
+  const matching = Object.entries(feels).filter(([f]) => fits.includes(f as BassFeel));
+  return Object.fromEntries(matching.length ? matching : fits.map((f) => [f, 1]));
 }

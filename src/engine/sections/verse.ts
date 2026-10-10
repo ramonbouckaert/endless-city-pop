@@ -1,12 +1,10 @@
 // Keys, clavinet and the lead; later verses add rhythm guitar and a pad.
 
 import { GROOVES, MELODIES } from '../../style';
-import type { PlayedMaterial } from '../material';
-import type { Melody } from '../melody';
-import type { Plan } from '../plan';
+import type { Melody } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
-import { PlayedSection } from './section';
+import { PlayedSection, type Plan, type PlayedMaterial } from './section';
 
 export interface VerseFields {
   /** A later round adds a layer. */

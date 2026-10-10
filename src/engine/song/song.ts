@@ -2,12 +2,9 @@
 // part's material), the sounds that play it, and a title. ScoreArranger
 // turns one into timed notes.
 
-import { Rng } from '../lib/random';
-import { SONG, TONALITIES } from '../style';
-import { Key } from '../theory';
-import type { Form } from './form';
-import { FormPlanner } from './form-planner';
-import { Instruments } from './orchestration';
+import { Rng } from '../../lib/random';
+import { SONG, TONALITIES } from '../../style';
+import { Key } from '../../theory';
 import {
   Bridge,
   buildForm,
@@ -18,8 +15,11 @@ import {
   PreChorus,
   SoloSection,
   Verse,
+  type Form,
   type SectionKind,
-} from './sections';
+} from '../sections';
+import { FormPlanner } from './form-planner';
+import { Instruments } from './orchestration';
 import { formatTitle, TitleWriter, type TitleParts } from './title';
 
 export interface SongData {

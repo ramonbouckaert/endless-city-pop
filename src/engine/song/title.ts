@@ -5,9 +5,9 @@
 // Ｄｒｉｖｅ). Some titles give the Japanese in romaji instead of the
 // English (Mayonaka no Doraibu, Middonaito Doraibu), without diacritics.
 
-import type { Rng } from '../lib/random';
-import { romanise } from '../lib/romaji';
-import { TITLE_ROMAJI, TITLE_WORDS, type TitleWord } from '../style';
+import type { Rng } from '../../lib/random';
+import { romanise } from '../../lib/romaji';
+import { TITLE_ROMAJI, TITLE_WORDS, type TitleWord } from '../../style';
 
 /** A title's two halves (one Japanese, one English or romaji), how they join, and whether the English is romaji. */
 export interface TitleParts {

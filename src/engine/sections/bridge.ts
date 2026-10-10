@@ -3,13 +3,10 @@
 // lift's to make.)
 
 import { ADVENTUROUS, GROOVES, MELODIES, tonalityOf } from '../../style';
-import { Harmonizer } from '../harmony';
-import type { PlayedMaterial } from '../material';
-import type { Melody } from '../melody';
-import type { Plan } from '../plan';
+import { Harmonizer, type Melody } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
-import { PlayedSection } from './section';
+import { PlayedSection, type Plan, type PlayedMaterial } from './section';
 
 export interface BridgeMaterial extends PlayedMaterial {
   melody: Melody;

@@ -1,5 +1,5 @@
-import { loopBars } from '../lib/steps';
-import type { NoteSpec } from './score';
+import { loopBars } from '../../lib/steps';
+import type { NoteSpec } from '../score';
 
 /** A note on a bar's sixteenths: the one it starts on and how many it lasts. */
 export interface Note {

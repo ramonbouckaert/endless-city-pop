@@ -1,12 +1,10 @@
 // A loop of the key's riff chords, the riff on horns harmonised a third below.
 
 import { GROOVES, MELODIES } from '../../style';
-import type { PlayedMaterial } from '../material';
-import type { Melody } from '../melody';
-import type { Plan } from '../plan';
+import type { Melody } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
-import { PlayedSection } from './section';
+import { PlayedSection, type Plan, type PlayedMaterial } from './section';
 
 export interface RiffMaterial extends PlayedMaterial {
   melody: Melody;

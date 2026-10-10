@@ -1,13 +1,11 @@
 // The hook over the chorus's first bars, on pads, keys coming in halfway.
 
 import { COMP, GROOVES } from '../../style';
-import { spans } from '../figures';
-import type { PlayedMaterial } from '../material';
-import type { Melody } from '../melody';
-import type { Plan } from '../plan';
+import type { Melody } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
-import { PlayedSection } from './section';
+import { PlayedSection, type Plan, type PlayedMaterial } from './section';
+import { spans } from '../score';
 
 export interface BreakdownMaterial extends PlayedMaterial {
   melody: Melody;

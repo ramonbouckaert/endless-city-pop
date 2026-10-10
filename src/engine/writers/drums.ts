@@ -10,9 +10,9 @@
 // each repeat). The fill replaces the kick and snare from where it
 // starts, or everything for a stop.
 
-import { PERCUSSION, type Percussion } from '../lib/general-midi';
-import type { Rng } from '../lib/random';
-import { at, empty, loopBars, steps, type StepGains } from '../lib/steps';
+import { PERCUSSION, type Percussion } from '../../lib/general-midi';
+import type { Rng } from '../../lib/random';
+import { at, empty, loopBars, steps, type StepGains } from '../../lib/steps';
 import {
   BACKBEATS,
   DRUM_FEELS,
@@ -25,9 +25,8 @@ import {
   type DrumRole,
   type DrumStep,
   type FillKind,
-} from '../style';
-import type { ScoreBand } from './band';
-import { Part } from './score';
+} from '../../style';
+import { Part, type ScoreBand } from '../score';
 
 export interface DrumPart {
   drum: Percussion;

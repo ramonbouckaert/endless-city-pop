@@ -3,13 +3,10 @@
 import { PERCUSSION } from '../../lib/general-midi';
 import { FIGURES, FINALE_DEGREES, FINALE_HITS, FINALE_STYLES, type FinaleStyle } from '../../style';
 import { Chord } from '../../theory';
-import type { ScoreBand } from '../band';
-import { spans, timed } from '../figures';
-import { Changes, onChord, rise, type NoteSpec, type Span } from '../score';
-import type { Plan } from '../plan';
+import { Changes, onChord, rise, spans, timed, type NoteSpec, type ScoreBand, type Span } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts } from './score-context';
-import { Section } from './section';
+import { Section, type Plan } from './section';
 
 // The last chord, rung out.
 export interface FinaleMaterial {

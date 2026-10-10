@@ -3,14 +3,11 @@
 // flavour's texture. Later rounds add a layer.
 
 import { PRE_FLAVOURS, RHYTHMS, type PreFlavour } from '../../style';
-import { spans } from '../figures';
-import type { PlayedMaterial } from '../material';
-import type { Melody } from '../melody';
-import type { Plan } from '../plan';
-import { rise } from '../score';
+import type { Melody } from '../writers';
+import { rise, spans } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
-import { PlayedSection } from './section';
+import { PlayedSection, type Plan, type PlayedMaterial } from './section';
 
 export interface PreChorusFields {
   /** A later round adds a layer. */

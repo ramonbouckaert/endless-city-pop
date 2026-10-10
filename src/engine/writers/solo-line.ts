@@ -1,11 +1,11 @@
 // Solos: bebop-ish runs in chord-scale degrees, with grace notes flicked
 // or slid into, played against a section's changes.
 
-import type { Rng } from '../lib/random';
-import { SLIDE_SECONDS, SOLO } from '../style';
-import { chordAt, Scale, type Bar, type Chord } from '../theory';
+import type { Rng } from '../../lib/random';
+import { SLIDE_SECONDS, SOLO } from '../../style';
+import { chordAt, Scale, type Bar, type Chord } from '../../theory';
 import { Line, type Note } from './line';
-import { onChord, type Changes, type NoteSpec } from './score';
+import { onChord, type Changes, type NoteSpec } from '../score';
 
 export interface SoloNote extends Note {
   degree: number; // chord-scale degree
