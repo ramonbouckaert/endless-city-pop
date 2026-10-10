@@ -1,10 +1,10 @@
-import type { Tonality } from './types';
+import type { TonalityDef } from './types';
 
 // Jazz minor (Autumn Leaves, Blue Bossa, Summertime): the minor ii-V-i
 // of a half-diminished ii and an altered or b9 dominant, the aeolian
 // cycle iv-bVII-bIII-bVI, the Andalusian fall i-bVII-bVI-V, and the
 // dorian IV7 of minor funk. The tonic is a m9, m6/9 or m(maj9).
-export const MINOR: Tonality = {
+export const MINOR: TonalityDef = {
   weight: 1,
   tonics: [2, 7, 0, 5, 9, 4], // D G C F A E
   tonic: 'min',

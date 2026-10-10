@@ -19,10 +19,10 @@ export class SharedHarmony {
   readonly chorusBars = lazy((): Bar[] => {
     const { ctx } = this;
     const rng = this.rng.fork('chorusHarmony');
-    const bars = ctx.progress(rng.pick(ctx.templates.chorus), 8, rng.fork('harmony'));
-    const len = ctx.first('chorus')?.bars ?? 8;
+    const bars = ctx.progress(rng.pick(ctx.tonality.templatesFor('chorus')), 8, rng.fork('harmony'));
+    const len = ctx.form.first('chorus')?.bars ?? 8;
     if (len <= 8) return bars;
-    const tag = new Template(rng.pick(ctx.templates.tag)).fit(len - 8);
+    const tag = new Template(rng.pick(ctx.tonality.templatesFor('tag'))).fit(len - 8);
     return [...bars, ...new Harmonizer(ctx.key, rng.fork('tag')).realize(tag)];
   });
 
@@ -39,6 +39,6 @@ export class SharedHarmony {
     const harmony = rng.weighted(INTRO.harmony);
     if (harmony === 'chorus') return { harmony, bars: this.chorusBars().slice(0, 4) };
     if (harmony === 'planing') return { harmony, bars: new Harmonizer(ctx.key, rng.fork('planing')).planing() };
-    return { harmony, bars: ctx.progress(rng.pick(ctx.templates.intro), 4, rng.fork('harmony')) };
+    return { harmony, bars: ctx.progress(rng.pick(ctx.tonality.templatesFor('intro')), 4, rng.fork('harmony')) };
   });
 }

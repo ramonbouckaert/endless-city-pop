@@ -36,8 +36,8 @@ export class Arranger {
   arrange(): Arrangement {
     const { song } = this;
     const cps = song.bpm / 4 / 60;
-    const played = song.form.map((sec, index): Played => {
-      const repeat = song.form.slice(0, index).filter((x) => x.part === sec.part).length;
+    const played = song.form.sections.map((sec, index): Played => {
+      const repeat = song.form.repeatOf(index);
       const band = new Band(this.instruments);
       const { drums, pitched } = sectionParts(song, sec, band, repeat);
       const tonal = pitched.filter((p): p is Pattern => !!p);

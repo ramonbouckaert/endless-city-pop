@@ -8,6 +8,7 @@
 // its General MIDI soundfonts and synths.
 
 import type { Weighted } from '../lib/random';
+import type { DrumSound } from './drums';
 
 // The band's parts, besides the melody voices.
 export type BandPart =
@@ -24,12 +25,30 @@ export type BandPart =
   | 'bass';
 // Band parts a song picks a sound for, from PICKS.
 export type PickedPart = Exclude<BandPart, 'clav'>;
-// The melody voices: the lead, its octave double and the soloists.
-export type VoiceRole = 'lead' | 'double' | 'soloists';
+// The parts with a sound of their own: the band, the lead and its octave
+// double (the soloists are numbered).
+export type LabelledPart = BandPart | 'lead' | 'double';
+
+// Each part's name on the page, in the order the debug panel lists them.
+export const PART_LABELS: Readonly<Record<LabelledPart, string>> = {
+  keys: 'Keys',
+  clav: 'Clavinet',
+  guitar: 'Rhythm guitar',
+  bass: 'Bass',
+  pad: 'Pad',
+  strings: 'Strings',
+  choir: 'Choir',
+  lead: 'Lead',
+  double: 'Melody double',
+  answer: 'Answer',
+  bell: 'Bell',
+  stabs: 'Horn stabs',
+  hornDouble: 'Horn double',
+};
 
 // ---- The band ---------------------------------------------------------
 
-// Each part's default sound: the one its gains in render/band.ts were
+// Each part's default sound: the one its levels in render/mix.ts were
 // set for. A picked part plays louder or quieter by its sound's level
 // over this one's.
 export const BAND: Readonly<Record<BandPart, string>> = {
@@ -85,8 +104,8 @@ export const PICKS: Readonly<Record<PickedPart, readonly string[]>> = {
 // ---- Melody voices ----------------------------------------------------
 
 // Each song picks its lead, the lead's octave double and its soloists
-// from `pool`, none twice. Each plays at its part's gain times the
-// sound's level.
+// from `pool`, none twice. Their levels in render/mix.ts are set for the
+// alto sax (level 1).
 export const VOICES = {
   pool: [
     // Reeds and brass
@@ -122,7 +141,6 @@ export const VOICES = {
     'gm_pad_sweep',
     'gm_voice_oohs',
   ],
-  gains: { lead: 0.5, double: 0.13, soloists: 0.4 } as Readonly<Record<VoiceRole, number>>,
   soloists: 4,
 };
 
@@ -150,7 +168,7 @@ export const KITS: Weighted<string | null> = [
 ];
 
 // Drum sounds a kit lacks, which play from the default samples instead.
-export const KIT_GAPS: Readonly<Record<string, readonly string[]>> = {
+export const KIT_GAPS: Readonly<Record<string, readonly DrumSound[]>> = {
   RolandTR808: ['rd', 'tb'],
   RolandTR909: ['sh', 'tb', 'cb'],
   OberheimDMX: ['cb'],

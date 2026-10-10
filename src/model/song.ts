@@ -4,12 +4,13 @@
 import { Rng } from '../lib/random';
 import { SONG, TONALITIES, type SectionType } from '../style';
 import { Key } from '../theory';
-import { FormPlanner } from './form';
+import type { Form } from './form';
+import { FormPlanner } from './form-planner';
 import { materialOf, type Material, type MaterialOf } from './material';
-import { pickInstruments, type Instruments } from './orchestration';
-import { describeSection, soloistsOf, type Section } from './section';
+import { Instruments } from './orchestration';
+import type { Section } from './section';
 import { writeMaterials } from './sections';
-import { formatTitle, writeTitle, type TitleParts } from './title';
+import { formatTitle, TitleWriter, type TitleParts } from './title';
 
 export interface SongData {
   seed: string;
@@ -18,7 +19,7 @@ export interface SongData {
   bpm: number;
   swing: number;
   instruments: Instruments;
-  form: readonly Section[];
+  form: Form;
   /** Each part's material, by part id. */
   materials: Readonly<Record<string, Material>>;
 }
@@ -47,8 +48,8 @@ export class Song {
       swing: Math.round(rng.range(SONG.swing) * 100) / 100,
       form,
       materials: writeMaterials(key, form, rng.fork('materials')),
-      instruments: pickInstruments(rng.fork('instruments')),
-      titleParts: writeTitle(rng.fork('title')),
+      instruments: Instruments.pick(rng.fork('instruments')),
+      titleParts: new TitleWriter(rng.fork('title')).write(),
     });
   }
 
@@ -58,12 +59,12 @@ export class Song {
   }
 
   get bars(): number {
-    return this.form.reduce((n, s) => n + s.bars, 0);
+    return this.form.bars;
   }
 
   /** The soloists the form's solos go to, in order, as indexes into the sounds' soloists. */
   get soloists(): number[] {
-    return soloistsOf(this.form);
+    return this.form.soloists;
   }
 
   /** The material a section plays. */
@@ -73,8 +74,7 @@ export class Song {
 
   /** The material of each part of a type, in form order. */
   parts<T extends SectionType>(type: T): MaterialOf<T>[] {
-    const ids = [...new Set(this.form.filter((s) => s.type === type).map((s) => s.part))];
-    return ids.map((id) => materialOf(type, this.materials[id]));
+    return this.form.partIds(type).map((id) => materialOf(type, this.materials[id]));
   }
 
   /** The first part of a type's material, if the form has one. */
@@ -89,7 +89,7 @@ export class Song {
       key: this.key.name,
       bpm: this.bpm,
       bars: this.bars,
-      sections: this.form.map(describeSection),
+      sections: this.form.describe(),
       intro: `${intro?.harmony} ${intro?.variant}`,
       pre: this.part('pre')?.variant,
       solos: this.parts('solo').map((s) => s.variant),

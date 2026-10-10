@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { Song, soundAt, voiceGain, withSound } from '../src/model';
+import { Kit, Song } from '../src/model';
 import {
   BAND,
+  DRUM_SOUNDS,
   GM_PROGRAMS,
   KIT_GAPS,
   KITS,
@@ -13,7 +14,7 @@ import {
 } from '../src/style';
 
 describe('instruments', () => {
-  const { pool, gains, soloists } = VOICES;
+  const { pool, soloists } = VOICES;
   const parts = Object.keys(PICKS) as PickedPart[];
   const voicesOf = ({ instruments: { sounds } }: Song) => [sounds.lead, sounds.double, ...sounds.soloists];
   const soundOf = (song: Song, part: PickedPart) => song.instruments.sounds[part];
@@ -53,12 +54,14 @@ describe('instruments', () => {
   });
 
   it('reads and replaces a sound by its path, soloists by index', () => {
-    const { sounds } = songs[0].instruments;
-    expect(soundAt(sounds, 'keys')).toBe(sounds.keys);
-    expect(soundAt(sounds, 'soloists.2')).toBe(sounds.soloists[2]);
-    const changed = withSound(withSound(sounds, 'bass', 'sawtooth'), 'soloists.1', 'sine');
-    expect(changed).toEqual({ ...sounds, bass: 'sawtooth', soloists: sounds.soloists.with(1, 'sine') });
+    const { instruments } = songs[0];
+    const { sounds } = instruments;
+    expect(instruments.sound('keys')).toBe(sounds.keys);
+    expect(instruments.sound('soloists.2')).toBe(sounds.soloists[2]);
+    const changed = instruments.with('bass', 'sawtooth').with('soloists.1', 'sine');
+    expect(changed.sounds).toEqual({ ...sounds, bass: 'sawtooth', soloists: sounds.soloists.with(1, 'sine') });
     expect(sounds.bass).not.toBe('sawtooth'); // the original is left as it was
+    expect(instruments.withKit('LinnDrum').kit.bank).toBe('LinnDrum');
   });
 
   it('leaves out the sounds taken off the lists', () => {
@@ -66,10 +69,17 @@ describe('instruments', () => {
     for (const gone of ['brown', 'gm_pad_bowed', 'gm_pad_new_age']) expect(everywhere).not.toContain(gone);
   });
 
-  it("plays a melody voice at its part's gain and the sound's level", () => {
-    const { lead } = songs[0].instruments.sounds;
-    expect(voiceGain(lead, 'lead')).toBeCloseTo(gains.lead * SOUND_LEVELS[lead], 3);
-    expect(voiceGain('sawtooth', 'soloists')).toBe(gains.soloists * SOUND_LEVELS.sawtooth);
+  it("trims a melody voice by the sound's level, a band part by its level over BAND's", () => {
+    const { instruments } = songs[0];
+    expect(instruments.trim('lead')).toBe(SOUND_LEVELS[instruments.sounds.lead]);
+    expect(instruments.with('soloists.0', 'sawtooth').trim('soloists.0')).toBe(SOUND_LEVELS.sawtooth);
+    expect(instruments.with('keys', 'gm_epiano2').trim('keys')).toBe(SOUND_LEVELS.gm_epiano2 / SOUND_LEVELS[BAND.keys]);
+  });
+
+  it('plays the drum sounds a kit lacks from the default samples', () => {
+    expect(new Kit(null).bankFor('bd')).toBeUndefined();
+    expect(new Kit('RolandTR808').bankFor('bd')).toBe('RolandTR808');
+    expect(new Kit('rolandtr808').bankFor('rd')).toBeUndefined();
   });
 
   it('has a level and a General MIDI program for every sound a song may pick', () => {
@@ -85,8 +95,7 @@ describe('instruments', () => {
     const kits = KITS.map(([k]) => k);
     for (const [kit, gaps] of Object.entries(KIT_GAPS)) {
       expect(kits).toContain(kit);
-      for (const g of gaps)
-        expect(['bd', 'sd', 'hh', 'oh', 'rd', 'cr', 'rim', 'cp', 'lt', 'mt', 'ht', 'sh', 'tb', 'cb']).toContain(g);
+      for (const g of gaps) expect(DRUM_SOUNDS).toHaveProperty(g);
     }
   });
 });

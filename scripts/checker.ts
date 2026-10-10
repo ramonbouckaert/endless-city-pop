@@ -4,10 +4,10 @@
 
 import { noteToMidi, type Hap, type Pattern } from '@strudel/core';
 import { GM_SOUNDS } from './gm-sounds.ts';
-import { KITS, SOUND_TOPS } from '../src/style';
+import { DRUM_SOUNDS, KITS, SOUND_TOPS } from '../src/style';
 
 const BANKS = new Set(KITS.map(([kit]) => kit).filter(Boolean));
-const DRUMS = new Set(['bd', 'sd', 'hh', 'oh', 'rd', 'cr', 'rim', 'cp', 'lt', 'mt', 'ht', 'sh', 'tb', 'cb', 'white']);
+const DRUMS = new Set<string>([...Object.keys(DRUM_SOUNDS), 'white']);
 // Synths Strudel registers (registerSynthSounds): oscillators and noise.
 const SYNTHS = new Set(['sine', 'square', 'triangle', 'sawtooth', 'supersaw', 'pulse', 'white', 'pink', 'brown']);
 

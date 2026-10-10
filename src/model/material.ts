@@ -3,15 +3,17 @@
 // through has its chords, drums and bass; the rest is per type. A type
 // with variants (style/variants.ts) has the one it plays as `variant`.
 
-import type {
-  FinaleStyle,
-  IntroHarmony,
-  IntroTexture,
-  LiftStyle,
-  PreFlavour,
-  SectionType,
-  SoloComp,
-  VampEntry,
+import {
+  SECTION_TYPES,
+  type FinaleStyle,
+  type IntroHarmony,
+  type IntroTexture,
+  type LiftStyle,
+  type PlayedType,
+  type PreFlavour,
+  type SectionType,
+  type SoloComp,
+  type VampEntry,
 } from '../style';
 import type { Bar, Chord, Key } from '../theory';
 import type { BassLine } from './bass';
@@ -26,7 +28,7 @@ interface MaterialBase<T extends SectionType> {
 // A section the band plays through: its chords, groove and bass line.
 type Played<T extends SectionType> = MaterialBase<T> & { bars: Bar[]; drums: Drums; bass: BassLine };
 
-// What each band section has besides.
+// What each band section (PlayedType, in style/form.ts) has besides.
 interface PlayedFields {
   intro: { harmony: IntroHarmony; variant: IntroTexture; melody?: Melody };
   vamp: { variant: VampEntry };
@@ -46,10 +48,8 @@ interface PlayedFields {
   lift: { turnaround: string; variant: LiftStyle };
 }
 
-/** The section types the band plays through. */
-export type PlayedType = keyof PlayedFields;
-export const isPlayed = (sec: Section): sec is SectionOf<PlayedType> =>
-  sec.type !== 'drumBreak' && sec.type !== 'finale';
+export type { PlayedType };
+export const isPlayed = (sec: Section): sec is SectionOf<PlayedType> => SECTION_TYPES[sec.type].played;
 
 // Drums alone, then a bass pickup into `into`, the next section's first
 // chord (in `key`, that section's key, shifted up `shift`).

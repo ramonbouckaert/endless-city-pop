@@ -63,11 +63,19 @@ export class Melody extends Line<MelodyNote> {
   take(n: number): Melody {
     return new Melody(this.bars.slice(0, n), this.form);
   }
+}
 
-  /** Short figures in the gaps this melody leaves, high above it. */
-  answer(bars: Bar[], key: Key, rng: Rng): Melody {
+/** Writes the answer to a hook: short figures in the gaps it leaves, high above it. */
+export class AnswerWriter {
+  constructor(
+    private readonly key: Key,
+    private readonly rng: Rng,
+  ) {}
+
+  write(hook: Melody, bars: Bar[]): Melody {
+    const { key, rng } = this;
     return new Melody(
-      this.bars.map((notes, b) => {
+      hook.bars.map((notes, b) => {
         if (b % 2) return [];
         // In a gap at the end of the bar, or over a held note.
         const lastEnd = notes.length ? Math.max(...notes.map((n) => n.start + n.len)) : 0;

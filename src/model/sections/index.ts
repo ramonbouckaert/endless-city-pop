@@ -6,7 +6,7 @@
 import type { Rng } from '../../lib/random';
 import type { Key } from '../../theory';
 import type { Material } from '../material';
-import type { Section } from '../section';
+import type { Form } from '../form';
 import { breakdown } from './breakdown';
 import { bridge } from './bridge';
 import { chorus } from './chorus';
@@ -39,7 +39,7 @@ const WRITERS: Writers = {
 };
 
 /** Each part's material, by part id. */
-export function writeMaterials(key: Key, form: readonly Section[], rng: Rng): Record<string, Material> {
+export function writeMaterials(key: Key, form: Form, rng: Rng): Record<string, Material> {
   const ctx = new WriteContext(key, form, rng, WRITERS);
-  return Object.fromEntries(form.map((sec) => [sec.part, ctx.material(sec)]));
+  return Object.fromEntries(form.sections.map((sec) => [sec.part, ctx.material(sec)]));
 }

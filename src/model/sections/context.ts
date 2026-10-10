@@ -4,13 +4,21 @@
 // take.
 
 import type { Rng } from '../../lib/random';
-import { TONALITIES, type GroovePlan, type MelodyKind, type PreMelody, type SectionType } from '../../style';
+import {
+  tonalityOf,
+  type GroovePlan,
+  type Tonality,
+  type MelodyKind,
+  type PreMelody,
+  type SectionType,
+} from '../../style';
 import type { Bar, Key } from '../../theory';
-import { writeGroove } from '../groove';
+import { GrooveWriter } from '../groove';
 import { Harmonizer } from '../harmony';
 import { materialOf, type Material, type MaterialOf, type PlayedType } from '../material';
 import { MelodyWriter, type Melody } from '../melody';
-import { isSection, type Section, type SectionOf } from '../section';
+import type { Form } from '../form';
+import type { Section, SectionOf } from '../section';
 import { SharedHarmony } from './shared';
 
 /**
@@ -27,7 +35,7 @@ export class WriteContext {
 
   constructor(
     readonly key: Key,
-    readonly form: readonly Section[],
+    readonly form: Form,
     private readonly rng: Rng,
     private readonly writers: Writers,
   ) {
@@ -46,32 +54,9 @@ export class WriteContext {
     return materialOf<S['type']>(sec.type, mat);
   }
 
-  // ---- The form ---------------------------------------------------------
-
-  /** The first section of a type, if the form has one. */
-  first<T extends SectionType>(type: T): SectionOf<T> | undefined {
-    return this.form.find(isSection(type));
-  }
-
-  /** The section after `sec`. */
-  next(sec: Section): Section | undefined {
-    return this.form[this.form.indexOf(sec) + 1];
-  }
-
-  /** The section after `sec`, not counting a drum break. */
-  after(sec: Section): Section | undefined {
-    return this.form.slice(this.form.indexOf(sec) + 1).find((s) => s.type !== 'drumBreak');
-  }
-
-  /** The last section of `sec`'s type before it. */
-  previous<S extends Section>(sec: S): S | undefined {
-    return this.form.slice(0, this.form.indexOf(sec)).findLast((s): s is S => s.type === sec.type);
-  }
-
-  // ---- Writing ----------------------------------------------------------
-
-  get templates() {
-    return TONALITIES[this.key.mode].templates;
+  /** The song's key's tonality. */
+  get tonality(): Tonality {
+    return tonalityOf(this.key.mode);
   }
 
   /** A template's progression, `bars` long, in a key (the song's unless given). */
@@ -81,7 +66,7 @@ export class WriteContext {
 
   /** Four bars of one of the key's vamp or riff templates. */
   loop(kind: 'vamp' | 'riff', rng: Rng): Bar[] {
-    return this.progress(rng.pick(this.templates[kind]), 4, rng.fork('harmony'));
+    return this.progress(rng.pick(this.tonality.templatesFor(kind)), 4, rng.fork('harmony'));
   }
 
   melody(kind: MelodyKind, key: Key, bars: Bar[], rng: Rng, style?: PreMelody): Melody {
@@ -90,6 +75,6 @@ export class WriteContext {
 
   /** A section's chords in a key, with drums and a bass line to play them. */
   band<T extends PlayedType>(type: T, key: Key, bars: Bar[], plan: GroovePlan, rng: Rng) {
-    return { type, key, bars, ...writeGroove(plan, bars, key, rng) };
+    return { type, key, bars, ...new GrooveWriter(plan, key, rng).write(bars) };
   }
 }

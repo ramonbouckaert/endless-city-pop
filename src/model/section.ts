@@ -55,17 +55,3 @@ export const isSection =
   <T extends SectionType>(type: T) =>
   (sec: Section): sec is SectionOf<T> =>
     sec.type === type;
-
-export function describeSection(sec: Section): string {
-  if (sec.type === 'lift') return `lift (to +${sec.liftTo}, ${sec.turnaround}) ${sec.bars}`;
-  const variant = sec.type === 'outro' ? ` ${sec.variant}` : '';
-  const shift = sec.shift ? ` (+${sec.shift})` : '';
-  return `${sec.type}${variant}${shift} ${sec.bars}`;
-}
-
-/** The bar each section starts on. */
-export const sectionStarts = (form: readonly Section[]): number[] =>
-  form.map((_, i) => form.slice(0, i).reduce((n, s) => n + s.bars, 0));
-
-/** The soloists the form's solos go to, in order, as indexes into the song's soloists. */
-export const soloistsOf = (form: readonly Section[]): number[] => form.filter(isSection('solo')).map((s) => s.soloist);

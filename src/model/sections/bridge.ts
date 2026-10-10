@@ -1,5 +1,5 @@
 import type { Rng } from '../../lib/random';
-import { ADVENTUROUS, RHYTHM, TONALITIES } from '../../style';
+import { ADVENTUROUS, RHYTHM, tonalityOf } from '../../style';
 import { Harmonizer } from '../harmony';
 import type { MaterialOf } from '../material';
 import type { SectionOf } from '../section';
@@ -9,10 +9,9 @@ import type { WriteContext } from './context';
 // whatever follows).
 export function bridge(sec: SectionOf<'bridge'>, ctx: WriteContext, rng: Rng): MaterialOf<'bridge'> {
   const key = new Harmonizer(ctx.key, rng.fork('key')).bridgeKey(ADVENTUROUS);
-  const templates = TONALITIES[key.mode].templates.bridge;
-  if (!templates) throw new Error(`No bridge templates in ${key.mode}`);
+  const templates = tonalityOf(key.mode).templatesFor('bridge');
   const body = ctx.progress(rng.pick(templates), 6, rng.fork('harmony'), key);
-  const cadence = new Harmonizer(ctx.key.transpose(ctx.after(sec)?.shift ?? 0), rng.fork('cadence')).approach();
+  const cadence = new Harmonizer(ctx.key.transpose(ctx.form.after(sec)?.shift ?? 0), rng.fork('cadence')).approach();
   const bars = [...body, ...cadence];
   return {
     ...ctx.band('bridge', key, bars, RHYTHM.bridge, rng.fork('groove')),

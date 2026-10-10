@@ -4,28 +4,10 @@
 // this loads Strudel; writer.ts writes the bytes.
 
 import { noteToMidi, type Fraction, type Hap, type Pattern } from '@strudel/core';
-import { describeSection, sectionStarts, type Song } from '../model';
-import { GM_PROGRAMS } from '../style';
+import type { Song } from '../model';
+import { DRUM_SOUNDS, GM_PROGRAMS, isDrumSound } from '../style';
 import { DRUM_CHANNEL, PPQ, TICKS_PER_BAR, writeMidi, type MidiNote, type MidiTrack } from './writer';
 
-// Drum sounds as General MIDI percussion keys. Sounds not listed (the
-// noise riser) are left out.
-const DRUM_KEYS: Readonly<Record<string, number>> = {
-  bd: 36,
-  rim: 37,
-  sd: 38,
-  cp: 39,
-  lt: 45,
-  hh: 42,
-  oh: 46,
-  mt: 47,
-  cr: 49,
-  ht: 50,
-  rd: 51,
-  tb: 54,
-  cb: 56,
-  sh: 82,
-};
 const DRUM_TICKS = TICKS_PER_BAR / 16;
 
 const num = (f: Fraction) => f.valueOf();
@@ -63,9 +45,9 @@ function noteFromHap(hap: Hap, ticksPerSecond: number): { sound: string; note: M
   const tick = num(whole.begin) * TICKS_PER_BAR;
   const base: MidiNote = { tick, dur: DRUM_TICKS, pitch: 0, velocity: velocity(v) };
   if (v.note === undefined) {
-    const pitch = DRUM_KEYS[sound];
-    if (pitch === undefined) return null;
-    return { sound: 'drums', note: { ...base, pitch } };
+    // Sounds that aren't drums (the noise riser) are left out.
+    if (!isDrumSound(sound)) return null;
+    return { sound: 'drums', note: { ...base, pitch: DRUM_SOUNDS[sound].gmKey } };
   }
   const pitch = typeof v.note === 'number' ? v.note : noteToMidi(v.note);
   if (!Number.isFinite(pitch)) return null;
@@ -81,7 +63,7 @@ export function songToMidi(song: Song, pattern: Pattern): Uint8Array {
   const notes = Array.from({ length: song.bars }, (_, bar) => pattern.queryArc(bar, bar + 1) as unknown as Hap[])
     .flat()
     .flatMap((hap) => noteFromHap(hap, ticksPerSecond) ?? []);
-  const starts = sectionStarts(song.form);
-  const markers = song.form.map((s, i) => ({ tick: starts[i] * TICKS_PER_BAR, text: describeSection(s) }));
+  const { starts } = song.form;
+  const markers = song.form.describe().map((text, i) => ({ tick: starts[i] * TICKS_PER_BAR, text }));
   return writeMidi({ title: song.title, bpm: song.bpm, key: song.key, markers, tracks: tracksFor(notes) });
 }

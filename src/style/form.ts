@@ -6,20 +6,39 @@
 
 import type { Weighted } from '../lib/random';
 
-export type SectionType =
-  | 'intro'
-  | 'vamp'
-  | 'verse'
-  | 'pre'
-  | 'chorus'
-  | 'riff'
-  | 'bridge'
-  | 'solo'
-  | 'breakdown'
-  | 'drumBreak'
-  | 'lift'
-  | 'outro'
-  | 'finale';
+// Every type of section, and what the rest of the code needs to know of
+// each: its name on the page, a short one for narrow spaces, whether the
+// band plays through it (chords, drums and bass), and whether it hands
+// over to anything (so the opening vamp may come back after it; a verse
+// leads on to its pre-chorus or chorus).
+export interface SectionTypeDef {
+  label: string;
+  short: string;
+  played: boolean;
+  handsOver: boolean;
+}
+
+export const SECTION_TYPES = {
+  intro: { label: 'intro', short: 'i', played: true, handsOver: false },
+  vamp: { label: 'vamp', short: 'vp', played: true, handsOver: false },
+  verse: { label: 'verse', short: 'v', played: true, handsOver: false },
+  pre: { label: 'pre', short: 'p', played: true, handsOver: false },
+  chorus: { label: 'chorus', short: 'c', played: true, handsOver: true },
+  riff: { label: 'riff', short: 'r', played: true, handsOver: true },
+  bridge: { label: 'bridge', short: 'b', played: true, handsOver: true },
+  solo: { label: 'solo', short: 's', played: true, handsOver: true },
+  breakdown: { label: 'breakdown', short: 'bd', played: true, handsOver: true },
+  drumBreak: { label: 'drum break', short: 'd', played: false, handsOver: false },
+  lift: { label: 'lift', short: 'l', played: true, handsOver: false },
+  outro: { label: 'outro', short: 'o', played: true, handsOver: false },
+  finale: { label: 'finale', short: 'f', played: false, handsOver: false },
+} as const satisfies Readonly<Record<string, SectionTypeDef>>;
+
+export type SectionType = keyof typeof SECTION_TYPES;
+/** The section types the band plays through. */
+export type PlayedType = {
+  [T in SectionType]: (typeof SECTION_TYPES)[T]['played'] extends true ? T : never;
+}[SectionType];
 
 export const FORM = {
   preBars: [0, 2, 4, 4, 6, 8], // 0: no pre-chorus
@@ -35,8 +54,6 @@ export const FORM = {
     chance: 0.6,
     bars: [4, 8],
     returns: 0.45,
-    // Sections that hand over to anything, so the vamp may come back after them.
-    after: ['chorus', 'riff', 'bridge', 'solo', 'breakdown'] as readonly SectionType[],
   },
   verseBars: [8, 8, 16],
   bridgeChance: 0.65,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { clock, playheadAt, seconds, startFor } from '../src/app/time';
-import { section } from '../src/model';
+import { clock, seconds, startFor } from '../src/app/time';
+import { Form, section } from '../src/model';
 
 describe('time', () => {
   it('counts bars as seconds on a clock', () => {
@@ -10,11 +10,11 @@ describe('time', () => {
   });
 
   it('places the playhead by section', () => {
-    const form = [section('intro', 4), section('verse', 8, { later: false }), section('finale', 2)];
-    expect(playheadAt(form, -1)).toBeUndefined();
-    expect(playheadAt(form, 0)).toEqual({ index: 0, through: 0 });
-    expect(playheadAt(form, 6)).toEqual({ index: 1, through: 0.25 });
-    expect(playheadAt(form, 20)).toEqual({ index: 2, through: 1 });
+    const form = new Form([section('intro', 4), section('verse', 8, { later: false }), section('finale', 2)]);
+    expect(form.playhead(-1)).toBeUndefined();
+    expect(form.playhead(0)).toEqual({ index: 0, through: 0 });
+    expect(form.playhead(6)).toEqual({ index: 1, through: 0.25 });
+    expect(form.playhead(20)).toEqual({ index: 2, through: 1 });
   });
 
   it('starts songs at 0 when stopped, else where asked or where the last started', () => {

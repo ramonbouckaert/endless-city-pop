@@ -1,10 +1,10 @@
-import type { Tonality } from './types';
+import type { TonalityDef } from './types';
 import { LIFT_TURNAROUNDS } from './major';
 
 // Soul-jazz and funk on a dominant tonic (Cissy Strut, Watermelon Man):
 // I7 against bVII and IV, blues changes, and the funk 7#9. It comes
 // home from bVII, the mixolydian cadence.
-export const MIXOLYDIAN: Tonality = {
+export const MIXOLYDIAN: TonalityDef = {
   weight: 2,
   tonics: [7, 2, 0, 5, 9, 10], // G D C F A Bb
   tonic: 'dom',

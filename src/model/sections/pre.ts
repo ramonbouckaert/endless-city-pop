@@ -1,6 +1,5 @@
 import type { Rng } from '../../lib/random';
-import { PRE_FLAVOURS, TONALITIES } from '../../style';
-import { Template } from '../../theory';
+import { PRE_FLAVOURS } from '../../style';
 import { Harmonizer } from '../harmony';
 import type { MaterialOf } from '../material';
 import type { SectionOf } from '../section';
@@ -12,9 +11,7 @@ export function pre(sec: SectionOf<'pre'>, ctx: WriteContext, rng: Rng): Materia
   const { key } = ctx;
   const variant = rng.weightedKey(PRE_FLAVOURS);
   const { groove, melody } = PRE_FLAVOURS[variant];
-  const options = TONALITIES[key.mode].pre[variant];
-  const fitting = options.filter((t) => new Template(t).length === sec.bars);
-  const template = rng.pick(fitting.length ? fitting : options);
+  const template = rng.pick(ctx.tonality.preTemplates(variant, sec.bars));
   const bars = new Harmonizer(key, rng.fork('harmony')).progression(template, sec.bars, { ending: true });
   return {
     ...ctx.band('pre', key, bars, groove, rng.fork('groove')),

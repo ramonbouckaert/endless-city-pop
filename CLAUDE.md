@@ -36,16 +36,19 @@ src/
   theory/   music theory as values: Scale, Key, Chord, Roman, Template, parseChordSpec + their tables
   style/    the city-pop style as data: tonalities/ (one file per mode), form odds, section variants, section rhythms,
             drum recipes, bass feels, melody cells, harmony palette, instruments, title words
-  model/    generators: form, harmony, melody, bass, drums, groove, sections/ (one writer per type), orchestration, title, Song
-  render/   Strudel only: notation.ts (mini-notation strings), band.ts, drums.ts, sections/, arranger.ts
+  model/    Form and the generators: form-planner, harmony, solo-changes, melody, bass, drums, groove, sections/
+            (one writer per type), orchestration (Instruments, Kit), title, Song
+  render/   Strudel only: notation.ts (mini-notation strings), mix.ts (each part's level), band.ts, drums.ts,
+            sections/, arranger.ts
   midi/     writer.ts (Standard MIDI File bytes), from-pattern.ts (reads a Strudel pattern back out)
-  app/      the browser page: main.ts wires session.ts, player.ts, form-strip, title-marquee, autoplay,
-            midi-download, debug-panel; time.ts holds the pure clock/playhead helpers
+  app/      the browser page: main.ts (App) wires session.ts, player.ts, FormStrip, TitleMarquee, autoplay,
+            midi-download, debug/ (Choices, DebugPanel); storage.ts remembers values in this browser;
+            time.ts holds the pure clock helpers
 ```
 
 Dependency rules:
 
-- `style/` imports only from `lib/` and `theory/`. It defines the vocabulary types that name its tables' keys (`SectionType`, `DrumFeel`, `BassFeel`, `MelodyKind`, `PreFlavour`, ...).
+- `style/` imports only from `lib/` and `theory/`. It defines the vocabulary types that name its tables' keys (`SectionType`, `DrumFeel`, `DrumSound`, `BassFeel`, `MelodyKind`, `PreFlavour`, ...). What every section type is (its label, whether the band plays through it, whether it hands over to anything) is in one table, `SECTION_TYPES` (`style/form.ts`); `SectionType`, `PlayedType` and `isPlayed` derive from it.
 - `model/` reads `style/` tables and produces **plain musical data** only: chords, notes with degrees or semitones, 16-step drum gains. Nothing in `model/` writes mini-notation or imports Strudel.
 - `render/notation.ts` turns model data into mini-notation strings without importing Strudel, so tests can check it. Everything else in `render/` and `midi/from-pattern.ts` loads Strudel; unit tests and plain scripts must not import them.
 - `app/` is the only browser/DOM code.
@@ -54,20 +57,22 @@ Dependency rules:
 ### Song pipeline
 
 ```
-seed → mode, key → form (Section[]) → materials per part → instruments → title
+seed → mode, key → Form (its Sections) → materials per part → instruments → title
      → Arranger: per section, its type's recipe over its material → Strudel pattern
 ```
 
-- `FormPlanner` (`model/form.ts`) builds the sections with `section()`. `SectionOf<T>` (`model/section.ts`) gives each section type its own fields (a chorus's `answer`/`big`, a solo's `soloist`, a lift's `liftTo`/`turnaround`, ...). Each `Section` has a `part` id: sections that share it play the same material (every chorus is part `chorus`); solos and lifts get one part each (`solo:0`, `solo:1`, `lift:0`, ...).
-- `writeMaterials` (`model/sections/index.ts`) writes one material per part, on first use and memoised, through `WRITERS`: one writer file per section type in `model/sections/`, mirroring `render/sections/`. Writers get a `WriteContext` (form navigation, `material(sec)` for other parts, shared helpers). A part can draw on another (a drum break picks up into the next section's material; a lift avoids the previous lift's variant). Shared harmony (chorus bars, hook, vamp bars, intro harmony) is computed lazily once, in `SharedHarmony`.
+- `FormPlanner` (`model/form-planner.ts`) builds the sections with `section()` and returns a `Form` (`model/form.ts`), which answers everything asked of the form: section starts and bars, `next`/`after`/`previous`/`first`, how often a part has played (`repeatOf`), the soloists, the playhead, and each section's description. `SectionOf<T>` (`model/section.ts`) gives each section type its own fields (a chorus's `answer`/`big`, a solo's `soloist`, a lift's `liftTo`/`turnaround`, ...). Each `Section` has a `part` id: sections that share it play the same material (every chorus is part `chorus`); solos and lifts get one part each (`solo:0`, `solo:1`, `lift:0`, ...).
+- `writeMaterials` (`model/sections/index.ts`) writes one material per part, on first use and memoised, through `WRITERS`: one writer file per section type in `model/sections/`, mirroring `render/sections/`. Writers get a `WriteContext` (the `Form`, the key's `Tonality`, `material(sec)` for other parts, shared helpers). A part can draw on another (a drum break picks up into the next section's material; a lift avoids the previous lift's variant). Shared harmony (chorus bars, hook, vamp bars, intro harmony) is computed lazily once, in `SharedHarmony`.
 - `MaterialOf<T>` (`model/material.ts`) gives each section type its own material shape. `song.material(section)`, `song.part(type)` (first part of a type) and `song.parts(type)` look them up.
 - Variants (`style/variants.ts`): every way a section type can be played (intro texture, vamp entry, pre-chorus flavour, solo comp, lift, outro and finale style) is a `Variants` table of weighted entries, some with their own groove. The material stores its pick as `variant`; the recipe switches on it.
-- `pickInstruments` (`model/orchestration.ts`) picks every part's sound and the drum kit. `Sounds` is uniform: every part is a sound name; gains come from `voiceGain`/`level` and the band's own gains in `render/band.ts`.
+- `Instruments.pick` (`model/orchestration.ts`) picks every part's sound and the drum `Kit`. `Sounds` is uniform: every part is a sound name, read and replaced by path (`sound(path)`, `with(path, sound)`). Every part plays at its level in `render/mix.ts`, set for its sound in `BAND` (the melody voices: for the alto sax); `Instruments.trim(path)` scales a different pick by its sound's level, as postgain.
 - `Arranger` (`render/arranger.ts`) calls each section's recipe from `render/sections/` (one file per section type) with a `PlayedContext` (chords, scales, bass, drums, lines) for sections the band plays through, or a plain `SectionContext` for a drum break or finale. Each section gets its own `Band`, which notes (privately) which parts the recipe asks for; the arranger merges them into the arrangement's `uses` for the debug panel, so recipes build only parts they play.
 
 ### Data flow for a mode
 
-Each mode (`major`, `minor`, `dorian`, `mixolydian`) has a `Tonality` in `style/tonalities/<mode>.ts`. It supplies chord templates per section type, pre-chorus progressions per flavour, bridge keys, key-change turnarounds, cadence chords and solo change shapes. `Harmonizer` (`model/harmony.ts`) realises templates against the song's `Key`.
+Each mode (`major`, `minor`, `dorian`, `mixolydian`) has its data (`TonalityDef`) in `style/tonalities/<mode>.ts`: chord templates per section type, pre-chorus progressions per flavour, bridge keys, key-change turnarounds, cadence chords and solo change shapes. `tonalityOf(mode)` gives it as a `Tonality` (`style/tonalities/tonality.ts`), with the lookups that can fail or need fitting (`templatesFor`, `preTemplates`, `turnaround`, `isTonic`). `Harmonizer` (`model/harmony.ts`) realises templates against the song's `Key`; `SoloChangesWriter` (`model/solo-changes.ts`) writes solo changes with it.
+
+Generators are writer classes: the constructor takes what is decided (or a plan to pick from) and the `Rng` it owns, and `write(input)` returns a value without keeping output state on the writer (`DrumWriter`, `BassWriter`, `GrooveWriter`, `MelodyWriter`, `AnswerWriter`, `SoloWriter`, `SoloChangesWriter`, `TitleWriter`).
 
 ### Testing
 

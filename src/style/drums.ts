@@ -4,11 +4,33 @@
 import type { Range, Weighted } from '../lib/random';
 import { at, empty, steps, type StepGains } from '../lib/steps';
 
+// The drum sounds the band plays, by their names in Strudel's samples
+// (and every drum machine's bank), with each one's General MIDI
+// percussion key for the MIDI export.
+export const DRUM_SOUNDS = {
+  bd: { gmKey: 36 },
+  rim: { gmKey: 37 },
+  sd: { gmKey: 38 },
+  cp: { gmKey: 39 },
+  lt: { gmKey: 45 },
+  hh: { gmKey: 42 },
+  oh: { gmKey: 46 },
+  mt: { gmKey: 47 },
+  cr: { gmKey: 49 },
+  ht: { gmKey: 50 },
+  rd: { gmKey: 51 },
+  tb: { gmKey: 54 },
+  cb: { gmKey: 56 },
+  sh: { gmKey: 82 },
+} as const satisfies Readonly<Record<string, { gmKey: number }>>;
+export type DrumSound = keyof typeof DRUM_SOUNDS;
+export const isDrumSound = (name: string): name is DrumSound => name in DRUM_SOUNDS;
+
 export type DrumFeel = 'funk' | 'disco' | 'halfTime' | 'bossa' | 'introRide' | 'claps' | 'build' | 'break';
 export type DrumRole = 'kick' | 'snare' | 'ghost' | 'hat' | 'perc';
 
 export interface DrumVoice {
-  sound: string;
+  sound: DrumSound;
   role: DrumRole;
   bars: readonly StepGains[]; // choices; a recipe picks one
 }
@@ -55,7 +77,7 @@ const PERCUSSION: readonly DrumVoice[] = [
 const percussion = (chance: number) => ({ op: 'voice', chance, voices: PERCUSSION }) as const;
 
 // The backbeat's sound(s), and how the level scales for each.
-export const BACKBEATS: Weighted<string[]> = [
+export const BACKBEATS: Weighted<DrumSound[]> = [
   [['sd'], 4],
   [['sd', 'cp'], 2],
   [['cp'], 1],
@@ -276,7 +298,7 @@ export const FILLS = {
     ['mt', 1],
     ['lt', 1],
     ['bd', 1],
-  ] as Weighted<string>,
+  ] as Weighted<DrumSound>,
   sixteenths: 0.65,
   quietLevel: 0.6,
 };

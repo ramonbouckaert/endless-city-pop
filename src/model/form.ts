@@ -1,115 +1,106 @@
-// Plans a song's form: the ordered sections, their lengths, and what
-// each repeat changes. The odds are in style/form.ts.
+// A song's form: its sections in order, and what the writers, the
+// arranger and the page ask of it (where each section starts, what comes
+// next, how often a part has played).
 
-import type { Rng } from '../lib/random';
-import { FORM, MAX_SHIFT, OUTRO_STYLES, type Turnaround } from '../style';
-import { section, type Section } from './section';
+import type { SectionType } from '../style';
+import { isSection, type Section, type SectionOf } from './section';
 
-export class FormPlanner {
-  private readonly preBars: number;
-  private readonly chorusBars: number;
+/** Where the playhead is: the section, and how far through it (0..1). */
+export interface Playhead {
+  index: number;
+  through: number;
+}
 
-  /** `turnarounds`: the lifts into a last chorus the song's tonality offers. */
-  constructor(
-    private readonly rng: Rng,
-    private readonly turnarounds: Readonly<Record<string, Turnaround>>,
-  ) {
-    this.preBars = rng.pick(FORM.preBars);
-    this.chorusBars = rng.chance(FORM.chorusTag) ? 10 : 8;
+export class Form implements Iterable<Section> {
+  /** The bar each section starts on. */
+  readonly starts: readonly number[];
+  /** The song's length in bars. */
+  readonly bars: number;
+
+  constructor(readonly sections: readonly Section[]) {
+    let bar = 0;
+    this.starts = sections.map((s) => {
+      const start = bar;
+      bar += s.bars;
+      return start;
+    });
+    this.bars = bar;
   }
 
-  plan(): Section[] {
-    const opening = this.opening();
-    const body = [...this.rounds(), ...this.middle()];
-    const vamp = opening.find((s) => s.type === 'vamp');
-    return [...opening, ...(vamp ? this.vampReturn(body, vamp.bars) : body), ...this.ending()];
+  [Symbol.iterator](): Iterator<Section> {
+    return this.sections[Symbol.iterator]();
   }
 
-  private opening(): Section[] {
-    const { rng } = this;
-    const s: Section[] = [section('intro', rng.pick(FORM.introBars))];
-    if (rng.chance(FORM.vamp.chance)) s.push(section('vamp', rng.pick(FORM.vamp.bars), { returning: false }));
-    return s;
+  get length(): number {
+    return this.sections.length;
   }
 
-  // The body, perhaps with the opening vamp back once, after a section
-  // that hands over to anything (not a verse, which leads on to its
-  // pre-chorus or chorus).
-  private vampReturn(body: Section[], bars: number): Section[] {
-    const { rng } = this;
-    if (!rng.chance(FORM.vamp.returns)) return body;
-    const spots = body.flatMap((s, i) => (FORM.vamp.after.includes(s.type) ? [i + 1] : []));
-    if (!spots.length) return body;
-    const at = rng.pick(spots);
-    return [...body.slice(0, at), section('vamp', bars, { returning: true }), ...body.slice(at)];
+  /** The section at an index. */
+  at(index: number): Section | undefined {
+    return this.sections[index];
   }
 
-  // Verse / pre-chorus / chorus rounds.
-  private rounds(): Section[] {
-    const { rng } = this;
-    const riffChance = rng.pick(FORM.riffChance);
-    return Array.from({ length: rng.weighted(FORM.rounds) }, (_, r) => {
-      const later = r > 0;
-      const round: Section[] = [section('verse', rng.pick(FORM.verseBars), { later })];
-      if (this.preBars) round.push(section('pre', this.preBars, { later }));
-      round.push(section('chorus', this.chorusBars, { answer: later, big: false }));
-      if (rng.chance(riffChance)) round.push(section('riff', 4));
-      return round;
-    }).flat();
+  /** Every section of a type, in order. */
+  ofType<T extends SectionType>(type: T): SectionOf<T>[] {
+    return this.sections.filter(isSection(type));
   }
 
-  // A bridge and up to two solos, in either order, then perhaps a
-  // breakdown, and perhaps a drum break into a solo or the last choruses.
-  // Each solo is a part of its own, with its own soloist.
-  private middle(): Section[] {
-    const { rng } = this;
-    const parts: Section[][] = [];
-    if (rng.chance(FORM.bridgeChance)) parts.push([section('bridge', 8)]);
-    const soloCount = rng.weighted(FORM.soloCount);
-    if (soloCount) {
-      const soloists = rng.shuffle(FORM.soloists);
-      parts.push(
-        Array.from({ length: soloCount }, (_, i) =>
-          section('solo', rng.pick(FORM.soloBars), { soloist: soloists[i], part: `solo:${i}` }),
-        ),
-      );
-    }
-    const body = rng.shuffle(parts).flat();
-    if (rng.chance(FORM.breakdown.chance)) {
-      body.push(section('breakdown', rng.pick(FORM.breakdown.bars)));
-    }
-    if (rng.chance(FORM.drumBreakChance)) {
-      const spots = body.flatMap((x, i) => (x.type === 'solo' ? [i] : []));
-      body.splice(rng.pick([...spots, body.length]), 0, section('drumBreak', 2));
-    }
-    return body;
+  /** The first section of a type, if the form has one. */
+  first<T extends SectionType>(type: T): SectionOf<T> | undefined {
+    return this.sections.find(isSection(type));
   }
 
-  // The last choruses, each perhaps lifted a key by a turnaround (a part
-  // of its own), then the ending.
-  private ending(): Section[] {
-    const { rng } = this;
-    const { lift } = FORM;
-    const s: Section[] = [];
-    let shift = 0;
-    let lifts = 0;
-    const finals = rng.weighted(FORM.finalChoruses);
-    for (let i = 0; i < finals; i++) {
-      const step = rng.weighted(lift.steps);
-      if (shift + step <= MAX_SHIFT && rng.chance(i ? lift.again : lift.first)) {
-        shift += step;
-        const turnaround = rng.weightedKey(this.turnarounds);
-        const bars = this.turnarounds[turnaround].bars.length;
-        s.push(section('lift', bars, { liftTo: shift, turnaround, part: `lift:${lifts++}` }));
-      }
-      const big = i === finals - 1;
-      s.push(section('chorus', this.chorusBars, { answer: true, big, shift }));
-    }
-    if (rng.chance(FORM.outroChance)) {
-      const variant = rng.weightedKey(OUTRO_STYLES);
-      s.push(section('outro', OUTRO_STYLES[variant].bars, { variant, shift }));
-    }
-    s.push(section('finale', 2, { shift }));
-    return s;
+  /** The section after `sec`. */
+  next(sec: Section): Section | undefined {
+    return this.sections[this.sections.indexOf(sec) + 1];
   }
+
+  /** The section after `sec`, not counting a drum break. */
+  after(sec: Section): Section | undefined {
+    return this.sections.slice(this.sections.indexOf(sec) + 1).find((s) => s.type !== 'drumBreak');
+  }
+
+  /** The last section of `sec`'s type before it. */
+  previous<S extends Section>(sec: S): S | undefined {
+    return this.sections.slice(0, this.sections.indexOf(sec)).findLast((s): s is S => s.type === sec.type);
+  }
+
+  /** How many sections before the one at `index` play its part. */
+  repeatOf(index: number): number {
+    const { part } = this.sections[index];
+    return this.sections.slice(0, index).filter((s) => s.part === part).length;
+  }
+
+  /** The part ids of a type's sections, in form order. */
+  partIds(type: SectionType): string[] {
+    return [...new Set(this.sections.filter((s) => s.type === type).map((s) => s.part))];
+  }
+
+  /** The soloists the form's solos go to, in order, as indexes into the song's soloists. */
+  get soloists(): number[] {
+    return this.ofType('solo').map((s) => s.soloist);
+  }
+
+  /**
+   * The section at `pos` bars in, and how far through it; past the end,
+   * the end of the last section; before the start, none.
+   */
+  playhead(pos: number): Playhead | undefined {
+    if (pos < 0 || !this.length) return undefined;
+    const index = this.sections.findIndex((s, i) => pos < this.starts[i] + s.bars);
+    if (index < 0) return { index: this.length - 1, through: 1 };
+    return { index, through: (pos - this.starts[index]) / this.sections[index].bars };
+  }
+
+  /** Each section in a line: "chorus (+2) 8", "lift (to +2, ii-V) 2". */
+  describe(): string[] {
+    return this.sections.map(describeSection);
+  }
+}
+
+function describeSection(sec: Section): string {
+  if (sec.type === 'lift') return `lift (to +${sec.liftTo}, ${sec.turnaround}) ${sec.bars}`;
+  const variant = sec.type === 'outro' ? ` ${sec.variant}` : '';
+  const shift = sec.shift ? ` (+${sec.shift})` : '';
+  return `${sec.type}${variant}${shift} ${sec.bars}`;
 }

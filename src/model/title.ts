@@ -29,41 +29,47 @@ export function joinAside(aside: string, join: TitleParts['join']): string {
   return aside;
 }
 
-export function writeTitle(rng: Rng): TitleParts {
-  const [mod, noun] = pickWords(rng.fork('words'));
-  const en = `${mod.en} ${noun.en}`;
-  const { ja, kana, reading } = japanese(mod, noun);
-  const kanaPairs: string[][] = kana
-    ? [
-        [kana, en],
-        [en, kana],
-      ]
-    : [];
-  const [title, aside] = rng.pick([[ja, en], [en, ja], ...kanaPairs]);
-  const style = rng.pick(['plain', 'caps', 'fullwidth', 'fullwidth caps'] as const);
-  const join = rng.pick(['brackets', 'dash', 'space'] as const);
-  const romanised = rng.chance(TITLE_ROMAJI);
-  const shown = title === en ? aside : title;
-  const english = romanised ? reading(shown === kana) : en;
-  const cased = style.endsWith('caps') ? english.toUpperCase() : english;
-  const styled = style.startsWith('fullwidth') ? fullwidth(cased) : cased;
-  const side = (s: string) => (s === en ? styled : s);
-  return { title: side(title), aside: side(aside), join, romanised };
-}
+/** Writes a song's title. */
+export class TitleWriter {
+  constructor(private readonly rng: Rng) {}
 
-// A modifier and a noun that don't repeat each other: not "Rainy Rain"
-// or "Midsummer Summer". Retries are bounded: the lists have ~1200
-// pairs and very few clash.
-function pickWords(rng: Rng): [TitleWord, TitleWord] {
-  const { modifiers, nouns } = TITLE_WORDS;
-  const clash = (a: string, b: string) => a.toLowerCase().includes(b.toLowerCase().slice(0, 4));
-  let mod = rng.pick(modifiers);
-  let noun = rng.pick(nouns);
-  for (let i = 0; i < 100 && (clash(mod.en, noun.en) || clash(noun.en, mod.en)); i++) {
-    mod = rng.pick(modifiers);
-    noun = rng.pick(nouns);
+  write(): TitleParts {
+    const { rng } = this;
+    const [mod, noun] = this.words(rng.fork('words'));
+    const en = `${mod.en} ${noun.en}`;
+    const { ja, kana, reading } = japanese(mod, noun);
+    const kanaPairs: string[][] = kana
+      ? [
+          [kana, en],
+          [en, kana],
+        ]
+      : [];
+    const [title, aside] = rng.pick([[ja, en], [en, ja], ...kanaPairs]);
+    const style = rng.pick(['plain', 'caps', 'fullwidth', 'fullwidth caps'] as const);
+    const join = rng.pick(['brackets', 'dash', 'space'] as const);
+    const romanised = rng.chance(TITLE_ROMAJI);
+    const shown = title === en ? aside : title;
+    const english = romanised ? reading(shown === kana) : en;
+    const cased = style.endsWith('caps') ? english.toUpperCase() : english;
+    const styled = style.startsWith('fullwidth') ? fullwidth(cased) : cased;
+    const side = (s: string) => (s === en ? styled : s);
+    return { title: side(title), aside: side(aside), join, romanised };
   }
-  return [mod, noun];
+
+  // A modifier and a noun that don't repeat each other: not "Rainy Rain"
+  // or "Midsummer Summer". Retries are bounded: the lists have ~1200
+  // pairs and very few clash.
+  private words(rng: Rng): [TitleWord, TitleWord] {
+    const { modifiers, nouns } = TITLE_WORDS;
+    const clash = (a: string, b: string) => a.toLowerCase().includes(b.toLowerCase().slice(0, 4));
+    let mod = rng.pick(modifiers);
+    let noun = rng.pick(nouns);
+    for (let i = 0; i < 100 && (clash(mod.en, noun.en) || clash(noun.en, mod.en)); i++) {
+      mod = rng.pick(modifiers);
+      noun = rng.pick(nouns);
+    }
+    return [mod, noun];
+  }
 }
 
 // The pair in Japanese: a noun modifier takes の (真夜中のドア), an

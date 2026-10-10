@@ -17,26 +17,8 @@ export {
   type PlayedType,
 } from './material';
 export { Melody, Solo, type Grace, type MelodyNote, type SoloNote } from './melody';
-export {
-  level,
-  recording,
-  soundAt,
-  voiceGain,
-  withSound,
-  type Instruments,
-  type PartPath,
-  type SoundPath,
-  type Sounds,
-} from './orchestration';
-export {
-  describeSection,
-  isSection,
-  section,
-  sectionStarts,
-  soloistsOf,
-  type Section,
-  type SectionFields,
-  type SectionOf,
-} from './section';
+export { Instruments, Kit, partLabel, pickedFrom, type PartPath, type SoundPath, type Sounds } from './orchestration';
+export { Form, type Playhead } from './form';
+export { isSection, section, type Section, type SectionFields, type SectionOf } from './section';
 export { Song, type SongData } from './song';
 export { formatTitle, joinAside, type TitleParts } from './title';

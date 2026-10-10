@@ -1,10 +1,10 @@
-import type { Tonality } from './types';
+import type { TonalityDef } from './types';
 
 // Modal jazz-funk (So What, Chameleon, Oye Como Va): long stretches of
 // a dorian m7, its bright IV7, and the bIII and bVII of the parent
 // major. Few cadences, so less reharmonisation; it comes home by the
 // plagal IV7-i, not V-i.
-export const DORIAN: Tonality = {
+export const DORIAN: TonalityDef = {
   weight: 3,
   tonics: [2, 7, 0, 9, 4, 5], // D G C A E F
   tonic: 'min',

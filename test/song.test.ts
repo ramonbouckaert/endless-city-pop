@@ -23,7 +23,7 @@ describe('Song', () => {
         if ('bass' in mat) expect(mat.bass.bars).toHaveLength(mat.bars.length);
       }
       for (const s of song.form) expect(song.materials).toHaveProperty([s.part]);
-      const types = song.form.map((s) => s.type);
+      const types = song.form.sections.map((s) => s.type);
       expect(types[0]).toBe('intro');
       expect(types.at(-1)).toBe('finale');
       expect(types).toContain('verse');

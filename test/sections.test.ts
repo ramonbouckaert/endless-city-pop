@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSection, Song, type Grace } from '../src/model';
+import { Song, type Grace } from '../src/model';
 import { soloDegrees, soloSlides } from '../src/render/notation';
 import {
   FINALE_STYLES,
@@ -20,7 +20,7 @@ describe('section materials', () => {
       const song = Song.generate(`vamp${i}`);
       const vamp = song.part('vamp');
       if (vamp) entries.add(vamp.variant);
-      else expect(song.form.some((s) => s.type === 'vamp')).toBe(false);
+      else expect(song.form.sections.some((s) => s.type === 'vamp')).toBe(false);
     }
     expect(entries).toEqual(new Set(['late', 'light', 'full']));
   });
@@ -34,7 +34,7 @@ describe('section materials', () => {
     const graces: Grace[] = [];
     const minorHalfDiminished: number[] = [];
     for (const song of songs) {
-      for (const [i, sec] of song.form.filter(isSection('solo')).entries()) {
+      for (const [i, sec] of song.form.ofType('solo').entries()) {
         const mat = song.material(sec);
         // The first over the band, the next never over what the one before had.
         expect(mat.variant).toBe(i % 2 ? 'bossa' : 'band');
@@ -101,7 +101,7 @@ describe('section materials', () => {
   it('varies the pre-chorus', () => {
     const pres = Array.from({ length: 150 }, (_, i) => Song.generate(`pre${i}`))
       .filter((song) => song.part('pre'))
-      .map((song) => ({ mat: song.part('pre')!, bars: song.form.find((s) => s.type === 'pre')!.bars }));
+      .map((song) => ({ mat: song.part('pre')!, bars: song.form.first('pre')!.bars }));
     expect(new Set(pres.map((p) => p.mat.variant))).toEqual(new Set(Object.keys(PRE_FLAVOURS)));
     expect(new Set(pres.map((p) => p.bars))).toEqual(new Set([2, 4, 6, 8]));
     for (const { mat, bars } of pres) {
@@ -120,19 +120,19 @@ describe('section materials', () => {
     const styles = new Set<string>();
     let multiple = 0;
     for (const song of songs) {
-      const lifts = song.form.filter(isSection('lift'));
+      const lifts = song.form.ofType('lift');
       const mats = song.parts('lift');
       expect(mats).toHaveLength(lifts.length);
       if (lifts.length > 1) multiple++;
       // Each lift goes up from the key before it, never past the cap.
       let shift = 0;
-      for (const [i, sec] of song.form.entries()) {
+      for (const [i, sec] of song.form.sections.entries()) {
         if (sec.type === 'lift') {
           expect(sec.liftTo).toBeGreaterThan(shift);
           expect(sec.liftTo).toBeLessThanOrEqual(MAX_SHIFT);
-          expect(song.form[i + 1]).toMatchObject({ type: 'chorus', shift: sec.liftTo });
+          expect(song.form.at(i + 1)).toMatchObject({ type: 'chorus', shift: sec.liftTo });
           shift = sec.liftTo;
-        } else if (song.form.slice(0, i).some((s) => s.type === 'lift')) {
+        } else if (song.form.sections.slice(0, i).some((s) => s.type === 'lift')) {
           expect(sec.shift).toBe(shift);
         }
       }
@@ -165,7 +165,7 @@ describe('section materials', () => {
     const songs = Array.from({ length: 150 }, (_, i) => Song.generate(`outro${i}`));
     const styles = new Set<string>();
     for (const song of songs) {
-      const sec = song.form.find(isSection('outro'));
+      const sec = song.form.first('outro');
       if (!sec) continue;
       const mat = song.material(sec);
       styles.add(mat.variant);

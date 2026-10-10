@@ -1,5 +1,5 @@
-// Drums. A writer takes a feel and rolls its own groove by running the
-// feel's recipe (style/drums.ts): where the kicks fall, ghost notes,
+// Drums. A writer picks a feel from a section's plan and rolls its own
+// groove by running the feel's recipe (style/drums.ts): where the kicks fall, ghost notes,
 // hi-hat or ride, eighths or sixteenths, accents, open hats and extra
 // percussion. The fourth bar of each phrase varies, and a section that
 // ends in a fill gets a few (snare rolls, tom runs, unison hits, stops)
@@ -14,20 +14,22 @@ import {
   EIGHTH_OFFS,
   FILLS,
   type DrumFeel,
+  type DrumPlan,
   type DrumRecipe,
   type DrumRole,
+  type DrumSound,
   type DrumStep,
   type FillKind,
 } from '../style';
 
 export interface DrumPart {
-  sound: string;
+  sound: DrumSound;
   role: DrumRole;
   bars: readonly StepGains[]; // four bars, the fourth a variation
 }
 export interface DrumHit {
   step: number;
-  sound: string;
+  sound: DrumSound;
   gain: number;
 }
 // A fill over the end of a section's last bar, from `start`: replacing
@@ -49,44 +51,80 @@ export interface Drums {
 
 type Op<K extends DrumStep['op']> = Extract<DrumStep, { op: K }>;
 
+/** Writes a section's drums from its plan: one of its feels, perhaps with a crash and fills. */
 export class DrumWriter {
+  readonly feel: DrumFeel;
   private readonly recipe: DrumRecipe;
-  private readonly voices: { sound: string; role: DrumRole; bar: StepGains }[] = [];
-  private openOnFour: boolean;
-  private cymbalSound = 'hh';
+  private readonly crash: boolean;
+  private readonly fill: boolean;
 
   constructor(
-    readonly feel: DrumFeel,
+    plan: DrumPlan,
     private readonly rng: Rng,
   ) {
-    this.recipe = DRUM_FEELS[feel];
-    this.openOnFour = !!this.recipe.openOnFour;
+    this.feel = rng.pick(plan.feels);
+    this.crash = rng.chance(plan.crash);
+    this.fill = rng.chance(plan.fill);
+    this.recipe = DRUM_FEELS[this.feel];
   }
 
-  /** The groove as four-bar parts, with a crash and fills if asked for. */
-  write(crash: boolean, fill: boolean): Drums {
-    for (const step of this.recipe.steps) this.run(step);
-    const vary = !this.recipe.steady && this.rng.chance(DRUMS.vary.chance);
-    const parts: DrumPart[] = this.voices.map(({ sound, role, bar }) => {
+  /** The groove as four-bar parts, with a crash and fills if the plan rolled them. */
+  write(): Drums {
+    const { rng, recipe, feel, crash, fill } = this;
+    const groove = new RecipeRun(recipe, rng.fork('groove')).run();
+    const vary = !recipe.steady && rng.chance(DRUMS.vary.chance);
+    const parts: DrumPart[] = groove.voices.map(({ sound, role, bar }) => {
       const fourthBar = vary && role === 'kick' ? this.varyKick(bar) : bar;
       return { sound, role, bars: [bar, bar, bar, fourthBar] };
     });
-    if (this.openOnFour && this.rng.chance(DRUMS.openOnFour.chance)) {
+    if (groove.openOnFour && rng.chance(DRUMS.openOnFour.chance)) {
       parts.push({ sound: 'oh', role: 'hat', bars: [empty(), empty(), empty(), at({ 14: DRUMS.openOnFour.gain })] });
     }
     const fills = fill
-      ? Array.from({ length: FILLS.count }, (_, i) =>
-          new FillWriter(this.rng.fork(`fill/${i}`), !!this.recipe.quiet).write(),
-        )
+      ? Array.from({ length: FILLS.count }, (_, i) => new FillWriter(rng.fork(`fill/${i}`), !!recipe.quiet).write())
       : [];
-    return { feel: this.feel, parts, fills, crash, fill };
+    return { feel, parts, fills, crash, fill };
   }
 
-  private add(sound: string, role: DrumRole, bar: StepGains): void {
+  // Bar four of a phrase: a kick dropped (perhaps) and one added.
+  private varyKick(bar: StepGains): StepGains {
+    const v = DRUMS.vary;
+    const hits = bar.flatMap((g, i) => (g && i ? [i] : []));
+    const dropped = hits.length && this.rng.chance(v.drop) ? bar.with(this.rng.pick(hits), 0) : bar;
+    return dropped.with(this.rng.pick(v.steps), this.rng.pick(v.gains));
+  }
+}
+
+// One bar of a drum part, as the recipe made it.
+interface Voice {
+  sound: DrumSound;
+  role: DrumRole;
+  bar: StepGains;
+}
+
+/** One run of a recipe's steps, in order: the voices they add, and whether an open hat may close the phrase. */
+class RecipeRun {
+  private readonly voices: Voice[] = [];
+  private openOnFour: boolean;
+  private cymbalSound: DrumSound = 'hh';
+
+  constructor(
+    private readonly recipe: DrumRecipe,
+    private readonly rng: Rng,
+  ) {
+    this.openOnFour = !!recipe.openOnFour;
+  }
+
+  run(): { voices: readonly Voice[]; openOnFour: boolean } {
+    for (const step of this.recipe.steps) this.step(step);
+    return { voices: this.voices, openOnFour: this.openOnFour };
+  }
+
+  private add(sound: DrumSound, role: DrumRole, bar: StepGains): void {
     this.voices.push({ sound, role, bar });
   }
 
-  private run(step: DrumStep): void {
+  private step(step: DrumStep): void {
     switch (step.op) {
       case 'kicks':
         return this.kicks(step);
@@ -170,19 +208,10 @@ export class DrumWriter {
     const { sound, role, bars } = this.rng.pick(voices);
     this.add(sound, role, this.rng.pick(bars));
   }
-
-  // Bar four of a phrase: a kick dropped (perhaps) and one added.
-  private varyKick(bar: StepGains): StepGains {
-    const v = DRUMS.vary;
-    const hits = bar.flatMap((g, i) => (g && i ? [i] : []));
-    const dropped = hits.length && this.rng.chance(v.drop) ? bar.with(this.rng.pick(hits), 0) : bar;
-    return dropped.with(this.rng.pick(v.steps), this.rng.pick(v.gains));
-  }
 }
 
 /** A fill over the end of a bar, from where it starts to the barline. */
 class FillWriter {
-  private readonly hits: DrumHit[] = [];
   private readonly start: number;
   private readonly kind: FillKind;
   private readonly level: number;
@@ -199,39 +228,37 @@ class FillWriter {
 
   write(): DrumFill {
     const { rng, start, level } = this;
+    const hits: DrumHit[] = [];
+    const hit = (step: number, sound: DrumSound, gain: number) => hits.push({ step, sound, gain });
     switch (this.kind) {
       case 'roll':
-        this.run((i) => this.hit(i, 'sd', this.ramp(i)));
+        this.run((i) => hit(i, 'sd', this.ramp(i)));
         break;
       case 'toms':
         this.run((i) =>
-          this.hit(i, ['ht', 'mt', 'lt'][Math.min(2, Math.floor(this.progress(i) * 3))], this.ramp(i) * 1.4),
+          hit(i, (['ht', 'mt', 'lt'] as const)[Math.min(2, Math.floor(this.progress(i) * 3))], this.ramp(i) * 1.4),
         );
-        if (rng.chance(0.5)) this.hit(15, 'bd', 0.6 * level);
+        if (rng.chance(0.5)) hit(15, 'bd', 0.6 * level);
         break;
       case 'mixed':
         this.run((i) => {
           if (i > start && rng.chance(0.2)) return;
           const sound = rng.weighted(FILLS.mixed);
-          this.hit(i, sound, this.ramp(i) * (sound === 'sd' ? 1 : 1.3));
+          hit(i, sound, this.ramp(i) * (sound === 'sd' ? 1 : 1.3));
         });
         break;
       case 'unison':
         // Kick and snare together on a syncopated figure.
         for (let i = start; i < 16; i += 3) {
-          this.hit(i, 'sd', 0.4 * level);
-          this.hit(i, 'bd', 0.6 * level);
+          hit(i, 'sd', 0.4 * level);
+          hit(i, 'bd', 0.6 * level);
         }
         break;
       case 'stop':
         // Everything stops, then a snare pickup.
-        this.hit(rng.pick([14, 15]), 'sd', 0.35 * level);
+        hit(rng.pick([14, 15]), 'sd', 0.35 * level);
     }
-    return { start, stop: this.kind === 'stop', hits: [...this.hits] };
-  }
-
-  private hit(step: number, sound: string, gain: number): void {
-    this.hits.push({ step, sound, gain });
+    return { start, stop: this.kind === 'stop', hits };
   }
 
   private progress(i: number): number {

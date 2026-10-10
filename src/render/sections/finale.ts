@@ -1,6 +1,5 @@
 import { chord, s, saw, type Pattern } from '@strudel/core';
 import { Chord } from '../../theory';
-import type { Voice } from '../band';
 import { FIGURES } from '../figures';
 import { bassScale } from '../notation';
 import type { Parts, SectionContext } from './context';
@@ -10,7 +9,7 @@ export function finale(ctx: SectionContext<'finale'>): Parts {
   const { band, mat } = ctx;
   const { chord: fin, key } = mat;
   const name = fin.name(key);
-  const keys = (c: Pattern) => band.chords('keys', c, 0.4).room(0.5);
+  const keys = (c: Pattern) => band.finaleKeys(c);
   const root = () => band.bass('0', bassScale(fin, key));
   // The ride swelling under the held chord, after a kick and crash.
   const ride = () => band.drum(s('rd*16').gain(0.09).velocity(saw.slow(2).range(0.3, 1)));
@@ -46,11 +45,10 @@ export function finale(ctx: SectionContext<'finale'>): Parts {
     }
     case 'run': {
       // A run up the chord on the keys, landing on it held.
-      const run: Voice = { path: 'keys', sound: band.sounds.keys, gain: 0.32 };
       return {
         drums: ring(),
         pitched: [
-          band.voice(run, line(FIGURES.finaleRun)).room(0.5),
+          band.keysRun(line(FIGURES.finaleRun)),
           keys(chord(`[~ ${name}@3]`)).slow(2),
           band.strings(chord(name)).slow(2),
           root().slow(2),

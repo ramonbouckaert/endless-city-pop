@@ -37,7 +37,7 @@ export type SoloShape = 'cycle' | 'home' | 'vamp';
 // roman numerals relative to the tonic, one token per bar ("[ii7 V7]"
 // puts two chords in a bar); a template's length is its natural phrase,
 // repeated to fill the section.
-export interface Tonality {
+export interface TonalityDef {
   weight: number; // how often a seed picks this mode
   tonics: readonly number[]; // pitch classes a seed may pick
   tonic: ChordClass; // the tonic chord's family

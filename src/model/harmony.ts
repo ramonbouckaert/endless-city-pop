@@ -4,16 +4,7 @@
 // cadences, where its bridges go and how it lifts.
 
 import type { Rng } from '../lib/random';
-import {
-  PALETTE,
-  PLANING_STARTS,
-  REHARM,
-  SOLO_CHANGES,
-  TONALITIES,
-  TONIC_CHORDS,
-  type PaletteName,
-  type Tonality,
-} from '../style';
+import { PALETTE, PLANING_STARTS, REHARM, tonalityOf, type PaletteName, type Tonality } from '../style';
 import { Chord, Key, parseChordSpec, reshape, Template, type Bar, type ChordSpec, type Roman } from '../theory';
 
 /** Writes harmony in a key, drawing on one random stream. */
@@ -24,7 +15,7 @@ export class Harmonizer {
   ) {}
 
   get tonality(): Tonality {
-    return TONALITIES[this.key.mode];
+    return tonalityOf(this.key.mode);
   }
 
   /**
@@ -69,11 +60,12 @@ export class Harmonizer {
     return this.scaled(
       bars.map((bar, b) => {
         const target = bars[(b + 1) % bars.length][0];
-        const last = bar.at(-1)!;
+        const last = bar.at(-1);
         if (
+          last &&
           last.dominant &&
           last.fallsFifthTo(target) &&
-          !this.isTonic(last) &&
+          !this.tonality.isTonic(last, this.key) &&
           this.rng.chance(amount * REHARM.tritone)
         ) {
           return bar.with(-1, new Chord(last.root + 6, '13#11'));
@@ -99,11 +91,6 @@ export class Harmonizer {
     return [only, new Chord(target.root + 7, rng.pick(target.minorish ? REHARM.toMinor : REHARM.toMajor))];
   }
 
-  // The key's own tonic chord (a mixolydian I7, not a secondary dominant).
-  private isTonic(chord: Chord): boolean {
-    return chord.root === this.key.tonic && chord.cls === this.tonality.tonic;
-  }
-
   /** Two bars leading into the key's tonic: ii-V in major, iiø-V7alt in minor, bVII-IV in dorian. */
   approach(): Bar[] {
     return this.into(this.tonality.approach);
@@ -111,62 +98,22 @@ export class Harmonizer {
 
   /** A named turnaround (the tonality's turnarounds) into the key's tonic. */
   turnaround(name: string): Bar[] {
-    const turnaround = this.tonality.turnarounds[name];
-    if (!turnaround) throw new Error(`No ${name} turnaround in ${this.key.mode}`);
-    return this.into(turnaround.bars);
+    return this.into(this.tonality.turnaround(name).bars);
   }
 
-  // Bars of "numeral:symbol|symbol" chords in a key (this one unless
-  // given), with chord-scales as they resolve to its tonic.
-  private into(specs: readonly (readonly ChordSpec[])[], key = this.key): Bar[] {
+  /**
+   * Bars of "numeral:symbol|symbol" chords in a key (this one unless
+   * given), with chord-scales as they resolve to its tonic.
+   */
+  into(specs: readonly (readonly ChordSpec[])[], key = this.key): Bar[] {
     const bars = specs.map((bar) =>
       bar.map((chord) => {
         const { offset, symbols } = parseChordSpec(chord);
         return new Chord(key.tonic + offset, this.rng.pick(symbols));
       }),
     );
-    const flat = [...bars.flat(), new Chord(key.tonic, TONALITIES[key.mode].finale[0][0])];
+    const flat = [...bars.flat(), new Chord(key.tonic, tonalityOf(key.mode).finaleSymbol)];
     return reshape(Chord.fitScales(flat, key), bars);
-  }
-
-  /**
-   * Solo changes, `bars` long, in eights that each end with the cadence
-   * home: the mode's pairs moving through keys, a stretch on the home
-   * tonic first, or one of its vamps (Tonality.solo). Reharmonised like
-   * any section; each chord's scale is the one it has in the key of its
-   * bar (a pair's own key, or home).
-   */
-  solo(bars: number): Bar[] {
-    const { solo, templates, tonic } = this.tonality;
-    const home = this.key;
-    // Bars, each with the key its chord-scales come from.
-    type Keyed = { bars: Bar[]; key: Key };
-    const pairs = (n: number): Keyed[] => {
-      const step = this.rng.weighted(solo.steps ?? SOLO_CHANGES.steps);
-      const start = home.tonic + this.rng.pick(SOLO_CHANGES.starts);
-      return Array.from({ length: n }, (_, p) => {
-        const key = home.transpose(start - home.tonic + p * step);
-        return { bars: this.into(solo.pair, key), key };
-      });
-    };
-    const eight = (): Keyed[] => {
-      const shape = this.rng.weighted(solo.shapes);
-      let lead: Keyed[];
-      if (shape === 'cycle') lead = pairs(3);
-      else if (shape === 'home')
-        lead = [{ bars: this.realize(new Template(TONIC_CHORDS[tonic]).fit(2)), key: home }, ...pairs(2)];
-      else lead = [{ bars: this.realize(new Template(this.rng.pick(templates.vamp)).fit(6)), key: home }];
-      return [...lead, { bars: this.approach(), key: home }];
-    };
-    const keyed = Array.from({ length: Math.ceil(bars / 8) }, eight).flat();
-    const out = keyed.flatMap((k) => k.bars);
-    const keys = keyed.flatMap((k) => k.bars.map(() => k.key));
-    const changes = this.reharmonize(out);
-    return changes.map((bar, b) =>
-      bar.map((chord, i) =>
-        chord.withScale(chord.fitScale(keys[b], bar[i + 1] ?? changes[(b + 1) % changes.length][0])),
-      ),
-    );
   }
 
   /** add9 chords planing down in whole steps from bIII or bVI, then a sus dominant. */

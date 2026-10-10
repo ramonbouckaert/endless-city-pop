@@ -1,6 +1,7 @@
 import type { Rng } from '../../lib/random';
 import { RHYTHM } from '../../style';
 import type { MaterialOf } from '../material';
+import { AnswerWriter } from '../melody';
 import type { SectionOf } from '../section';
 import type { WriteContext } from './context';
 
@@ -12,6 +13,6 @@ export function chorus(_sec: SectionOf<'chorus'>, ctx: WriteContext, rng: Rng): 
   return {
     ...ctx.band('chorus', key, bars, RHYTHM.chorus, rng.fork('groove')),
     melody: hook,
-    answer: hook.answer(bars, key, rng.fork('answer')),
+    answer: new AnswerWriter(key, rng.fork('answer')).write(hook, bars),
   };
 }
