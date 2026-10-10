@@ -3,6 +3,7 @@
 // the song in a Score and of the section in a Part.
 
 import type { Program } from '../lib/general-midi';
+import { loopBars } from '../lib/steps';
 import type { PartPath } from './orchestration';
 import type { Bar, Chord } from '../theory';
 
@@ -113,10 +114,10 @@ export class Part {
     return this.map((n) => ({ ...n, clip: value }));
   }
 
-  /** Pitched notes moved by semitones (drums stay as they are). */
+  /** Pitched notes moved by semitones (drums, and effects such as the riser, stay as they are). */
   transpose(semis: number): Part {
     if (!semis) return this;
-    return this.map((n) => (n.program === 'drums' ? n : { ...n, note: n.note + semis }));
+    return this.map((n) => (n.program === 'drums' || !n.path ? n : { ...n, note: n.note + semis }));
   }
 
   /** Every note `bars` later. */
@@ -159,10 +160,10 @@ export class Changes {
 
   /** `bars` bars of a material's chords, looping them; two in a bar share it. */
   static of(material: readonly Bar[], bars: number): Changes {
-    const spans = Array.from({ length: bars }, (_, b) => {
-      const bar = material[b % material.length];
-      return bar.map((chord, i) => ({ time: b + i / bar.length, dur: 1 / bar.length, chord }));
-    }).flat();
+    const spans = loopBars(material, bars, (chord, b, i) => {
+      const { length } = material[b % material.length];
+      return { time: b + i / length, dur: 1 / length, chord };
+    });
     return new Changes(spans, bars);
   }
 

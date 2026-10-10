@@ -61,7 +61,7 @@ export const DORIAN: TonalityDef = {
     shapes: [
       ['cycle', 1],
       ['home', 1],
-      ['vamp', 3],
+      ['loop', 3],
     ],
   },
   turnarounds: {

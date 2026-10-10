@@ -9,7 +9,17 @@ export interface Turnaround {
   bars: readonly (readonly ChordSpec[])[];
 }
 
-export type TemplateKind = 'vamp' | 'verse' | 'chorus' | 'tag' | 'riff' | 'intro';
+// Each section's progressions (a tag's: the bars a chorus runs over by);
+// a bridge's only where the mode has its own.
+export interface Templates {
+  vamp: readonly string[];
+  verse: readonly string[];
+  chorus: readonly string[];
+  tag: readonly string[];
+  riff: readonly string[];
+  intro: readonly string[];
+  bridge?: readonly string[];
+}
 
 // A key a bridge may move to: semitones above home, and its mode.
 export interface BridgeKey {
@@ -29,8 +39,8 @@ export interface SoloChanges {
   shapes: Weighted<SoloShape>;
 }
 // cycle: three pairs moving through keys. home: two bars on the home
-// tonic, then two pairs. vamp: six bars of one of the mode's vamps.
-export type SoloShape = 'cycle' | 'home' | 'vamp';
+// tonic, then two pairs. loop: six bars of one of the mode's vamps.
+export type SoloShape = 'cycle' | 'home' | 'loop';
 
 // How a mode sounds as a key: its progressions, where it cadences, what
 // its tonic chord is, and how it moves away and comes home. Templates are
@@ -45,7 +55,7 @@ export interface TonalityDef {
   reharm: number; // times the style's reharm amount
   finale: readonly (readonly [symbol: string, scale: string])[];
   approach: readonly (readonly ChordSpec[])[]; // two bars into the tonic
-  templates: Readonly<Record<TemplateKind, readonly string[]>> & { bridge?: readonly string[] };
+  templates: Readonly<Templates>;
   pre: Readonly<Record<PreFlavour, readonly string[]>>;
   bridgeKeys: readonly BridgeKey[];
   turnarounds: Readonly<Record<string, Turnaround>>;

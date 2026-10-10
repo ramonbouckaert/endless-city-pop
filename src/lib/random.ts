@@ -62,6 +62,7 @@ export class Rng {
   }
 
   pick<T>(items: readonly T[]): T {
+    if (!items.length) throw new Error('Nothing to choose from');
     return items.length === 1 ? items[0] : items[Math.floor(this.next() * items.length)];
   }
 

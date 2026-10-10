@@ -7,32 +7,28 @@ import { lazy } from '../../lib/lazy';
 import type { Rng } from '../../lib/random';
 import {
   INTRO,
+  MELODIES,
   tonalityOf,
   type GroovePlan,
   type IntroHarmony,
-  type MelodyKind,
-  type PlayedType,
-  type PreMelody,
-  type SectionType,
+  type MelodyStyle,
   type Tonality,
 } from '../../style';
-import { Template, type Bar, type Key } from '../../theory';
+import { Template, type Bar, type Chord, type Key } from '../../theory';
 import { Form } from '../form';
 import { GrooveWriter } from '../groove';
 import { Harmonizer } from '../harmony';
 import { MelodyWriter, type Melody } from '../melody';
-import { materialOf, type Material, type MaterialOf } from '../material';
-import type { SectionPlan } from '../plan';
-import type { AnySection, Section, SectionOf } from './section';
-
-/** Each section type's class, by type: built from a plan of its type, in a BuildContext. */
-export type SectionClasses = {
-  [T in SectionType]: new (plan: SectionPlan<T>, ctx: BuildContext) => SectionOf<T>;
-};
+import type { Plan } from '../plan';
+import { Chorus } from './chorus';
+import { Intro } from './intro';
+import type { AnySection, Material } from './index';
+import type { Section, SectionKind } from './section';
+import { Vamp } from './vamp';
 
 export class BuildContext {
   // Each section, by its plan, built on first use.
-  private readonly built = new Map<SectionPlan, AnySection>();
+  private readonly built = new Map<Plan, AnySection>();
   // Each part's material, by part id, written by the first of its sections built.
   private readonly materials = new Map<string, Material>();
   // For the harmony and lines several parts share, each written once on first use.
@@ -40,9 +36,8 @@ export class BuildContext {
 
   constructor(
     readonly key: Key,
-    readonly plan: Form<SectionPlan>,
+    readonly plan: Form<Plan>,
     private readonly rng: Rng,
-    private readonly classes: SectionClasses,
   ) {
     this.shared = rng.fork('shared');
   }
@@ -53,15 +48,21 @@ export class BuildContext {
   }
 
   /** The section a plan's section is built into, on first use. */
-  section<P extends SectionPlan>(plan: P): SectionOf<P['type']> {
+  section(plan: Plan): AnySection {
     let sec = this.built.get(plan);
     if (!sec) {
-      // Each type's class takes a plan of its type.
-      const Class = this.classes[plan.type] as new (plan: P, ctx: BuildContext) => AnySection;
-      sec = new Class(plan, this);
+      // Each kind's class takes a plan of its own kind.
+      const Kind = plan.kind as unknown as new (plan: Plan, ctx: BuildContext) => AnySection;
+      sec = new Kind(plan, this);
       this.built.set(plan, sec);
     }
-    return sec as SectionOf<P['type']>;
+    return sec;
+  }
+
+  /** The first section of a kind, built, if the form has one. */
+  first<K extends SectionKind>(kind: K): InstanceType<K> | undefined {
+    const plan = this.plan.first(kind);
+    return plan && (this.section(plan) as InstanceType<K>);
   }
 
   /**
@@ -71,13 +72,33 @@ export class BuildContext {
    * stream it is given: a caller hands on a fork, and never draws from it
    * again.
    */
-  material<T extends SectionType>(sec: Section<T>, write: (rng: Rng) => MaterialOf<T>): MaterialOf<T> {
+  material<M>(sec: Section<M>, write: (rng: Rng) => M): M {
     let mat = this.materials.get(sec.part);
     if (!mat) {
-      mat = write(this.rng.fork(`part/${sec.part}`));
+      mat = write(this.rng.fork(`part/${sec.part}`)) as Material;
       this.materials.set(sec.part, mat);
     }
-    return materialOf(sec.type, mat);
+    // Part ids are a kind's own (every chorus is part Chorus.id, each solo its own).
+    return mat as M;
+  }
+
+  /** The last section of `sec`'s kind before it, built, if there is one. */
+  previous<S extends Section>(sec: S): S | undefined {
+    const before = this.plan.previous(sec.plan);
+    return before && (this.section(before) as unknown as S);
+  }
+
+  /**
+   * The first chord of the section after `sec` (a lift or a drum break,
+   * leading into it), and that section's shift.
+   */
+  firstChordAfter(sec: Section): { chord: Chord; shift: number } {
+    const next = this.plan.next(sec.plan);
+    const mat = next && this.section(next).material;
+    if (!mat || !('bars' in mat)) {
+      throw new Error(`A ${sec.kind.label} can't lead into ${next?.kind.label ?? 'nothing'}`);
+    }
+    return { chord: mat.bars[0][0], shift: next.shift };
   }
 
   /** The song's key's tonality. */
@@ -93,42 +114,43 @@ export class BuildContext {
     return new Harmonizer(key, rng).progression(template, bars, { ending });
   }
 
-  /** Four bars of one of the key's vamp or riff templates. */
-  loop(kind: 'vamp' | 'riff', rng: Rng): Bar[] {
-    return this.progress(rng.pick(this.tonality.templatesFor(kind)), 4, rng.fork('harmony'));
+  /** Four bars of one of some templates (the key's vamps or riffs). */
+  loop(templates: readonly string[], rng: Rng): Bar[] {
+    return this.progress(rng.pick(templates), 4, rng.fork('harmony'));
   }
 
-  melody(kind: MelodyKind, key: Key, bars: Bar[], rng: Rng, style?: PreMelody): Melody {
-    return new MelodyWriter(key, kind, rng, style).write(bars);
+  /** A melody in a style, in a key, over some chords. */
+  melody(style: MelodyStyle, key: Key, bars: Bar[], rng: Rng): Melody {
+    return new MelodyWriter(key, style, rng).write(bars);
   }
 
   /** A section's chords in a key, with drums and a bass line to play them. */
-  band<T extends PlayedType>(type: T, key: Key, bars: Bar[], plan: GroovePlan, rng: Rng) {
-    return { type, key, bars, ...new GrooveWriter(plan, key, rng).write(bars) };
+  band(key: Key, bars: Bar[], plan: GroovePlan, rng: Rng) {
+    return { key, bars, ...new GrooveWriter(plan, key, rng).write(bars) };
   }
 
   /** The chorus's chords (the intro's and breakdown's too): eight bars, and a tag if the chorus runs longer. */
   readonly chorusBars = lazy((): Bar[] => {
-    const rng = this.shared.fork('chorusHarmony');
-    const bars = this.progress(rng.pick(this.tonality.templatesFor('chorus')), 8, rng.fork('harmony'));
-    const len = this.plan.first('chorus')?.bars ?? 8;
+    const rng = this.shared.fork(`${Chorus.id}Harmony`);
+    const bars = this.progress(rng.pick(this.tonality.templates.chorus), 8, rng.fork('harmony'));
+    const len = this.plan.first(Chorus)?.bars ?? 8;
     if (len <= 8) return bars;
-    const tag = new Template(rng.pick(this.tonality.templatesFor('tag'))).fit(len - 8);
+    const tag = new Template(rng.pick(this.tonality.templates.tag)).fit(len - 8);
     return [...bars, ...new Harmonizer(this.key, rng.fork('tag')).realize(tag)];
   });
 
   /** The chorus's melody (the intro's teaser and the breakdown's line too). */
-  readonly hook = lazy(() => this.melody('chorus', this.key, this.chorusBars(), this.shared.fork('hook')));
+  readonly hook = lazy(() => this.melody(MELODIES.chorus, this.key, this.chorusBars(), this.shared.fork('hook')));
 
   /** The vamp's chords (a trading outro's too). */
-  readonly vampBars = lazy(() => this.loop('vamp', this.shared.fork('vampHarmony')));
+  readonly vampBars = lazy(() => this.loop(this.tonality.templates.vamp, this.shared.fork(`${Vamp.id}Harmony`)));
 
-  /** The intro's chords (a reprise's too): the chorus's, planing chords, or a template of its own. */
+  /** The intro's chords (a reprise's too): the hook's, planing chords, or a template of its own. */
   readonly introBars = lazy((): { harmony: IntroHarmony; bars: Bar[] } => {
-    const rng = this.shared.fork('introHarmony');
+    const rng = this.shared.fork(`${Intro.id}Harmony`);
     const harmony = rng.weightedKey(INTRO.harmony);
-    if (harmony === 'chorus') return { harmony, bars: this.chorusBars().slice(0, 4) };
+    if (harmony === 'hook') return { harmony, bars: this.chorusBars().slice(0, 4) };
     if (harmony === 'planing') return { harmony, bars: new Harmonizer(this.key, rng.fork('planing')).planing() };
-    return { harmony, bars: this.progress(rng.pick(this.tonality.templatesFor('intro')), 4, rng.fork('harmony')) };
+    return { harmony, bars: this.progress(rng.pick(this.tonality.templates.intro), 4, rng.fork('harmony')) };
   });
 }

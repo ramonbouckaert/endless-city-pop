@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Key } from '../src/theory';
 import { channelsFor, songToMidi } from '../src/midi/from-score';
 import { CC, DRUM_CHANNEL, keySignature, PPQ, vlq, writeMidi, type MidiSong } from '../src/midi/writer';
-import { Song } from '../src/engine';
+import { PreChorus, Song, Vamp } from '../src/engine';
 import { defined } from './helpers';
 
 // A small Standard MIDI File reader: each track's events with absolute ticks.
@@ -247,7 +247,7 @@ describe('MIDI', () => {
   it("sweeps a vamp's keys open with brightness, and leaves other tracks as they are", () => {
     // Find a song whose vamp plays (it sweeps its keys' filter open).
     const song = defined(
-      Array.from({ length: 50 }, (_, i) => Song.generate(`vamp${i}`)).find((s) => s.form.first('vamp')),
+      Array.from({ length: 50 }, (_, i) => Song.generate(`vamp${i}`)).find((s) => s.form.first(Vamp)),
       'a song with a vamp',
     );
     const tracks = read(songToMidi(song)).tracks.slice(1);
@@ -263,7 +263,7 @@ describe('MIDI', () => {
   it('plays a riser as a reverse cymbal into the next section', () => {
     const song = defined(
       Array.from({ length: 80 }, (_, i) => Song.generate(`rise${i}`)).find((s) => {
-        const pre = s.part('pre');
+        const pre = s.part(PreChorus);
         return pre && (pre.variant === 'climb' || pre.variant === 'pedal');
       }),
       'a song with a rising pre-chorus',

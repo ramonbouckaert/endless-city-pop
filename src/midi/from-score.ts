@@ -5,7 +5,8 @@
 // app plays this file; the MIDI download saves it.
 
 import { programName, type Program } from '../lib/general-midi';
-import { ScoreArranger, type Instruments, type Kit, type Score, type Song } from '../engine';
+import { ScoreArranger, type Instruments, type Score, type Song } from '../engine';
+import type { Kit } from '../style';
 import {
   CC,
   DRUM_CHANNEL,
@@ -84,18 +85,24 @@ const MELODIC_CHANNELS = Array.from({ length: 16 }, (_, i) => i).filter((c) => c
  * that, the one whose instrument finishes soonest.
  */
 export function channelsFor(spans: readonly { first: number; last: number }[]): { channel: number; start: number }[] {
-  const ends = new Map<number, number>(); // channel -> when its instrument finishes
   // A channel whose instrument has finished by `first`, or the one finishing soonest.
-  const reused = (first: number) => {
+  const reused = (ends: ReadonlyMap<number, number>, first: number) => {
     const byEnd = [...ends].sort((a, b) => a[1] - b[1]);
     return (byEnd.find(([, end]) => end <= first) ?? byEnd[0])[0];
   };
-  return spans.map(({ first, last }) => {
-    const unused = MELODIC_CHANNELS.find((c) => !ends.has(c));
-    const channel = unused ?? reused(first);
-    ends.set(channel, last);
-    return { channel, start: unused === undefined ? first : 0 };
-  });
+  // `ends`: each channel taken so far, and when its instrument finishes.
+  const { picked } = spans.reduce<{ ends: ReadonlyMap<number, number>; picked: { channel: number; start: number }[] }>(
+    ({ ends, picked }, { first, last }) => {
+      const unused = MELODIC_CHANNELS.find((c) => !ends.has(c));
+      const channel = unused ?? reused(ends, first);
+      return {
+        ends: new Map([...ends, [channel, last]]),
+        picked: [...picked, { channel, start: unused === undefined ? first : 0 }],
+      };
+    },
+    { ends: new Map(), picked: [] },
+  );
+  return picked;
 }
 
 // A track for each instrument's notes, the drums on the drum channel and

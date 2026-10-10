@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { songToMidi } from '../src/midi/from-score';
-import { ScoreArranger, Song } from '../src/engine';
+import { ScoreArranger, Song, Verse } from '../src/engine';
 import { PERCUSSION } from '../src/lib/general-midi';
 import { BASS_LOW, Chord, voice, voicingNote } from '../src/theory';
 import { defined } from './helpers';
@@ -40,13 +40,13 @@ describe('score', () => {
 
   it("plays a verse's melody in its key, from the tonic in octave 4", () => {
     for (const song of songs) {
-      const index = song.form.sections.findIndex((s) => s.type === 'verse');
-      const verse = defined(song.part('verse'), 'a verse');
+      const index = song.form.sections.findIndex((s) => s instanceof Verse);
+      const verse = defined(song.part(Verse), 'a verse');
       const start = song.form.starts[index];
       const lead = scoreOf(song).notes.filter((n) => n.path === 'lead' && n.time >= start && n.time < start + 1);
-      // The first bar's notes, by their start (an eighth-note grid, so never swung).
+      // The first bar's notes, by their start (on eighths, so never swung).
       for (const m of verse.melody.bars[0]) {
-        const at = start + m.start / 8;
+        const at = start + m.start / 16;
         const note = defined(
           lead.find((n) => Math.abs(n.time - at) < 1e-9),
           `a lead note at bar ${at}`,

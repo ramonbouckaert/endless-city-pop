@@ -26,7 +26,7 @@ function problems(song: Song): string[] {
   });
   song.form.sections.forEach((sec, i) => {
     const start = song.form.starts[i];
-    if (!notes.some((n) => n.time >= start && n.time < start + sec.bars)) found.push(`${sec.type} plays nothing`);
+    if (!notes.some((n) => n.time >= start && n.time < start + sec.bars)) found.push(`${sec.kind.label} plays nothing`);
   });
   if (songToMidi(song).length < 100) found.push('MIDI file too short');
   return [...new Set(found)];

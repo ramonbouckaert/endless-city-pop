@@ -1,41 +1,52 @@
 // Keys, clavinet and the lead; later verses add rhythm guitar and a pad.
 
-import { RHYTHM } from '../../style';
-import type { MaterialOf } from '../material';
-import type { SectionFields, SectionPlan } from '../plan';
+import { GROOVES, MELODIES } from '../../style';
+import type { PlayedMaterial } from '../material';
+import type { Melody } from '../melody';
+import type { Plan } from '../plan';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection } from './section';
 
-export class Verse extends PlayedSection<'verse'> implements Readonly<SectionFields['verse']> {
-  readonly later: boolean;
-  readonly material: MaterialOf<'verse'>;
+export interface VerseFields {
+  /** A later round adds a layer. */
+  later: boolean;
+}
 
-  constructor(plan: SectionPlan<'verse'>, ctx: BuildContext) {
+export interface VerseMaterial extends PlayedMaterial {
+  melody: Melody;
+}
+
+export interface Verse extends Readonly<VerseFields> {}
+
+export class Verse extends PlayedSection<VerseMaterial> {
+  static readonly id = 'verse';
+  static readonly short = 'v';
+
+  readonly material: VerseMaterial;
+
+  constructor(plan: Plan<VerseFields>, ctx: BuildContext) {
     super(plan);
-    this.later = plan.later;
     this.material = ctx.material(this, (rng) => {
-      const bars = ctx.progress(rng.pick(ctx.tonality.templatesFor('verse')), 8, rng.fork('harmony'));
+      const bars = ctx.progress(rng.pick(ctx.tonality.templates.verse), 8, rng.fork('harmony'));
       return {
-        ...ctx.band('verse', ctx.key, bars, RHYTHM.verse, rng.fork('groove')),
-        melody: ctx.melody('verse', ctx.key, bars, rng.fork('melody')),
+        ...ctx.band(ctx.key, bars, GROOVES.verse, rng.fork('groove')),
+        melody: ctx.melody(MELODIES.verse, ctx.key, bars, rng.fork('melody')),
       };
     });
   }
 
-  protected play(ctx: PlayedScoreContext<'verse'>): Parts {
+  protected play(ctx: PlayedScoreContext): Parts {
     const { band, C, B } = ctx;
     const { later } = this;
-    return {
-      drums: ctx.drums(),
-      pitched: [
-        B,
-        band.keys(C),
-        band.clav(C),
-        band.lead(ctx.line(this.material.melody)),
-        later && band.scratch(C),
-        later && band.pad(C),
-      ],
-    };
+    return [
+      ctx.drums(),
+      B,
+      band.keys(C),
+      band.clav(C),
+      band.lead(ctx.line(this.material.melody)),
+      later && band.scratch(C),
+      later && band.pad(C),
+    ];
   }
 }

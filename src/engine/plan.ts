@@ -1,73 +1,35 @@
-// A form's plan: what the planner decides for each section (its type,
-// length, part and shift, and its type's own fields) before the sections
+// A form's plan: what the planner decides for each section (its kind,
+// length, part and shift, and its kind's own fields) before the sections
 // are built from it, each writing its part's material.
 
-import type { OutroStyle, SectionType } from '../style';
-
-/**
- * What the form decides for each type of section, besides its length.
- * Each type's class implements its fields (and so takes these docs).
- */
-export interface SectionFields {
-  intro: {};
-  vamp: {
-    /** The opening vamp back: the band already going. */
-    returning: boolean;
-  };
-  verse: {
-    /** A later round adds a layer. */
-    later: boolean;
-  };
-  pre: {
-    /** A later round adds a layer. */
-    later: boolean;
-  };
-  chorus: {
-    /** Later choruses answer the hook. */
-    answer: boolean;
-    /** The last chorus has everything. */
-    big: boolean;
-  };
-  riff: {};
-  bridge: {};
-  solo: {
-    /** Its soloist, as an index into the song's soloists. */
-    soloist: number;
-  };
-  breakdown: {};
-  drumBreak: {};
-  lift: {
-    /** The turnaround it takes into its key (a name in the tonality's). */
-    turnaround: string;
-  };
-  outro: {
-    /** How it ends the song. */
-    variant: OutroStyle;
-  };
-  finale: {};
-}
+import type { SectionKind } from './sections/section';
 
 // Sections with the same `part` play the same material (every chorus the
 // same chords and hook); a section longer than its material loops it.
 // `shift`: semitones up, after a key change (a lift's: the key it lifts to).
-interface PlanBase<T extends SectionType> {
-  type: T;
-  bars: number;
-  part: string;
-  shift: number;
+export interface PlanBase {
+  /** Its section's class. */
+  readonly kind: SectionKind;
+  readonly bars: number;
+  readonly part: string;
+  readonly shift: number;
 }
-type SectionPlans = { [T in SectionType]: Readonly<PlanBase<T> & SectionFields[T]> };
 
-/** One section of a form's plan (of a type, if given). */
-export type SectionPlan<T extends SectionType = SectionType> = SectionPlans[T];
+/** One section of a form's plan, with its kind's own fields (`F`, each class's own, documented there). */
+export type Plan<F extends object = object> = PlanBase & Readonly<F>;
 
-type Fields<T extends SectionType> = SectionFields[T] & { part?: string; shift?: number };
+/** A plan of a kind of section: what its class is built from. */
+export type PlanOf<K extends SectionKind> = ConstructorParameters<K>[0];
 
-/** A section of a type in a plan: its own part (unless given) and unshifted (unless given). */
-export function planned<T extends SectionType>(
-  type: T,
+/** A kind's own fields in its plan. */
+type FieldsOf<K extends SectionKind> = Omit<PlanOf<K>, keyof PlanBase>;
+type Fields<K extends SectionKind> = FieldsOf<K> & { part?: string; shift?: number };
+
+/** A section of a kind in a plan: its kind's own part (unless given) and unshifted (unless given). */
+export function planned<K extends SectionKind>(
+  kind: K,
   bars: number,
-  ...[fields]: {} extends SectionFields[T] ? [Fields<T>?] : [Fields<T>]
-): SectionPlan<T> {
-  return { type, bars, part: type, shift: 0, ...fields } as SectionPlan<T>;
+  ...[fields]: {} extends FieldsOf<K> ? [Fields<K>?] : [Fields<K>]
+): PlanOf<K> {
+  return { kind, bars, part: kind.id, shift: 0, ...fields } as PlanOf<K>;
 }

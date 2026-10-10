@@ -1,9 +1,9 @@
-// Melody: rhythm cells per motif, phrase forms, ranges and shapes; the
-// chorus answer's figures; and how solos run.
+// Melody: each section's melody style (its rhythm cells per motif,
+// range, and phrase forms or loop), phrase forms and shapes; the chorus
+// answer's figures; and how solos run.
 
 import type { Odds, Weighted } from '../lib/random';
 
-export type MelodyKind = 'verse' | 'pre' | 'chorus' | 'bridge' | 'riff';
 // How a pre-chorus melody unfolds: climbing a step each repeat, call and
 // response, or long held notes.
 export type PreMelody = 'climb' | 'question' | 'hold';
@@ -13,12 +13,13 @@ export type MotifLetter = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
 export type PhraseForm = 'period' | 'pairs' | 'sentence' | 'aaba' | 'callResponse';
 export type ShapeName = 'rise' | 'fall' | 'arch' | 'valley' | 'neighbor' | 'leapFall' | 'zigzag';
 
-// A cell is eight eighth-note slots: x a note, - held, . a rest.
+// A cell is eight eighth-note slots: x a note, - held, . a rest. (A
+// melody is written out in sixteenths, like every line.)
 export type Cells = Readonly<Partial<Record<MotifLetter, readonly string[]>>>;
 
 // F, the fragment, only appears in phrase forms (verse, chorus, bridge):
 // a short figure stated twice in the bar.
-export const CELLS: Readonly<Record<MelodyKind, Cells>> = {
+const CELLS = {
   chorus: {
     A: [
       '.xxxx---',
@@ -94,7 +95,7 @@ export const CELLS: Readonly<Record<MelodyKind, Cells>> = {
     D: ['x.xx.x--', 'x..x----', 'x.x.x.--', '.x.xx---'],
     E: ['x.x.x---', 'x.x-----'],
   },
-};
+} satisfies Record<string, Cells>;
 
 export interface PhraseFormDef {
   plan: readonly MotifLetter[];
@@ -127,21 +128,21 @@ export const PHRASE_FORMS: Readonly<Record<PhraseForm, PhraseFormDef>> = {
   },
 };
 
-export const FORM_CHOICES: Readonly<Partial<Record<MelodyKind, Odds<PhraseForm>>>> = {
+const FORM_CHOICES = {
   chorus: { period: 4, pairs: 2, sentence: 2, aaba: 2, callResponse: 2 },
   verse: { period: 3, pairs: 2, sentence: 2, aaba: 1, callResponse: 3 },
   bridge: { period: 2, pairs: 1, sentence: 3, aaba: 2 },
-};
+} satisfies Record<string, Odds<PhraseForm>>;
 
-export const MELODY_RANGES: Readonly<Record<MelodyKind, { center: number; lo: number; hi: number }>> = {
+const MELODY_RANGES = {
   chorus: { center: 4, lo: -1, hi: 9 },
   verse: { center: 1, lo: -3, hi: 6 },
   pre: { center: 2, lo: -2, hi: 9 },
   bridge: { center: 3, lo: -2, hi: 8 },
   riff: { center: 6, lo: 2, hi: 10 },
-};
+} satisfies Record<string, MelodyStyle['range']>;
 
-export const HOLD_CELLS: Cells = {
+const HOLD_CELLS: Cells = {
   A: ['x-------', 'x-----x-', 'x---x---', '.x------'],
   B: ['x---x---', 'x-----.x'],
   C: ['x-------'],
@@ -157,16 +158,38 @@ export interface LoopPlan {
   end: readonly MotifLetter[];
 }
 
+/**
+ * How a melody is written: its range (scale degrees above the tonic),
+ * its rhythm cells, and either the phrase forms it picks from or the
+ * loop it plays.
+ */
+export interface MelodyStyle {
+  range: { center: number; lo: number; hi: number };
+  cells: Cells;
+  forms?: Odds<PhraseForm>;
+  plan?: LoopPlan;
+  /** Degrees a motif climbs with each repeat. */
+  sequence?: number;
+  /** Keeps to the key's notes, with no chromatic passing notes (a riff, harmonised by scale steps). */
+  diatonic?: boolean;
+}
+
+// Each section's melody: verses, choruses and bridges in phrase forms; a
+// riff's call and response, closing on a full cadence.
+export const MELODIES = {
+  verse: { range: MELODY_RANGES.verse, cells: CELLS.verse, forms: FORM_CHOICES.verse },
+  chorus: { range: MELODY_RANGES.chorus, cells: CELLS.chorus, forms: FORM_CHOICES.chorus },
+  bridge: { range: MELODY_RANGES.bridge, cells: CELLS.bridge, forms: FORM_CHOICES.bridge },
+  riff: { range: MELODY_RANGES.riff, cells: CELLS.riff, plan: { loop: ['A', 'B'], end: ['D'] }, diatonic: true },
+} satisfies Record<string, MelodyStyle>;
+
 // Pre-chorus melodies all end on a half cadence into the chorus. Some
 // climb a step with every repeat of their motif (`sequence`).
-export const PRE_MELODIES: Readonly<Record<PreMelody, { sequence: number; cells: Cells; plan: LoopPlan }>> = {
-  climb: { sequence: 1, cells: CELLS.pre, plan: { loop: ['A'], end: ['B', 'C'] } },
-  question: { sequence: 0, cells: CELLS.pre, plan: { loop: ['A', 'B'], end: ['C'] } },
-  hold: { sequence: 1, cells: HOLD_CELLS, plan: { loop: ['A'], end: ['C'] } },
+export const PRE_MELODIES: Readonly<Record<PreMelody, MelodyStyle>> = {
+  climb: { range: MELODY_RANGES.pre, sequence: 1, cells: CELLS.pre, plan: { loop: ['A'], end: ['B', 'C'] } },
+  question: { range: MELODY_RANGES.pre, cells: CELLS.pre, plan: { loop: ['A', 'B'], end: ['C'] } },
+  hold: { range: MELODY_RANGES.pre, sequence: 1, cells: HOLD_CELLS, plan: { loop: ['A'], end: ['C'] } },
 };
-
-// A riff's call and response, closing on a full cadence.
-export const RIFF_PLAN: LoopPlan = { loop: ['A', 'B'], end: ['D'] };
 
 export const SHAPE_CHOICES: Readonly<Record<MotifLetter, Odds<ShapeName>>> = {
   A: { rise: 3, arch: 3, leapFall: 2, zigzag: 2, valley: 1 },
@@ -177,26 +200,28 @@ export const SHAPE_CHOICES: Readonly<Record<MotifLetter, Odds<ShapeName>>> = {
   F: { zigzag: 2, neighbor: 2, fall: 2, rise: 1 },
 };
 
+// The answer to a hook: short figures of [step, length] in sixteenths
+// from where it starts, from a high degree, stepping between notes.
 export const ANSWER = {
   figures: [
     [
-      [0, 1],
-      [1, 2],
-    ],
-    [
-      [0, 1],
-      [1, 1],
-    ],
-    [
-      [0, 1],
-      [1, 1],
-      [2, 1],
+      [0, 2],
+      [2, 4],
     ],
     [
       [0, 2],
-      [2, 1],
+      [2, 2],
     ],
-  ] as readonly (readonly [number, number])[][],
+    [
+      [0, 2],
+      [2, 2],
+      [4, 2],
+    ],
+    [
+      [0, 4],
+      [4, 2],
+    ],
+  ] as readonly (readonly [step: number, len: number])[][],
   startDegrees: [7, 8, 9],
   steps: [2, 3, -2],
 };

@@ -3,7 +3,7 @@
 
 import type { Program } from '../lib/general-midi';
 import type { Rng } from '../lib/random';
-import { BAND, KITS, PICKS, SOUND_LEVELS, VOICES, type BandPart, type KitDef, type PickedPart } from '../style';
+import { BAND, KITS, PICKS, SOUND_LEVELS, VOICES, type BandPart, type Kit, type PickedPart } from '../style';
 
 /** The band's instruments, as General MIDI programs. */
 export type Sounds = Readonly<Record<BandPart, Program>> & {
@@ -17,21 +17,24 @@ export type SoundPath = Exclude<keyof Sounds, 'soloists'> | `soloists.${number}`
 /** A part of the band: where its sound is, or "kit" for the drums. */
 export type PartPath = SoundPath | 'kit';
 
-const isSoloist = (path: SoundPath): path is `soloists.${number}` => path.startsWith('soloists.');
-const soloistIndex = (path: `soloists.${number}`): number => Number(path.slice('soloists.'.length));
-
 /** How loud an instrument plays, relative to the others (SOUND_LEVELS). */
 const level = (program: Program): number => SOUND_LEVELS[program] ?? 1;
 
-/** A drum kit: one of the soundfont's, by its program on the drum channel. */
-export type Kit = KitDef;
-
 /** The sounds a song plays, and its drum kit. */
 export class Instruments {
+  // Each sound by its path.
+  private readonly byPath: ReadonlyMap<SoundPath, Program>;
+
   constructor(
     readonly sounds: Sounds,
     readonly kit: Kit,
-  ) {}
+  ) {
+    const { soloists, ...parts } = sounds;
+    this.byPath = new Map<SoundPath, Program>([
+      ...(Object.entries(parts) as [SoundPath, Program][]),
+      ...soloists.map((program, i) => [`soloists.${i}`, program] as const),
+    ]);
+  }
 
   /** Every part's sound and the kit, picked from the style's lists. */
   static pick(rng: Rng): Instruments {
@@ -45,7 +48,9 @@ export class Instruments {
 
   /** The instrument at a path. */
   sound(path: SoundPath): Program {
-    return isSoloist(path) ? this.sounds.soloists[soloistIndex(path)] : this.sounds[path];
+    const program = this.byPath.get(path);
+    if (program === undefined) throw new Error(`No sound at ${path}`);
+    return program;
   }
 
   /**
@@ -54,8 +59,7 @@ export class Instruments {
    * alto sax (level 1).
    */
   trim(path: SoundPath): number {
-    const part = isSoloist(path) ? undefined : path;
-    const reference = part && part in BAND ? level(BAND[part as BandPart]) : 1;
+    const reference = path in BAND ? level(BAND[path as BandPart]) : 1;
     return level(this.sound(path)) / reference;
   }
 }

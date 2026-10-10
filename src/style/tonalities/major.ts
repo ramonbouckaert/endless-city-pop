@@ -103,7 +103,7 @@ export const MAJOR: TonalityDef = {
     shapes: [
       ['cycle', 3],
       ['home', 2],
-      ['vamp', 1],
+      ['loop', 1],
     ],
   },
   turnarounds: LIFT_TURNAROUNDS,

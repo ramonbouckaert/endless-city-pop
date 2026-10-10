@@ -7,7 +7,7 @@ import type { Chord } from './chord';
 import { mod12 } from './pitch';
 
 /** C5, the anchor a voicing's top note sits at or below unless given another. */
-export const DEFAULT_ANCHOR = 72;
+const DEFAULT_ANCHOR = 72;
 
 /** A chord's notes (MIDI, lowest first), the top one at or below `anchor`. */
 export function voice(chord: Chord, anchor = DEFAULT_ANCHOR): number[] {

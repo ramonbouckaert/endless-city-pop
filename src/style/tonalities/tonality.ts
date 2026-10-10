@@ -3,7 +3,7 @@
 
 import { Template, type Chord, type Key, type Mode } from '../../theory';
 import type { PreFlavour } from '../variants';
-import type { TemplateKind, TonalityDef, Turnaround } from './types';
+import type { TonalityDef, Turnaround } from './types';
 
 // A tonality has its data's fields (merged in from this interface), and
 // the lookups below on them.
@@ -17,11 +17,11 @@ export class Tonality {
     Object.assign(this, def);
   }
 
-  /** A kind of section's templates; a bridge's only where the mode has them. */
-  templatesFor(kind: TemplateKind | 'bridge'): readonly string[] {
-    const templates = this.templates[kind];
-    if (!templates?.length) throw new Error(`No ${kind} templates in ${this.mode}`);
-    return templates;
+  /** Its bridges' templates, where the mode has them. */
+  get bridges(): readonly string[] {
+    const { bridge } = this.templates;
+    if (!bridge?.length) throw new Error(`No bridge templates in ${this.mode}`);
+    return bridge;
   }
 
   /** A pre-chorus flavour's templates: those `bars` long, if there are any, else all of them. */

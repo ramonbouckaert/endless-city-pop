@@ -11,3 +11,17 @@ export const at = (hits: Readonly<Record<number, number>>): StepGains => empty()
 /** A bar with hits at `list`, at one gain or a gain per step. */
 export const steps = (list: readonly number[], gain: number | ((i: number) => number)): StepGains =>
   at(Object.fromEntries(list.map((i) => [i, typeof gain === 'number' ? gain : gain(i)])));
+
+/**
+ * `count` bars of items, looping `bars`, each item placed by `place`
+ * (given the bar it falls in, and its index in that bar).
+ */
+export function loopBars<H, T>(
+  bars: readonly (readonly H[])[],
+  count: number,
+  place: (item: H, bar: number, i: number) => T,
+): T[] {
+  return Array.from({ length: count }, (_, b) =>
+    (bars[b % bars.length] ?? []).map((item, i) => place(item, b, i)),
+  ).flat();
+}

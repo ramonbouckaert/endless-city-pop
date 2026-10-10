@@ -2,35 +2,47 @@
 // and hats alone at first, or throughout. When the vamp comes back, the
 // band is already going.
 
-import { RHYTHM, VAMP_ENTRIES } from '../../style';
-import type { MaterialOf } from '../material';
-import type { SectionFields, SectionPlan } from '../plan';
-import { Part, rise } from '../score';
+import { GROOVES, VAMP_ENTRIES, type VampEntry } from '../../style';
+import type { PlayedMaterial } from '../material';
+import type { Plan } from '../plan';
+import { rise } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection } from './section';
 
-export class Vamp extends PlayedSection<'vamp'> implements Readonly<SectionFields['vamp']> {
-  readonly returning: boolean;
-  readonly material: MaterialOf<'vamp'>;
+export interface VampFields {
+  /** The opening vamp back: the band already going. */
+  returning: boolean;
+}
 
-  constructor(plan: SectionPlan<'vamp'>, ctx: BuildContext) {
+export interface VampMaterial extends PlayedMaterial {
+  variant: VampEntry;
+}
+
+export interface Vamp extends Readonly<VampFields> {}
+
+export class Vamp extends PlayedSection<VampMaterial> {
+  static readonly id = 'vamp';
+  static readonly short = 'vp';
+
+  readonly material: VampMaterial;
+
+  constructor(plan: Plan<VampFields>, ctx: BuildContext) {
     super(plan);
-    this.returning = plan.returning;
     this.material = ctx.material(this, (rng) => ({
-      ...ctx.band('vamp', ctx.key, ctx.vampBars(), RHYTHM.vamp, rng.fork('groove')),
+      ...ctx.band(ctx.key, ctx.vampBars(), GROOVES.vamp, rng.fork('groove')),
       variant: rng.weightedKey(VAMP_ENTRIES),
     }));
   }
 
-  protected play(ctx: PlayedScoreContext<'vamp'>): Parts {
+  protected play(ctx: PlayedScoreContext): Parts {
     const { band, C, B, len } = ctx;
     const entry = this.returning ? 'full' : this.material.variant;
     let drums;
-    if (entry === 'late') drums = [Part.stack(...ctx.drums()).mask(ctx.from(2))];
+    if (entry === 'late') drums = ctx.drums().mask(ctx.from(2));
     else if (entry === 'light')
       drums = ctx.drums((role) => (role === 'kick' || role === 'hat' ? undefined : ctx.from(2)));
     else drums = ctx.drums();
-    return { drums, pitched: [B, band.keys(C).lpf(rise(700, 8000, len))] };
+    return [drums, B, band.keys(C).lpf(rise(700, 8000, len))];
   }
 }

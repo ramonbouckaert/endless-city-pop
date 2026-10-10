@@ -2,36 +2,45 @@
 // it was, leading into the next chorus. Like the chorus, it is written in
 // the song's key and played shifted up to the new one.
 
-import { FIGURES, LIFT_STYLES, RHYTHM, RHYTHMS } from '../../style';
+import { FIGURES, GROOVES, LIFT_STYLES, RHYTHMS, type LiftStyle } from '../../style';
+import type { Chord } from '../../theory';
 import { lastBar, spans, timed } from '../figures';
 import { Harmonizer } from '../harmony';
-import type { MaterialOf } from '../material';
-import type { SectionFields, SectionPlan } from '../plan';
-import { Part, within } from '../score';
+import type { PlayedMaterial } from '../material';
+import type { Plan } from '../plan';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection } from './section';
 
-export class Lift extends PlayedSection<'lift'> implements Readonly<SectionFields['lift']> {
-  readonly turnaround: string;
-  readonly material: MaterialOf<'lift'>;
+export interface LiftFields {
+  /** The turnaround it takes into its key (a name in the tonality's). */
+  turnaround: string;
+}
 
-  constructor(plan: SectionPlan<'lift'>, ctx: BuildContext) {
+// A turnaround into the chorus after it, whose first chord (`into`) a
+// bass pickup may lead to.
+export interface LiftMaterial extends PlayedMaterial {
+  variant: LiftStyle;
+  into: Chord;
+}
+
+export interface Lift extends Readonly<LiftFields> {}
+
+export class Lift extends PlayedSection<LiftMaterial> {
+  static readonly id = 'lift';
+  static readonly short = 'l';
+
+  readonly material: LiftMaterial;
+
+  constructor(plan: Plan<LiftFields>, ctx: BuildContext) {
     super(plan);
-    this.turnaround = plan.turnaround;
     this.material = ctx.material(this, (rng) => {
-      const { turnaround } = this;
-      const bars = new Harmonizer(ctx.key, rng.fork('harmony')).turnaround(turnaround);
-      const before = ctx.plan.previous(plan);
-      const variant = rng.weightedKey(LIFT_STYLES, before && ctx.section(before).material.variant);
-      const next = ctx.plan.next(plan);
-      const into = next && ctx.section(next).material;
-      if (!into || !('bars' in into)) throw new Error(`A lift can't lead into ${next?.type ?? 'nothing'}`);
+      const bars = new Harmonizer(ctx.key, rng.fork('harmony')).turnaround(this.turnaround);
+      const variant = rng.weightedKey(LIFT_STYLES, ctx.previous(this)?.material.variant);
       return {
-        ...ctx.band('lift', ctx.key, bars, RHYTHM.lift, rng.fork('groove')),
-        turnaround,
+        ...ctx.band(ctx.key, bars, GROOVES.lift, rng.fork('groove')),
         variant,
-        into: into.bars[0][0],
+        into: ctx.firstChordAfter(this).chord,
       };
     });
   }
@@ -40,38 +49,31 @@ export class Lift extends PlayedSection<'lift'> implements Readonly<SectionField
     return [this.turnaround];
   }
 
-  protected play(ctx: PlayedScoreContext<'lift'>): Parts {
+  protected play(ctx: PlayedScoreContext): Parts {
     const { band, C, B, underB, len } = ctx;
     const mat = this.material;
     const comp = () => band.comp(C, spans(RHYTHMS.quarters, len));
     switch (mat.variant) {
-      case 'stops': {
+      case 'stops':
         // The whole band hits together, the drums with it.
-        const stops = spans(RHYTHMS.stops, len);
-        return {
-          drums: [Part.stack(...ctx.drums()).mask(within(stops))],
-          pitched: [B.struct(stops), band.keys(C, stops).clip(0.3), band.stabs(C, stops)],
-        };
-      }
+        return ctx.stopTime(ctx.drums(), false);
       case 'drop':
         // The drums drop out under held chords and a riser; the chorus lands on them.
-        return { drums: [ctx.riser], pitched: [underB, band.pad(C), ctx.swell(0.16)] };
+        return [ctx.riser, underB, band.pad(C), ctx.swell(0.16)];
       case 'run':
         // The lead holds a chord tone, then runs up into the chorus.
-        return {
-          drums: ctx.drums(),
-          pitched: [
-            B,
-            comp(),
-            band.lead(ctx.onChords(timed(lastBar(len, FIGURES.liftRun, FIGURES.liftHold), len), 24)),
-          ],
-        };
+        return [
+          ctx.drums(),
+          B,
+          comp(),
+          band.lead(ctx.onChords(timed(lastBar(len, FIGURES.liftRun, FIGURES.liftHold), len), 24)),
+        ];
       case 'drums':
         // The drums alone, then a bass pickup into the chorus.
-        return { drums: ctx.drums(), pitched: [ctx.pickupInto(mat.into)] };
+        return [ctx.drums(), ctx.pickupInto(mat.into)];
       case 'horns':
         // A rising horn line over quarter-note keys.
-        return { drums: ctx.drums(), pitched: [B, comp(), band.horns(ctx.onChords(timed(FIGURES.liftLine, len), 36))] };
+        return [ctx.drums(), B, comp(), band.horns(ctx.onChords(timed(FIGURES.liftLine, len), 36))];
     }
   }
 }

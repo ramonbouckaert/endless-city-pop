@@ -1,66 +1,79 @@
-// A section of a song's form. Each type is a class (one per file here):
-// what the form decides for it (its length, its part, its shift, and its
-// own fields: a chorus's answer and big, a solo's soloist, ...), its
-// part's material, written as it is built from its plan, and how it is
-// played, as notes.
+// A section of a song's form. Each kind is a class (one per file here):
+// what it is (its id, name and how it hands over, as statics), what the
+// form decides for it (its length, its part, its shift, and its own
+// fields: a chorus's answer and big, a solo's soloist, ...), its part's
+// material, written as it is built from its plan, and how it is played,
+// as notes.
 
-import { SECTION_TYPES, type PlayedType, type SectionType } from '../../style';
 import type { ScoreBand } from '../band';
-import type { MaterialOf } from '../material';
-import type { SectionPlan } from '../plan';
-import type { Breakdown } from './breakdown';
-import type { Bridge } from './bridge';
-import type { Chorus } from './chorus';
-import type { DrumBreak } from './drum-break';
-import type { Finale } from './finale';
-import type { Intro } from './intro';
-import type { Lift } from './lift';
-import type { Outro } from './outro';
-import type { PreChorus } from './pre';
-import type { Riff } from './riff';
+import type { PlayedMaterial } from '../material';
+import type { Plan } from '../plan';
+import type { BuildContext } from './build-context';
 import { PlayedScoreContext, type Parts } from './score-context';
-import type { SoloSection } from './solo';
-import type { Vamp } from './vamp';
-import type { Verse } from './verse';
+
+/** A kind of section: its class, built from a plan of its own in a BuildContext, and what it is. */
+export interface SectionKind<S extends Section = Section> {
+  new (plan: never, ctx: BuildContext): S;
+  /** Its name in part ids and the page's styles: "chorus", "drumBreak". */
+  readonly id: string;
+  /** Its name on the page: "chorus", "drum break". */
+  readonly label: string;
+  /** Its name for narrow spaces: "c", "d". */
+  readonly short: string;
+  /** Whether it hands over to anything (so the opening vamp may come back after it). */
+  readonly handsOver: boolean;
+}
 
 /**
- * One section of a song's form (of a type, if given). Each type's class
- * extends it (or PlayedSection); its constructor takes its plan and the
- * BuildContext it is built in, copies its own fields from the plan, then
- * writes its material (ctx.material).
+ * One section of a song's form, playing `M`. Each kind's class extends it
+ * (or PlayedSection), gives its statics (`id`, `short`, ...), and
+ * declares its own fields from its plan by merging them in (`interface
+ * Verse extends Readonly<VerseFields> {}`): this constructor copies them
+ * over. Its own constructor takes its plan and the BuildContext it is
+ * built in, and writes its material (ctx.material).
  */
-export abstract class Section<T extends SectionType = SectionType> {
-  readonly type: T;
-  readonly bars: number;
+export abstract class Section<M = unknown> {
+  declare static readonly id: string;
+  declare static readonly short: string;
+  static readonly handsOver: boolean = false;
+  static get label(): string {
+    return this.id;
+  }
+
+  // Declared, not defined: the constructor copies them from the plan.
+  /** Its class. */
+  declare readonly kind: SectionKind;
+  declare readonly bars: number;
   /**
    * Sections with the same part play the same material (every chorus the
    * same chords and hook); a section longer than its material loops it.
    */
-  readonly part: string;
+  declare readonly part: string;
   /** Semitones up, after a key change (a lift's: the key it lifts to). */
-  readonly shift: number;
+  declare readonly shift: number;
+  /** The plan it was built from. */
+  readonly plan: Plan;
   /** Its part's material: every section of the part has the same. */
-  abstract readonly material: MaterialOf<T>;
+  abstract readonly material: M;
 
-  constructor({ type, bars, part, shift }: SectionPlan<T>) {
-    this.type = type;
-    this.bars = bars;
-    this.part = part;
-    this.shift = shift;
+  constructor(plan: Plan) {
+    Object.assign(this, plan);
+    this.plan = plan;
   }
 
-  /** What the section plays, the `repeat`th time its part plays, as notes. */
+  /** What the section plays, the `repeat`th time its part plays, as notes (drums first). */
   abstract parts(band: ScoreBand, repeat: number): Parts;
 
   /** The section in a line: "chorus (+2) 8", "lift (+2, ii-V) 2". */
   describe(): string {
     const details = [this.shift ? `+${this.shift}` : '', ...this.details].filter(Boolean);
-    return `${this.label}${details.length ? ` (${details.join(', ')})` : ''} ${this.bars}`;
+    const aside = details.length ? ` (${details.join(', ')})` : '';
+    return `${this.label}${aside} ${this.bars}`;
   }
 
   // What describe() calls the section.
   protected get label(): string {
-    return SECTION_TYPES[this.type].label;
+    return this.kind.label;
   }
 
   // What describe() says of it besides its shift.
@@ -69,33 +82,12 @@ export abstract class Section<T extends SectionType = SectionType> {
   }
 }
 
-/** A section the band plays through: its chords, drums and bass, and its type's recipe over them. */
-export abstract class PlayedSection<T extends PlayedType = PlayedType> extends Section<T> {
+/** A section the band plays through: its chords, drums and bass, and its kind's recipe over them. */
+export abstract class PlayedSection<M extends PlayedMaterial = PlayedMaterial> extends Section<M> {
   parts(band: ScoreBand, repeat: number): Parts {
     return this.play(new PlayedScoreContext(this, band, repeat));
   }
 
   /** Which instruments play its material, and how. */
-  protected abstract play(ctx: PlayedScoreContext<T>): Parts;
+  protected abstract play(ctx: PlayedScoreContext): Parts;
 }
-
-interface SectionClasses {
-  intro: Intro;
-  vamp: Vamp;
-  verse: Verse;
-  pre: PreChorus;
-  chorus: Chorus;
-  riff: Riff;
-  bridge: Bridge;
-  solo: SoloSection;
-  breakdown: Breakdown;
-  lift: Lift;
-  outro: Outro;
-  drumBreak: DrumBreak;
-  finale: Finale;
-}
-
-/** A section type's class. */
-export type SectionOf<T extends SectionType> = SectionClasses[T];
-/** A section of any type, as its type's class (narrowed by its `type`). */
-export type AnySection = SectionOf<SectionType>;

@@ -1,54 +1,66 @@
 // The hook, doubled an octave up if it fits; later choruses add the
 // figures that answer it, and the last one stabs, strings and choir.
 
-import { COMP, RHYTHM } from '../../style';
+import { COMP, GROOVES } from '../../style';
 import { spans } from '../figures';
-import type { MaterialOf } from '../material';
-import { AnswerWriter } from '../melody';
-import type { SectionFields, SectionPlan } from '../plan';
+import type { PlayedMaterial } from '../material';
+import { AnswerWriter, type Melody } from '../melody';
+import type { Plan } from '../plan';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection } from './section';
 
-export class Chorus extends PlayedSection<'chorus'> implements Readonly<SectionFields['chorus']> {
-  readonly answer: boolean;
-  readonly big: boolean;
-  readonly material: MaterialOf<'chorus'>;
+export interface ChorusFields {
+  /** Later choruses answer the hook. */
+  answer: boolean;
+  /** The last chorus has everything. */
+  big: boolean;
+}
 
-  constructor(plan: SectionPlan<'chorus'>, ctx: BuildContext) {
+export interface ChorusMaterial extends PlayedMaterial {
+  melody: Melody;
+  answer: Melody;
+}
+
+export interface Chorus extends Readonly<ChorusFields> {}
+
+export class Chorus extends PlayedSection<ChorusMaterial> {
+  static readonly id = 'chorus';
+  static readonly short = 'c';
+  static override readonly handsOver = true;
+
+  readonly material: ChorusMaterial;
+
+  constructor(plan: Plan<ChorusFields>, ctx: BuildContext) {
     super(plan);
-    this.answer = plan.answer;
-    this.big = plan.big;
     this.material = ctx.material(this, (rng) => {
       const { key } = ctx;
       const bars = ctx.chorusBars();
       const hook = ctx.hook();
       return {
-        ...ctx.band('chorus', key, bars, RHYTHM.chorus, rng.fork('groove')),
+        ...ctx.band(key, bars, GROOVES.chorus, rng.fork('groove')),
         melody: hook,
         answer: new AnswerWriter(key, rng.fork('answer')).write(hook, bars),
       };
     });
   }
 
-  protected play(ctx: PlayedScoreContext<'chorus'>): Parts {
+  protected play(ctx: PlayedScoreContext): Parts {
     const { band, C, B, len } = ctx;
     const mat = this.material;
     const { answer, big } = this;
-    return {
-      drums: ctx.drums(),
-      pitched: [
-        B,
-        band.comp(C, spans(COMP.chorus, len)),
-        band.clav(C),
-        band.pad(C),
-        band.lead(ctx.line(mat.melody)),
-        band.double(ctx.line(mat.melody), ctx.octaveUp(mat.melody)),
-        answer && band.counter(ctx.line(mat.answer)),
-        big && band.stabs(C),
-        big && band.strings(C),
-        big && band.choir(C),
-      ],
-    };
+    return [
+      ctx.drums(),
+      B,
+      band.comp(C, spans(COMP.chorus, len)),
+      band.clav(C),
+      band.pad(C),
+      band.lead(ctx.line(mat.melody)),
+      band.double(ctx.line(mat.melody), ctx.octaveUp(mat.melody)),
+      answer && band.counter(ctx.line(mat.answer)),
+      big && band.stabs(C),
+      big && band.strings(C),
+      big && band.choir(C),
+    ];
   }
 }

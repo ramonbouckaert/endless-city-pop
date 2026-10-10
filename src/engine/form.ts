@@ -1,12 +1,10 @@
 // A song's form: its sections in order, and what the sections, the
 // arranger and the page ask of it (where each section starts, what comes
 // next, how often a part has played). The planner writes a form of
-// plans (SectionPlan); the sections are built from it, into a form of
-// sections.
+// plans; the sections are built from it, into a form of sections.
 
-import type { SectionType } from '../style';
-import type { SectionPlan } from './plan';
-import type { AnySection } from './sections';
+import type { Plan, PlanOf } from './plan';
+import type { AnySection, Section, SectionKind } from './sections';
 
 /** Where the playhead is: the section, and how far through it (0..1). */
 export interface Playhead {
@@ -15,10 +13,10 @@ export interface Playhead {
 }
 
 /** What a form holds: a plan's sections, or a song's. */
-type Placed = SectionPlan | AnySection;
+type Placed = Plan | AnySection;
 
-/** The sections of a type, among some. */
-type OfType<S extends Placed, T extends SectionType> = Extract<S, { type: T }>;
+/** What a form holds of a kind: its plans, or its sections. */
+type OfKind<S extends Placed, K extends SectionKind> = S extends Section ? InstanceType<K> : PlanOf<K>;
 
 export class Form<S extends Placed = AnySection> implements Iterable<S> {
   /** The bar each section starts on. */
@@ -27,13 +25,10 @@ export class Form<S extends Placed = AnySection> implements Iterable<S> {
   readonly bars: number;
 
   constructor(readonly sections: readonly S[]) {
-    let bar = 0;
-    this.starts = sections.map((s) => {
-      const start = bar;
-      bar += s.bars;
-      return start;
-    });
-    this.bars = bar;
+    // The bar each section ends on, and so the next starts on.
+    const ends = sections.reduce<number[]>((ends, s) => [...ends, (ends.at(-1) ?? 0) + s.bars], []);
+    this.starts = [0, ...ends].slice(0, sections.length);
+    this.bars = ends.at(-1) ?? 0;
   }
 
   [Symbol.iterator](): Iterator<S> {
@@ -49,14 +44,14 @@ export class Form<S extends Placed = AnySection> implements Iterable<S> {
     return this.sections[index];
   }
 
-  /** Every section of a type, in order. */
-  ofType<T extends SectionType>(type: T): OfType<S, T>[] {
-    return this.sections.filter((s): s is OfType<S, T> => s.type === type);
+  /** Every section of a kind, in order. */
+  ofType<K extends SectionKind>(kind: K): OfKind<S, K>[] {
+    return this.sections.filter((s) => s.kind === kind) as OfKind<S, K>[];
   }
 
-  /** The first section of a type, if the form has one. */
-  first<T extends SectionType>(type: T): OfType<S, T> | undefined {
-    return this.sections.find((s): s is OfType<S, T> => s.type === type);
+  /** The first section of a kind, if the form has one. */
+  first<K extends SectionKind>(kind: K): OfKind<S, K> | undefined {
+    return this.sections.find((s) => s.kind === kind) as OfKind<S, K> | undefined;
   }
 
   /** The section after `sec`. */
@@ -64,25 +59,15 @@ export class Form<S extends Placed = AnySection> implements Iterable<S> {
     return this.sections[this.sections.indexOf(sec) + 1];
   }
 
-  /** The section after `sec`, not counting a drum break. */
-  after(sec: S): S | undefined {
-    return this.sections.slice(this.sections.indexOf(sec) + 1).find((s) => s.type !== 'drumBreak');
-  }
-
-  /** The last section of `sec`'s type before it. */
+  /** The last section of `sec`'s kind before it. */
   previous<P extends S>(sec: P): P | undefined {
-    return this.sections.slice(0, this.sections.indexOf(sec)).findLast((s): s is P => s.type === sec.type);
+    return this.sections.slice(0, this.sections.indexOf(sec)).findLast((s): s is P => s.kind === sec.kind);
   }
 
   /** How many sections before the one at `index` play its part. */
   repeatOf(index: number): number {
     const { part } = this.sections[index];
     return this.sections.slice(0, index).filter((s) => s.part === part).length;
-  }
-
-  /** The soloists the form's solos go to, in order, as indexes into the song's soloists. */
-  get soloists(): number[] {
-    return this.ofType('solo').map((s) => s.soloist);
   }
 
   /**

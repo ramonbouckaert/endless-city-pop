@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { ScoreArranger, Song, type Grace } from '../src/engine';
+import {
+  Bridge,
+  Chorus,
+  Finale,
+  Intro,
+  Lift,
+  Outro,
+  PreChorus,
+  ScoreArranger,
+  SoloSection,
+  Song,
+  Vamp,
+  Verse,
+} from '../src/engine';
+import type { Grace } from '../src/engine/solo-line';
 import {
   FINALE_STYLES,
   INTRO,
@@ -18,9 +32,9 @@ describe('section materials', () => {
     const entries = new Set<string>();
     for (let i = 0; i < 100; i++) {
       const song = Song.generate(`vamp${i}`);
-      const vamp = song.part('vamp');
+      const vamp = song.part(Vamp);
       if (vamp) entries.add(vamp.variant);
-      else expect(song.form.sections.some((s) => s.type === 'vamp')).toBe(false);
+      else expect(song.form.sections.some((s) => s instanceof Vamp)).toBe(false);
     }
     expect(entries).toEqual(new Set(['late', 'light', 'full']));
   });
@@ -34,7 +48,7 @@ describe('section materials', () => {
     const graces: Grace[] = [];
     const minorHalfDiminished: number[] = [];
     for (const song of songs) {
-      for (const [i, sec] of song.form.ofType('solo').entries()) {
+      for (const [i, sec] of song.form.ofType(SoloSection).entries()) {
         const mat = sec.material;
         // The first over the band, the next never over what the one before had.
         expect(mat.variant).toBe(i % 2 ? 'bossa' : 'band');
@@ -100,7 +114,7 @@ describe('section materials', () => {
 
   it('varies the pre-chorus', () => {
     const pres = Array.from({ length: 150 }, (_, i) => Song.generate(`pre${i}`)).flatMap((song) => {
-      const [mat, sec] = [song.part('pre'), song.form.first('pre')];
+      const [mat, sec] = [song.part(PreChorus), song.form.first(PreChorus)];
       return mat && sec ? [{ mat, bars: sec.bars }] : [];
     });
     expect(new Set(pres.map((p) => p.mat.variant))).toEqual(new Set(Object.keys(PRE_FLAVOURS)));
@@ -121,31 +135,31 @@ describe('section materials', () => {
     const styles = new Set<string>();
     let multiple = 0;
     for (const song of songs) {
-      const lifts = song.form.ofType('lift');
-      const mats = song.parts('lift');
+      const lifts = song.form.ofType(Lift);
+      const mats = song.parts(Lift);
       expect(mats).toHaveLength(lifts.length);
       if (lifts.length > 1) multiple++;
       // Each lift goes up from the key before it, never past the cap.
       let shift = 0;
       for (const [i, sec] of song.form.sections.entries()) {
-        if (sec.type === 'lift') {
+        if (sec instanceof Lift) {
           expect(sec.shift).toBeGreaterThan(shift);
           expect(sec.shift).toBeLessThanOrEqual(MAX_SHIFT);
           const next = defined(song.form.at(i + 1), 'a chorus');
-          expect(next).toMatchObject({ type: 'chorus', shift: sec.shift });
-          if (next.type === 'chorus') expect(sec.material.into).toBe(next.material.bars[0][0]);
+          expect(next).toBeInstanceOf(Chorus);
+          expect(next.shift).toBe(sec.shift);
+          if (next instanceof Chorus) expect(sec.material.into).toBe(next.material.bars[0][0]);
           shift = sec.shift;
-        } else if (song.form.sections.slice(0, i).some((s) => s.type === 'lift')) {
+        } else if (song.form.sections.slice(0, i).some((s) => s instanceof Lift)) {
           expect(sec.shift).toBe(shift);
         }
       }
       lifts.forEach((sec, i) => {
         const lift = mats[i];
-        used.add(lift.turnaround);
+        used.add(sec.turnaround);
         styles.add(lift.variant);
         // Each lift is played differently from the one before.
         if (i) expect(lift.variant).not.toBe(mats[i - 1].variant);
-        expect(lift.turnaround).toBe(sec.turnaround);
         // Written in the song's key, played shifted up into the new one.
         expect(lift.key).toEqual(song.key);
         expect(lift.bars).toHaveLength(sec.bars);
@@ -159,7 +173,7 @@ describe('section materials', () => {
   });
 
   it('varies the intro', () => {
-    const intros = Array.from({ length: 150 }, (_, i) => defined(Song.generate(`intro${i}`).part('intro'), 'an intro'));
+    const intros = Array.from({ length: 150 }, (_, i) => defined(Song.generate(`intro${i}`).part(Intro), 'an intro'));
     expect(new Set(intros.map((m) => m.variant))).toEqual(new Set(Object.keys(INTRO_TEXTURES)));
     expect(new Set(intros.map((m) => m.harmony))).toEqual(new Set(Object.keys(INTRO.harmony)));
   });
@@ -168,21 +182,22 @@ describe('section materials', () => {
     const songs = Array.from({ length: 150 }, (_, i) => Song.generate(`outro${i}`));
     const styles = new Set<string>();
     for (const song of songs) {
-      const sec = song.form.first('outro');
+      const sec = song.form.first(Outro);
       if (!sec) continue;
       const mat = sec.material;
-      styles.add(mat.variant);
-      expect(mat.variant).toBe(sec.variant);
-      expect(sec.bars).toBe(OUTRO_STYLES[mat.variant].bars);
-      if (mat.variant === 'trade') {
+      styles.add(sec.variant);
+      expect(sec.bars).toBe(OUTRO_STYLES[sec.variant].bars);
+      expect(!!mat.trade).toBe(sec.variant === 'trade');
+      if (mat.trade) {
         // A line for every bar, over a vamp, for the soloists to trade.
+        const { solo, soloists } = mat.trade;
         expect(mat.bars).toHaveLength(sec.bars);
-        expect(mat.solo.bars).toHaveLength(sec.bars);
+        expect(solo.bars).toHaveLength(sec.bars);
         expect(mat.bass.bars).toHaveLength(sec.bars);
-        expect(new Set(mat.soloists).size).toBe(2);
-        for (const i of song.soloists) expect(mat.soloists.slice(0, song.soloists.length)).toContain(i);
+        expect(new Set(soloists).size).toBe(2);
+        for (const i of song.soloists) expect(soloists.slice(0, song.soloists.length)).toContain(i);
       } else {
-        const intro = defined(song.part('intro'), 'an intro');
+        const intro = defined(song.part(Intro), 'an intro');
         expect(mat.bars).toBe(intro.bars);
         expect(mat.melody).toBe(intro.melody);
       }
@@ -193,21 +208,21 @@ describe('section materials', () => {
   it('varies the finale', () => {
     const endings = Array.from(
       { length: 100 },
-      (_, i) => defined(Song.generate(`finale${i}`).part('finale'), 'a finale').variant,
+      (_, i) => defined(Song.generate(`finale${i}`).part(Finale), 'a finale').variant,
     );
     expect(new Set(endings)).toEqual(new Set(Object.keys(FINALE_STYLES)));
   });
 
   it('varies the phrase form of each melody', () => {
     const songs = Array.from({ length: 100 }, (_, i) => Song.generate(`phrase${i}`));
-    const forms = (type: 'verse' | 'chorus' | 'bridge') =>
-      new Set(songs.flatMap((song) => song.part(type)?.melody.form ?? []));
+    const forms = (kind: typeof Verse | typeof Chorus | typeof Bridge) =>
+      new Set(songs.flatMap((song) => song.part(kind)?.melody.form ?? []));
     const all = ['period', 'pairs', 'sentence', 'aaba', 'callResponse'];
-    expect(forms('chorus')).toEqual(new Set(all));
-    expect(forms('verse')).toEqual(new Set(all));
-    expect(forms('bridge')).toEqual(new Set(all.filter((f) => f !== 'callResponse')));
+    expect(forms(Chorus)).toEqual(new Set(all));
+    expect(forms(Verse)).toEqual(new Set(all));
+    expect(forms(Bridge)).toEqual(new Set(all.filter((f) => f !== 'callResponse')));
     for (const song of songs) {
-      const chorus = defined(song.part('chorus'), 'a chorus');
+      const chorus = defined(song.part(Chorus), 'a chorus');
       expect(chorus.melody.bars).toHaveLength(chorus.bars.length);
     }
   });

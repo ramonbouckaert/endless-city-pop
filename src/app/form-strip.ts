@@ -4,7 +4,6 @@
 // says where to (`onSeek`, in bars) and the page does the rest.
 
 import type { Form, Playhead } from '../engine';
-import { SECTION_TYPES } from '../style';
 
 export class FormStrip {
   private form: Form;
@@ -13,7 +12,10 @@ export class FormStrip {
   private dragging = false;
   private held: Playhead = { index: 0, through: 0 };
 
-  /** `list`: the strip's <ol>; `line`: the playhead's line over it; `onSeek`: a bar to seek to. */
+  /**
+   * `list`: the strip's <ol>; `line`: the playhead's line over it; `form`:
+   * the form it starts on (shown by show()); `onSeek`: a bar to seek to.
+   */
   constructor(
     private readonly list: HTMLElement,
     private readonly line: HTMLElement,
@@ -21,7 +23,6 @@ export class FormStrip {
     private readonly onSeek: (bar: number) => void,
   ) {
     this.form = form;
-    this.show(form);
     new ResizeObserver(() => this.fit()).observe(list);
     list.addEventListener('click', (e) => this.onSeek(this.form.barAt(this.headAt(e.clientX))));
     // Dragging the line moves it (and the glow) with the pointer; letting
@@ -55,9 +56,9 @@ export class FormStrip {
     this.form = form;
     this.list.replaceChildren(
       ...form.sections.map((s) => {
-        const { label, short } = SECTION_TYPES[s.type];
+        const { id, label, short } = s.kind;
         const li = document.createElement('li');
-        li.className = `sec sec-${s.type}`;
+        li.className = `sec sec-${id}`;
         li.style.flexGrow = String(s.bars);
         const shiftNote = s.shift ? `, up ${s.shift}` : '';
         li.title = `${label}, ${s.bars} bars${shiftNote}`;

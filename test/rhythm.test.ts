@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Song } from '../src/engine';
-import { materials } from './helpers';
+import { DrumBreak, Finale, Song } from '../src/engine';
+import { partSections } from './helpers';
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => `seed${i}`);
 
@@ -9,19 +9,19 @@ describe('rhythm', () => {
 
   it('gives every playing section drums with at least one part', () => {
     for (const song of songs) {
-      for (const mat of Object.values(materials(song))) {
-        if (mat.type === 'finale') continue;
-        expect(mat.drums, mat.type).toBeDefined();
-        expect(mat.drums.parts.length, mat.type).toBeGreaterThan(0);
+      for (const sec of partSections(song)) {
+        if (sec instanceof Finale) continue;
+        expect(sec.material.drums, sec.kind.label).toBeDefined();
+        expect(sec.material.drums.parts.length, sec.kind.label).toBeGreaterThan(0);
       }
     }
   });
 
   it('gives each drum part exactly 4 bars of 16 steps', () => {
     for (const song of songs) {
-      for (const mat of Object.values(materials(song))) {
-        if (mat.type === 'finale') continue;
-        for (const part of mat.drums.parts) {
+      for (const sec of partSections(song)) {
+        if (sec instanceof Finale) continue;
+        for (const part of sec.material.drums.parts) {
           expect(part.bars).toHaveLength(4);
           for (const bar of part.bars) expect(bar).toHaveLength(16);
         }
@@ -29,13 +29,11 @@ describe('rhythm', () => {
     }
   });
 
-  it('produces fills iff the fill flag is set', () => {
+  it('produces well-formed fills', () => {
     for (const song of songs) {
-      for (const mat of Object.values(materials(song))) {
-        if (mat.type === 'finale') continue;
-        const { fill, fills } = mat.drums;
-        expect(fills.length > 0).toBe(fill);
-        for (const f of fills) {
+      for (const sec of partSections(song)) {
+        if (sec instanceof Finale) continue;
+        for (const f of sec.material.drums.fills) {
           expect(f.start).toBeGreaterThanOrEqual(0);
           expect(f.start).toBeLessThan(16);
           expect(f.hits.length).toBeGreaterThan(0);
@@ -46,11 +44,11 @@ describe('rhythm', () => {
 
   it('gives every section with chords a bass line', () => {
     for (const song of songs) {
-      for (const mat of Object.values(materials(song))) {
+      for (const sec of partSections(song)) {
         // The finale has the final chord but no bass line.
-        if (mat.type === 'finale' || mat.type === 'drumBreak') continue;
-        expect(mat.bass.bars, mat.type).toHaveLength(mat.bars.length);
-        expect(mat.bass.bars.flat().length, mat.type).toBeGreaterThan(0);
+        if (sec instanceof Finale || sec instanceof DrumBreak) continue;
+        expect(sec.material.bass.bars, sec.kind.label).toHaveLength(sec.material.bars.length);
+        expect(sec.material.bass.bars.flat().length, sec.kind.label).toBeGreaterThan(0);
       }
     }
   });

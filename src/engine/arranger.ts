@@ -20,8 +20,8 @@ export class ScoreArranger {
     const rng = new Rng(song.seed).fork('score');
     const notes = song.form.sections.flatMap((sec, index) => {
       const band = new ScoreBand(this.instruments, rng.fork(`section/${index}`));
-      const { drums, pitched } = sec.parts(band, song.form.repeatOf(index));
-      return Part.stack(...drums, Part.stack(...pitched).transpose(sec.shift))
+      return Part.stack(...sec.parts(band, song.form.repeatOf(index)))
+        .transpose(sec.shift)
         .map((n) => this.swung(n))
         .late(song.form.starts[index]).notes;
     });

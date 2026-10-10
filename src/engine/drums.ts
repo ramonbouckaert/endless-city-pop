@@ -12,7 +12,7 @@
 
 import { PERCUSSION, type Percussion } from '../lib/general-midi';
 import type { Rng } from '../lib/random';
-import { at, empty, steps, type StepGains } from '../lib/steps';
+import { at, empty, loopBars, steps, type StepGains } from '../lib/steps';
 import {
   BACKBEATS,
   DRUM_FEELS,
@@ -47,13 +47,12 @@ export interface DrumFill {
   hits: readonly DrumHit[];
 }
 // A section's drums: its groove, perhaps a crash on the first bar, and
-// perhaps a fill (a different one of `fills` each repeat).
+// perhaps a fill (a different one of `fills` each repeat; none if empty).
 export interface Drums {
   feel: DrumFeel;
   parts: readonly DrumPart[];
   fills: readonly DrumFill[];
   crash: boolean;
-  fill: boolean;
 }
 
 type Op<K extends DrumStep['op']> = Extract<DrumStep, { op: K }>;
@@ -94,7 +93,7 @@ export class DrumWriter {
     const fills = fill
       ? Array.from({ length: FILLS.count }, (_, i) => new FillWriter(rng.fork(`fill/${i}`), !!recipe.quiet).write())
       : [];
-    return { feel, parts, fills, crash, fill };
+    return { feel, parts, fills, crash };
   }
 
   // Bar four of a phrase: a kick dropped (perhaps) and one added.
@@ -113,83 +112,82 @@ interface VoiceBar {
   bar: StepGains;
 }
 
+// What a recipe's steps have made so far: the voices they add, whether an
+// open hat may close the phrase, and the timekeeper (the hi-hat or ride).
+interface RecipeState {
+  readonly voices: readonly VoiceBar[];
+  readonly openOnFour: boolean;
+  readonly timekeeper: Percussion;
+}
+
 /** One run of a recipe's steps, in order: the voices they add, and whether an open hat may close the phrase. */
 class RecipeRun {
-  private readonly voices: VoiceBar[] = [];
-  private openOnFour: boolean;
-  private timekeeper: Percussion = PERCUSSION.closedHat; // the hi-hat or ride
-
   constructor(
     private readonly recipe: DrumRecipe,
     private readonly rng: Rng,
-  ) {
-    this.openOnFour = !!recipe.openOnFour;
-  }
+  ) {}
 
   run(): { voices: readonly VoiceBar[]; openOnFour: boolean } {
-    for (const step of this.recipe.steps) this.step(step);
-    return { voices: this.voices, openOnFour: this.openOnFour };
+    const start: RecipeState = { voices: [], openOnFour: !!this.recipe.openOnFour, timekeeper: PERCUSSION.closedHat };
+    const { voices, openOnFour } = this.recipe.steps.reduce((state, step) => this.step(state, step), start);
+    return { voices, openOnFour };
   }
 
-  private add(drum: Percussion, role: DrumRole, bar: StepGains): void {
-    this.voices.push({ drum, role, bar });
-  }
-
-  private step(step: DrumStep): void {
+  private step(state: RecipeState, step: DrumStep): RecipeState {
     switch (step.op) {
       case 'kicks':
-        return this.kicks(step);
+        return added(state, this.kicks(step));
       case 'backbeat':
-        return this.backbeat(step);
+        return added(state, ...this.backbeat(step));
       case 'ghosts':
-        return this.ghosts(step);
+        return added(state, ...this.ghosts(step));
       case 'cymbal':
-        return this.cymbal(step);
+        return this.cymbal(state, step);
       case 'openHats':
-        return this.openHats(step);
+        return this.openHats(state, step);
       case 'voice':
-        return this.voice(step);
+        return added(state, ...this.voice(step));
     }
   }
 
-  private kicks({ required, optional, gain }: Op<'kicks'>): void {
+  private kicks({ required, optional, gain }: Op<'kicks'>): VoiceBar {
     const density = optional.length ? this.rng.range(DRUMS.kickDensity) : 0;
     const soft = optional.flatMap(([i, p]) =>
       this.rng.chance(p * density) ? [[i, gain * this.rng.range(DRUMS.kickSoft)]] : [],
     );
-    this.add(
-      PERCUSSION.kick,
-      'kick',
-      at({ ...Object.fromEntries(required.map((i) => [i, gain])), ...Object.fromEntries(soft) }),
-    );
+    return {
+      drum: PERCUSSION.kick,
+      role: 'kick',
+      bar: at({ ...Object.fromEntries(required.map((i) => [i, gain])), ...Object.fromEntries(soft) }),
+    };
   }
 
   // Snare, clap or both; a rim click plays softer.
-  private backbeat({ steps: beats, gain, orElse }: Op<'backbeat'>): void {
+  private backbeat({ steps: beats, gain, orElse }: Op<'backbeat'>): VoiceBar[] {
     const hits = orElse && !this.rng.chance(orElse.keep) ? orElse.steps : beats;
     const drums = this.rng.weighted(BACKBEATS);
-    for (const drum of drums) {
+    return drums.map((drum) => {
       let level: number;
       if (drum === PERCUSSION.sideStick) level = gain * 0.4;
       else if (drum === PERCUSSION.clap && drums.length > 1) level = gain * 0.8;
       else level = gain;
-      this.add(drum, 'snare', steps(hits, level));
-    }
+      return { drum, role: 'snare', bar: steps(hits, level) };
+    });
   }
 
-  // Soft snare hits between the backbeats.
-  private ghosts({ density, avoid }: Op<'ghosts'>): void {
+  // Soft snare hits between the backbeats, if any fall.
+  private ghosts({ density, avoid }: Op<'ghosts'>): VoiceBar[] {
     const d = this.rng.range(density);
     const bar = empty().map((_, i) => {
       const weight = i % 2 === 0 ? 0.6 : 1;
       return avoid.includes(i) || !this.rng.chance(d * weight) ? 0 : this.rng.range(DRUMS.ghostGain);
     });
-    if (bar.some(Boolean)) this.add(PERCUSSION.snare, 'ghost', bar);
+    return bar.some(Boolean) ? [{ drum: PERCUSSION.snare, role: 'ghost', bar }] : [];
   }
 
   // Hi-hat or ride, eighths or sixteenths, accented on the beat or, for
-  // a pushier feel, the offbeat.
-  private cymbal({ ride, sixteenths, loud }: Op<'cymbal'>): void {
+  // a pushier feel, the offbeat: the timekeeper from here on.
+  private cymbal(state: RecipeState, { ride, sixteenths, loud }: Op<'cymbal'>): RecipeState {
     const { rng } = this;
     const c = DRUMS.cymbal;
     const drum = rng.chance(ride) ? PERCUSSION.ride : PERCUSSION.closedHat;
@@ -198,32 +196,35 @@ class RecipeRun {
     const mid = accent * rng.range(c.mid);
     const weak = accent * rng.range(c.weak);
     const [on, off] = rng.chance(c.offbeat) ? [mid, accent] : [accent, mid];
-    this.timekeeper = drum;
     const cymbalGain = (i: number): number => {
       if (!sixteen && i % 2) return 0;
       if (i % 4 === 0) return on;
       if (i % 4 === 2) return off;
       return weak;
     };
-    this.add(
-      drum,
-      'hat',
-      empty().map((_, i) => cymbalGain(i)),
-    );
+    const bar = empty().map((_, i) => cymbalGain(i));
+    return { ...added(state, { drum, role: 'hat', bar }), timekeeper: drum };
   }
 
-  private openHats({ chance }: Op<'openHats'>): void {
-    if (this.timekeeper === PERCUSSION.closedHat && this.rng.chance(chance)) {
-      this.add(PERCUSSION.openHat, 'hat', steps(EIGHTH_OFFS, DRUMS.openHatGain));
-    } else this.openOnFour = true;
+  private openHats(state: RecipeState, { chance }: Op<'openHats'>): RecipeState {
+    if (state.timekeeper === PERCUSSION.closedHat && this.rng.chance(chance)) {
+      return added(state, { drum: PERCUSSION.openHat, role: 'hat', bar: steps(EIGHTH_OFFS, DRUMS.openHatGain) });
+    }
+    return { ...state, openOnFour: true };
   }
 
-  private voice({ chance, voices }: Op<'voice'>): void {
-    if (chance !== undefined && !this.rng.chance(chance)) return;
+  private voice({ chance, voices }: Op<'voice'>): VoiceBar[] {
+    if (chance !== undefined && !this.rng.chance(chance)) return [];
     const { drum, role, bars } = this.rng.weighted(voices.map((v) => [v, v.weight ?? 1] as const));
-    this.add(drum, role, this.rng.pick(bars));
+    return [{ drum, role, bar: this.rng.pick(bars) }];
   }
 }
+
+// A recipe's state with voices added.
+const added = (state: RecipeState, ...voices: VoiceBar[]): RecipeState => ({
+  ...state,
+  voices: [...state.voices, ...voices],
+});
 
 /** A fill over the end of a bar, from where it starts to the barline. */
 class FillWriter {
@@ -298,10 +299,6 @@ class FillWriter {
 
 // ---- As notes
 
-// Hits on a 16-step bar of gains, `bar` bars in.
-const barHits = (gains: readonly number[], bar: number) =>
-  gains.flatMap((gain, i) => (gain ? [{ time: bar + i / 16, dur: 1 / 16, gain }] : []));
-
 /**
  * `len` bars of drums, for the `repeat`th time the part plays. `enter`
  * may hold a part back, by role: it keeps the notes it is true for.
@@ -313,11 +310,15 @@ export function drumNotes(
   repeat: number,
   enter?: (role: DrumRole) => ((time: number) => boolean) | undefined,
 ): Part {
-  const fill = d.fill ? d.fills[repeat % d.fills.length] : null;
+  const fill = d.fills.length ? d.fills[repeat % d.fills.length] : null;
   // The fill takes over the last bar from its start.
   const beforeFill = (time: number) => !fill || time < len - 1 + fill.start / 16;
   const groove = d.parts.map(({ drum, role, bars }) => {
-    const part = band.kit(drum, Array.from({ length: len }, (_, b) => barHits(bars[b % bars.length], b)).flat());
+    const hits = loopBars(bars, len, (gain, b, i) => ({ time: b + i / 16, dur: 1 / 16, gain }));
+    const part = band.kit(
+      drum,
+      hits.filter((h) => h.gain),
+    );
     const held = enter?.(role);
     const entered = held ? part.mask(held) : part;
     return fill && (fill.stop || role === 'kick' || role === 'snare' || role === 'ghost')
@@ -327,6 +328,5 @@ export function drumNotes(
   const fillHits = (fill?.hits ?? []).map((h) =>
     band.kit(h.drum, [{ time: len - 1 + h.step / 16, dur: 1 / 16, gain: h.gain }]),
   );
-  const crash = d.crash ? band.kit(PERCUSSION.crash, [{ time: 0, dur: 1, gain: 0.2 }]) : null;
-  return Part.stack(...groove, ...fillHits, crash);
+  return Part.stack(...groove, ...fillHits, d.crash && band.crash());
 }

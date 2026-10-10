@@ -119,6 +119,6 @@ export class Chord {
 /** The chords of one bar: one, or two splitting it. */
 export type Bar = readonly Chord[];
 
-/** The chord sounding at a slot of a bar divided into `grid` slots. */
-export const chordAt = (bar: Bar, slot: number, grid: number): Chord =>
-  bar[Math.min(bar.length - 1, Math.floor((slot * bar.length) / grid))];
+/** The chord sounding at a sixteenth of a bar. */
+export const chordAt = (bar: Bar, step: number): Chord =>
+  bar[Math.min(bar.length - 1, Math.floor((step * bar.length) / 16))];

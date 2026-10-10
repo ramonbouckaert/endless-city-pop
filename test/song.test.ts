@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Song } from '../src/engine';
+import { Chorus, DrumBreak, Finale, Intro, Song, Verse } from '../src/engine';
 import { TONALITIES } from '../src/style';
 import { CHORDS, MODES, type Mode } from '../src/theory';
 import { defined, materials } from './helpers';
@@ -20,17 +20,16 @@ describe('Song', () => {
           expect(CHORDS).toHaveProperty([chord.symbol]);
           expect(MODES).toHaveProperty([defined(chord.scale, 'a chord-scale')]);
         }
-        if ('drums' in mat) expect(mat.drums.fills.length > 0).toBe(mat.drums.fill);
         if ('bass' in mat) expect(mat.bass.bars).toHaveLength(mat.bars.length);
       }
       for (const s of song.form) expect(materials(song)).toHaveProperty([s.part]);
-      const types = song.form.sections.map((s) => s.type);
-      expect(types[0]).toBe('intro');
-      expect(types.at(-1)).toBe('finale');
-      expect(types).toContain('verse');
-      expect(types).toContain('chorus');
-      const brk = types.indexOf('drumBreak');
-      if (brk >= 0) expect(types[brk + 1]).not.toBe('finale');
+      const kinds = song.form.sections.map((s) => s.kind);
+      expect(kinds[0]).toBe(Intro);
+      expect(kinds.at(-1)).toBe(Finale);
+      expect(kinds).toContain(Verse);
+      expect(kinds).toContain(Chorus);
+      const brk = kinds.indexOf(DrumBreak);
+      if (brk >= 0) expect(kinds[brk + 1]).not.toBe(Finale);
       expect(song.describe().bars).toBe(song.bars);
     }
   });
@@ -44,7 +43,7 @@ describe('Song', () => {
     const song = Song.generate('snap0');
     expect(song.key.name).toMatchSnapshot();
     expect(
-      defined(song.part('chorus'), 'a chorus')
+      defined(song.part(Chorus), 'a chorus')
         .bars.flat()
         .map((c) => c.name(song.key)),
     ).toMatchSnapshot();
@@ -67,7 +66,7 @@ describe('Song', () => {
         }
         if ('bass' in mat) expect(mat.bass.bars).toHaveLength(mat.bars.length);
       }
-      const fin = defined(song.part('finale'), 'a finale').chord;
+      const fin = defined(song.part(Finale), 'a finale').chord;
       expect(fin.root).toBe(song.key.tonic);
       expect(fin.cls).toBe(tonic);
       expect(finale.map(([symbol]) => symbol)).toContain(fin.symbol);

@@ -4,18 +4,22 @@
 // them.
 
 import { lazy } from '../../lib/lazy';
-import { DOUBLE_TOP, FIGURES, MIX, RHYTHMS, RISER, type DrumRole, type PlayedType, type Rhythm } from '../../style';
+import { DOUBLE_TOP, FIGURES, MIX, RHYTHMS, RISER, type DrumRole, type Rhythm } from '../../style';
 import type { Chord, Key } from '../../theory';
 import type { ScoreBand } from '../band';
 import { drumNotes } from '../drums';
 import { lastBar, spans, timed, type Timed } from '../figures';
 import type { PlayedMaterial } from '../material';
-import type { Melody, Solo } from '../melody';
+import type { Melody } from '../melody';
+import type { Solo } from '../solo-line';
 import { Changes, onChord, Part, rise, scoreNote, within, type NoteSpec } from '../score';
 import type { PlayedSection, Section } from './section';
 
-/** A section's drums, and its pitched parts (falsy ones left out). */
-export type Parts = { drums: Part[]; pitched: (Part | null | false | undefined)[] };
+/**
+ * A section's parts (falsy ones left out), drums first. The arranger
+ * moves them into the section's key, the drums and the riser staying put.
+ */
+export type Parts = readonly (Part | null | false | undefined)[];
 
 export class ScoreContext {
   constructor(
@@ -50,9 +54,9 @@ export class ScoreContext {
   }
 }
 
-export class PlayedScoreContext<T extends PlayedType = PlayedType> extends ScoreContext {
+export class PlayedScoreContext extends ScoreContext {
   constructor(
-    override readonly sec: PlayedSection<T>,
+    override readonly sec: PlayedSection,
     band: ScoreBand,
     repeat: number,
   ) {
@@ -126,22 +130,23 @@ export class PlayedScoreContext<T extends PlayedType = PlayedType> extends Score
   }
 
   /** The section's drums; `enter` may hold a part back, by role. */
-  drums(enter?: (role: DrumRole) => ((time: number) => boolean) | undefined): Part[] {
-    return [drumNotes(this.band, this.played.drums, this.len, this.repeat, enter)];
+  drums(enter?: (role: DrumRole) => ((time: number) => boolean) | undefined): Part {
+    return drumNotes(this.band, this.played.drums, this.len, this.repeat, enter);
   }
 
-  /** Stop-time: the band and drums hit together, then drive the last bar. */
-  stopTime(drums: Part[]): Parts & { pitched: Part[] } {
+  /**
+   * Stop-time: the band and drums hit together on the stops, then (if
+   * `drive`) groove through the last bar.
+   */
+  stopTime(drums: Part, drive = true): Part[] {
     const { band, len, C, B } = this;
-    const hits = (last: Rhythm) => spans(lastBar(len, last, RHYTHMS.stops), len);
-    return {
-      drums: [Part.stack(...drums).mask(within(hits(RHYTHMS.whole)))],
-      pitched: [
-        B.struct(hits(RHYTHMS.eighths)),
-        band.keys(C, hits(RHYTHMS.offbeats)).clip(0.3),
-        band.stabs(C, hits([[]])),
-      ],
-    };
+    const hits = (last: Rhythm) => spans(drive ? lastBar(len, last, RHYTHMS.stops) : RHYTHMS.stops, len);
+    return [
+      drums.mask(within(hits(RHYTHMS.whole))),
+      B.struct(hits(RHYTHMS.eighths)),
+      band.keys(C, hits(RHYTHMS.offbeats)).clip(0.3),
+      band.stabs(C, hits([[]])),
+    ];
   }
 
   /** Strings swelling through the section, up to `top`. */

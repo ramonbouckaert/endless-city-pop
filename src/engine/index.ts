@@ -8,16 +8,11 @@
 // download saves.
 
 export { ScoreArranger } from './arranger';
-export { BassLine, type BassNote } from './bass';
-export type { DrumFill, DrumHit, DrumPart, Drums } from './drums';
 export { Form, type Playhead } from './form';
 export { Harmonizer } from './harmony';
-export { Line, type Note } from './line';
-export { Melody, Solo, type Grace, type MelodyNote, type SoloNote } from './melody';
-export { Instruments, type Kit, type PartPath, type SoundPath, type Sounds } from './orchestration';
-export type { Controls, Score, ScoreNote, Slide } from './score';
-export type { DrumBreakMaterial, FinaleMaterial, Material, MaterialOf, PlayedMaterial } from './material';
-export type { AnySection, Section, SectionOf } from './sections';
-export { planned, type SectionFields, type SectionPlan } from './plan';
-export { Song, type SongData } from './song';
-export { formatTitle, joinAside, type TitleParts } from './title';
+export { Instruments } from './orchestration';
+export type { Score } from './score';
+export * from './sections';
+export { planned, type Plan } from './plan';
+export { Song } from './song';
+export { joinAside, type TitleParts } from './title';

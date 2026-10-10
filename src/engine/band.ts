@@ -1,9 +1,9 @@
 // The instruments, as a score plays them: a song's sounds on lines of
 // pitches and on chords, each part at its level in the mix.
 
-import type { Percussion } from '../lib/general-midi';
+import { PERCUSSION, type Percussion } from '../lib/general-midi';
 import type { Rng } from '../lib/random';
-import { ANCHORS, COMP, FIGURES, MIX, RHYTHMS, type Figure, type Level, type MixName } from '../style';
+import { COMP, FIGURES, MIX, RHYTHMS, type Figure, type Level, type MixName } from '../style';
 import { BASS_LOW, voice, voicingNote, type Chord } from '../theory';
 import { spans, timed } from './figures';
 import type { Instruments, SoundPath } from './orchestration';
@@ -34,11 +34,25 @@ export class ScoreBand {
     private readonly rng: Rng,
   ) {}
 
-  /** Hits on a drum of the song's kit, each at its gain. */
-  kit(drum: Percussion, hits: readonly (Span & { gain: number })[]): Part {
-    return new Part(
-      hits.map(({ time, dur, gain }) => scoreNote({ time, dur, path: 'kit', program: 'drums', note: drum, gain })),
+  /** Hits on a drum of the song's kit (or several, together), each at its gain. */
+  kit(drums: Percussion | readonly Percussion[], hits: readonly (Span & { gain: number })[]): Part {
+    return Part.stack(
+      ...[drums]
+        .flat()
+        .map(
+          (drum) =>
+            new Part(
+              hits.map(({ time, dur, gain }) =>
+                scoreNote({ time, dur, path: 'kit', program: 'drums', note: drum, gain }),
+              ),
+            ),
+        ),
     );
+  }
+
+  /** A crash cymbal at a time. */
+  crash(time = 0): Part {
+    return this.kit(PERCUSSION.crash, [{ time, dur: 1, gain: 0.2 }]);
   }
 
   // A part's instrument on some notes at a level in the mix, trimmed for
@@ -65,13 +79,16 @@ export class ScoreBand {
     );
   }
 
-  // Chords voiced on a part's sound (or one note of each voicing), at a level in the mix.
-  private chords(part: ChordPart, hits: readonly ChordHit[], mix: MixName, anchor?: number): Part {
+  // Chords voiced on a part's sound (or one note of each voicing), at a
+  // level in the mix, topping out at its anchor.
+  private chords(part: ChordPart, hits: readonly ChordHit[], mix: MixName): Part {
+    const level: Level = MIX[mix];
+    const { anchor } = level;
     const specs = hits.flatMap(({ time, dur, chord, n }) => {
       const notes = n === undefined ? voice(chord, anchor) : [voicingNote(chord, n, anchor)];
       return notes.map((note) => ({ time, dur, note }));
     });
-    return this.play(part, specs, MIX[mix]);
+    return this.play(part, specs, level);
   }
 
   // The chords sounding at each of a rhythm's hits, played on them.
@@ -129,16 +146,16 @@ export class ScoreBand {
     return this.chords('guitar', this.figure(changes, FIGURES.scratch), 'scratch').velocity(this.varied(0.7, 1));
   }
   pad(changes: Changes): Part {
-    return this.chords('pad', changes.spans, 'pad', ANCHORS.pad);
+    return this.chords('pad', changes.spans, 'pad');
   }
   strings(changes: Changes): Part {
-    return this.chords('strings', changes.spans, 'strings', ANCHORS.strings);
+    return this.chords('strings', changes.spans, 'strings');
   }
   choir(changes: Changes): Part {
-    return this.chords('choir', changes.spans, 'choir', ANCHORS.choir);
+    return this.chords('choir', changes.spans, 'choir');
   }
   stabs(changes: Changes, rhythm: readonly Span[] = spans(RHYTHMS.stab, changes.bars)): Part {
-    return this.chords('stabs', this.on(changes, rhythm), 'stabs', ANCHORS.stabs);
+    return this.chords('stabs', this.on(changes, rhythm), 'stabs');
   }
   /** A bass line, kept at or above the bass's lowest note. */
   bass(specs: readonly NoteSpec[]): Part {

@@ -3,13 +3,23 @@
 // turns one into timed notes.
 
 import { Rng } from '../lib/random';
-import { SONG, TONALITIES, type SectionType } from '../style';
+import { SONG, TONALITIES } from '../style';
 import { Key } from '../theory';
 import type { Form } from './form';
 import { FormPlanner } from './form-planner';
 import { Instruments } from './orchestration';
-import { materialOf, type MaterialOf } from './material';
-import { buildForm } from './sections';
+import {
+  Bridge,
+  buildForm,
+  Chorus,
+  Finale,
+  Intro,
+  Lift,
+  PreChorus,
+  SoloSection,
+  Verse,
+  type SectionKind,
+} from './sections';
 import { formatTitle, TitleWriter, type TitleParts } from './title';
 
 export interface SongData {
@@ -63,36 +73,36 @@ export class Song {
 
   /** The soloists the form's solos go to, in order, as indexes into the sounds' soloists. */
   get soloists(): number[] {
-    return this.form.soloists;
+    return this.form.ofType(SoloSection).map((s) => s.soloist);
   }
 
-  /** The material of each part of a type, in form order. */
-  parts<T extends SectionType>(type: T): MaterialOf<T>[] {
-    return [...new Map(this.form.ofType(type).map((sec) => [sec.part, materialOf(type, sec.material)])).values()];
+  /** The material of each part of a kind, in form order. */
+  parts<K extends SectionKind>(kind: K): InstanceType<K>['material'][] {
+    return [...new Map(this.form.ofType(kind).map((sec) => [sec.part, sec.material])).values()];
   }
 
-  /** The first part of a type's material, if the form has one. */
-  part<T extends SectionType>(type: T): MaterialOf<T> | undefined {
-    return this.parts(type)[0];
+  /** The first part of a kind's material, if the form has one. */
+  part<K extends SectionKind>(kind: K): InstanceType<K>['material'] | undefined {
+    return this.parts(kind)[0];
   }
 
   /** An outline, for debugging and scripts/generate.ts. */
   describe() {
-    const intro = this.part('intro');
+    const intro = this.part(Intro);
     return {
       key: this.key.name,
       bpm: this.bpm,
       bars: this.bars,
       sections: this.form.describe(),
       intro: `${intro?.harmony} ${intro?.variant}`,
-      pre: this.part('pre')?.variant,
-      solos: this.parts('solo').map((s) => s.variant),
-      lifts: this.parts('lift').map((l) => l.variant),
-      finale: this.part('finale')?.variant,
+      pre: this.part(PreChorus)?.variant,
+      solos: this.parts(SoloSection).map((s) => s.variant),
+      lifts: this.parts(Lift).map((l) => l.variant),
+      finale: this.part(Finale)?.variant,
       phrases: Object.fromEntries(
-        (['verse', 'chorus', 'bridge'] as const).flatMap((t) => {
-          const form = this.part(t)?.melody.form;
-          return form ? [[t, form]] : [];
+        [Verse, Chorus, Bridge].flatMap((kind) => {
+          const form = this.part(kind)?.melody.form;
+          return form ? [[kind.id, form]] : [];
         }),
       ),
     };

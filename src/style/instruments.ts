@@ -122,14 +122,14 @@ export const RISER: Program = GM.reverseCymbal;
 // ---- Drum kits --------------------------------------------------------
 
 /** A drum kit: its program on the drum channel, and its name in the soundfont. */
-export interface KitDef {
+export interface Kit {
   program: number;
   name: string;
 }
 
 // GeneralUser GS's drum kits that suit the style (not its brushes,
 // orchestral or effects kits), mostly the standard ones.
-export const KITS: Weighted<KitDef> = [
+export const KITS: Weighted<Kit> = [
   [{ program: 0, name: 'Standard 1' }, 4],
   [{ program: 1, name: 'Standard 2' }, 1],
   [{ program: 2, name: 'Standard 3' }, 1],

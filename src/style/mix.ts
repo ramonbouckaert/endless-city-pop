@@ -1,5 +1,6 @@
 // The band's mix: how loud each way of playing a part sits, with its
-// reverb, panning and note length. Gains are set for the part's sound in
+// reverb, panning and note length (and for a sustained part, where its
+// voicing tops out). Gains are set for the part's sound in
 // BAND (the melody voices: for the alto sax); a song's own pick plays
 // louder or quieter by its level (Instruments.trim, as postgain), so a
 // recipe's own gain for a part still holds.
@@ -9,6 +10,7 @@ export interface Level {
   room?: number;
   pan?: number;
   clip?: number; // a share of each note's length
+  anchor?: number; // MIDI: a chord's voicing tops out at or below it
 }
 
 export const MIX = {
@@ -24,10 +26,11 @@ export const MIX = {
   keysRun: { gain: 0.32, room: 0.5 },
   clav: { gain: 0.19, pan: 0.28 },
   scratch: { gain: 0.28, pan: 0.72, clip: 0.5 },
-  pad: { gain: 0.14, room: 0.4 },
-  strings: { gain: 0.11, room: 0.45 },
-  choir: { gain: 0.09, room: 0.45 },
-  stabs: { gain: 0.22, clip: 0.3 },
+  // Voicings topping out at a4, d6, e5 and g5.
+  pad: { gain: 0.14, room: 0.4, anchor: 69 },
+  strings: { gain: 0.11, room: 0.45, anchor: 86 },
+  choir: { gain: 0.09, room: 0.45, anchor: 76 },
+  stabs: { gain: 0.22, clip: 0.3, anchor: 79 },
   bass: { gain: 0.75, clip: 0.8 },
   // The bass held back, under a sparser texture.
   bassUnder: { gain: 0.62 },
@@ -43,6 +46,3 @@ export const MIX = {
 } as const satisfies Readonly<Record<string, Level>>;
 
 export type MixName = keyof typeof MIX;
-
-// Where each sustained part's voicing tops out (MIDI): a4, d6, e5, g5.
-export const ANCHORS = { pad: 69, strings: 86, choir: 76, stabs: 79 };

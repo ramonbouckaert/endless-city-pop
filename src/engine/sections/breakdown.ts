@@ -1,38 +1,45 @@
 // The hook over the chorus's first bars, on pads, keys coming in halfway.
 
-import { COMP, RHYTHM } from '../../style';
+import { COMP, GROOVES } from '../../style';
 import { spans } from '../figures';
-import type { MaterialOf } from '../material';
-import type { SectionPlan } from '../plan';
+import type { PlayedMaterial } from '../material';
+import type { Melody } from '../melody';
+import type { Plan } from '../plan';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection } from './section';
 
-export class Breakdown extends PlayedSection<'breakdown'> {
-  readonly material: MaterialOf<'breakdown'>;
+export interface BreakdownMaterial extends PlayedMaterial {
+  melody: Melody;
+}
 
-  constructor(plan: SectionPlan<'breakdown'>, ctx: BuildContext) {
+export class Breakdown extends PlayedSection<BreakdownMaterial> {
+  static readonly id = 'breakdown';
+  static readonly short = 'bd';
+  static override readonly handsOver = true;
+
+  readonly material: BreakdownMaterial;
+
+  constructor(plan: Plan, ctx: BuildContext) {
     super(plan);
     this.material = ctx.material(this, (rng) => {
       const bars = ctx.chorusBars().slice(0, this.bars);
       return {
-        ...ctx.band('breakdown', ctx.key, bars, RHYTHM.breakdown, rng.fork('groove')),
+        ...ctx.band(ctx.key, bars, GROOVES.breakdown, rng.fork('groove')),
         melody: ctx.hook().take(bars.length),
       };
     });
   }
 
-  protected play(ctx: PlayedScoreContext<'breakdown'>): Parts {
+  protected play(ctx: PlayedScoreContext): Parts {
     const { band, C, underB, len } = ctx;
-    return {
-      drums: ctx.drums(),
-      pitched: [
-        underB,
-        band.pad(C),
-        band.choir(C),
-        band.comp(C, spans(COMP.chorus, len)).mask(ctx.from(Math.floor(len / 2))),
-        band.lead(ctx.line(this.material.melody)),
-      ],
-    };
+    return [
+      ctx.drums(),
+      underB,
+      band.pad(C),
+      band.choir(C),
+      band.comp(C, spans(COMP.chorus, len)).mask(ctx.from(Math.floor(len / 2))),
+      band.lead(ctx.line(this.material.melody)),
+    ];
   }
 }

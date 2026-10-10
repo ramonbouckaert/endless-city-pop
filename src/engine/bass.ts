@@ -15,13 +15,13 @@ export interface BassNote extends Note {
   degree: Degree;
 }
 
-/** A bass line on a sixteenth grid, in one feel. */
+/** A bass line in one feel. */
 export class BassLine extends Line<BassNote> {
   constructor(
     readonly feel: BassFeel,
     bars: BassNote[][],
   ) {
-    super(bars, 16);
+    super(bars);
   }
 }
 
