@@ -11,6 +11,9 @@ import {
   Scale,
   Song,
   Template,
+  FINALE_STYLES,
+  LIFT_STYLES,
+  STYLE,
   TONALITIES,
   titleParts,
   BAND,
@@ -225,6 +228,7 @@ describe('Song', () => {
       if (song.key.mode === mode) songs.push(song);
     }
     const used = new Set<string>();
+    const styles = new Set<string>();
     let multiple = 0;
     for (const song of songs) {
       const lifts = song.form.filter((s) => s.type === 'lift');
@@ -246,6 +250,9 @@ describe('Song', () => {
       lifts.forEach((sec, i) => {
         const lift = mats[i];
         used.add(lift.turnaround);
+        styles.add(lift.style);
+        // Each lift is played differently from the one before.
+        if (i) expect(lift.style).not.toBe(mats[i - 1].style);
         expect(lift.turnaround).toBe(sec.opts.turnaround);
         expect(lift.key.tonic).toBe((song.key.tonic + sec.opts.liftTo!) % 12);
         expect(lift.key.mode).toBe(mode);
@@ -256,6 +263,18 @@ describe('Song', () => {
     }
     expect(multiple).toBeGreaterThan(10);
     expect(used).toEqual(new Set(Object.keys(TONALITIES[mode].turnarounds)));
+    expect(styles).toEqual(new Set(LIFT_STYLES.map(([name]) => name)));
+  });
+
+  it('varies the intro', () => {
+    const intros = Array.from({ length: 150 }, (_, i) => Song.generate(`intro${i}`).materials.intro!);
+    expect(new Set(intros.map((m) => m.texture))).toEqual(new Set(Object.keys(STYLE.introTextures)));
+    expect(new Set(intros.map((m) => m.harmony))).toEqual(new Set(STYLE.introHarmony.map(([name]) => name)));
+  });
+
+  it('varies the finale', () => {
+    const endings = Array.from({ length: 100 }, (_, i) => Song.generate(`finale${i}`).materials.finale!.ending);
+    expect(new Set(endings)).toEqual(new Set(FINALE_STYLES.map(([name]) => name)));
   });
 
   it('varies the phrase form of each melody', () => {

@@ -2,7 +2,7 @@
 // Arranger (arranger.ts) turns one into a Strudel pattern.
 
 import { BassWriter } from './bass';
-import { PRE_FLAVOURS, STYLE, TONALITIES } from './constants';
+import { FINALE_STYLES, LIFT_STYLES, PRE_FLAVOURS, STYLE, TONALITIES } from './constants';
 import { DrumWriter } from './drums';
 import { FormPlanner, Section } from './form';
 import { Harmonizer, Template } from './harmony';
@@ -17,6 +17,7 @@ import type {
   IntroHarmony,
   IntroTexture,
   Lift,
+  LiftStyle,
   Material,
   Materials,
   MelodyKind,
@@ -117,7 +118,10 @@ export class Song {
       bpm: this.bpm,
       bars: this.bars,
       sections: this.form.map((s) => s.describe()),
+      intro: `${this.materials.intro?.harmony} ${this.materials.intro?.texture}`,
       pre: this.materials.pre?.flavour,
+      finale: this.materials.finale?.ending,
+      lifts: this.materials.lift?.lifts?.map((l) => l.style),
       phrases: Object.fromEntries(
         (['verse', 'chorus', 'bridge'] as const).flatMap((t) => {
           const form = this.materials[t]?.melody?.form;
@@ -175,7 +179,8 @@ function buildHarmony(key: Key, form: Section[], rng: Rng): { materials: Partial
   const liftMat = buildLifts(key, form, rng);
   if (liftMat) result.lift = liftMat;
   const [symbol, scale] = rng.fork('finale').pick(finale);
-  result.finale = mk('finale', { bars: [[new Chord(key.tonic, symbol, scale)]] });
+  const ending = rng.fork('finaleStyle').weighted(FINALE_STYLES);
+  result.finale = mk('finale', { bars: [[new Chord(key.tonic, symbol, scale)]], ending });
   return { materials: result, chorusBars };
 }
 
@@ -195,12 +200,17 @@ function buildPre(key: Key, form: Section[], rng: Rng): Material | null {
 
 function buildLifts(key: Key, form: Section[], rng: Rng): Material | null {
   const liftRng = rng.fork('lift');
+  const styleRng = rng.fork('liftStyle');
+  let style: LiftStyle | undefined;
   const lifts = form
     .filter((s) => s.type === 'lift')
     .map((s): Lift => {
       const liftKey = key.transpose(s.opts.liftTo!);
       const turnaround = s.opts.turnaround!;
-      return { turnaround, key: liftKey, bars: new Harmonizer(liftKey, liftRng).turnaround(turnaround) };
+      const bars = new Harmonizer(liftKey, liftRng).turnaround(turnaround);
+      // Never the same style as the lift before.
+      style = styleRng.weighted(LIFT_STYLES.filter(([name]) => name !== style));
+      return { turnaround, key: liftKey, bars, style };
     });
   if (!lifts.length) return null;
   return { type: 'lift', key: lifts[0].key, bars: lifts[0].bars, lifts };

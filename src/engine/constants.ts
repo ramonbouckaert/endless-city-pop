@@ -9,7 +9,9 @@ import type {
   DrumEntry,
   DrumFeel,
   DrumPlan,
+  FinaleStyle,
   IntroTexture,
+  LiftStyle,
   Mode,
   PaletteName,
   PreFlavour,
@@ -155,6 +157,12 @@ export const PALETTE: Readonly<Record<PaletteName, Weighted<string>>> = {
   domTonic: [['13', 3], ['9', 2], ['7#9', 1]],
 };
 
+// How the finale plays the last chord.
+export const FINALE_STYLES: Weighted<FinaleStyle> = [['cascade', 3], ['hits', 2], ['slide', 2], ['run', 2]];
+
+// How each lift is played (Lift); never the same way twice running.
+export const LIFT_STYLES: Weighted<LiftStyle> = [['horns', 3], ['stops', 2], ['drop', 2], ['run', 2], ['drums', 1]];
+
 // Turnarounds into a lifted major key, relative to that key. Each
 // tonality has its own (TONALITIES); these are the major key's.
 export const LIFT_TURNAROUNDS: Readonly<Record<string, Turnaround>> = {
@@ -244,6 +252,9 @@ export const STYLE = {
     keys: { bass: ['pedal', 'halfTime'], drums: { feels: ['introRide'], crash: 0, fill: 0 } },
     groove: { bass: ['funk', 'funk', 'disco'], drums: { feels: ['funk', 'disco'], crash: 0, fill: 1 } },
     bassFirst: { bass: ['funk', 'halfTime'], drums: { feels: ['introRide', 'halfTime'], crash: 0, fill: 1 } },
+    arp: { bass: ['pedal', 'halfTime'], drums: { feels: ['introRide', 'halfTime'], crash: 0, fill: 1 } },
+    drumsFirst: { bass: ['funk', 'disco'], drums: { feels: ['break', 'funk', 'disco'], crash: 0, fill: 1 } },
+    fanfare: { bass: ['drive', 'disco'], drums: { feels: ['funk', 'disco'], crash: 1, fill: 1 } },
   } as Record<IntroTexture, { bass: BassFeel[]; drums: DrumPlan }>,
   // Bass feels each section may take.
   bassFeels: {

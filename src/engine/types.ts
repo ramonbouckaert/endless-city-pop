@@ -162,7 +162,7 @@ export type IntroHarmony = 'chorus' | 'planing' | 'template';
 // How the drums start the opening vamp: after two bars, with kick and
 // hats for two bars, or the whole kit from the first.
 export type DrumEntry = 'late' | 'light' | 'full';
-export type IntroTexture = 'pads' | 'keys' | 'groove' | 'bassFirst';
+export type IntroTexture = 'pads' | 'keys' | 'groove' | 'bassFirst' | 'arp' | 'drumsFirst' | 'fanfare';
 export type PreFlavour = 'climb' | 'pedal' | 'drop' | 'stops' | 'borrowed';
 export interface DrumPlan {
   feels: DrumFeel[];
@@ -188,6 +188,7 @@ export interface Material {
   flavour?: PreFlavour; // pre-chorus only
   entry?: DrumEntry; // vamp only: how the drums start the opening vamp
   lifts?: Lift[]; // lift only: one per lift in the form, in order
+  ending?: FinaleStyle; // finale only
   drums?: Drums;
   bass?: Bass;
   // drumBreak: the chord, section and shift it hands over to.
@@ -196,14 +197,21 @@ export interface Material {
   pickupShift?: number;
 }
 export type Materials = Partial<Record<SectionType, Material>>;
+// How the last chord rings out: voices stacking up it one by one, band
+// hits, a slide down from a semitone above, or a run up it.
+export type FinaleStyle = 'cascade' | 'hits' | 'slide' | 'run';
 
 // One lift: a turnaround into a new key, and the bass under it.
 export interface Lift {
   turnaround: string;
   key: Key;
   bars: Bar[];
+  style: LiftStyle;
   bass?: Bass;
 }
+// How a lift is played: a rising horn line, band hits, the drums
+// dropping out, a run up into the chorus, or the drums alone.
+export type LiftStyle = 'horns' | 'stops' | 'drop' | 'run' | 'drums';
 
 // A turnaround's chords relative to the key it leads into, one array per
 // bar of ChordSpecs.

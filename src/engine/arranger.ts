@@ -8,7 +8,8 @@ import { Band, DOUBLE_TOP, FIGURES, type Instruments, Mini, TAIL_SECONDS } from 
 import { BassWriter } from './bass';
 import { STYLE } from './constants';
 import type { Section } from './form';
-import { Solo } from './melody';
+import { type Melody, Solo } from './melody';
+import { Chord } from './music';
 import type { Song } from './song';
 import type { DrumFill, DrumRole, Material, SectionType, StepGains } from './types';
 
@@ -107,10 +108,16 @@ class SectionArranger {
   private mel(x: Material = this.mat): Pattern {
     return this.band.line(this.degrees(x), this.scale);
   }
-  // The intro's line on vibes, if it has one.
+  // The intro's line on bells, if it has one: an octave up, if it fits.
   private teaser(): Pattern | undefined {
     const intro = this.song.material('intro');
-    return intro.melody && this.band.bell(this.band.line(this.degrees(intro), this.scale, 12));
+    if (!intro.melody) return undefined;
+    return this.band.bell(this.band.line(this.degrees(intro), this.scale, this.octaveUp(intro.melody)));
+  }
+  // 12 to play a melody an octave up, or 0 if that would take it too high
+  // (melody notes count up from the tonic in octave 4).
+  private octaveUp(melody: Melody): number {
+    return 60 + this.song.key.tonic + this.sec.shift + melody.top + 12 <= DOUBLE_TOP ? 12 : 0;
   }
   private from(start: number): string {
     return Mini.from(this.len, start);
@@ -119,10 +126,39 @@ class SectionArranger {
   // ---- Recipes --------------------------------------------------------
 
   private intro(): ReturnType<SectionArranger['parts']> {
-    const { band, C, B } = this;
+    const { band, C, B, len } = this;
     const drums = this.drums();
-    const halfway = (p: Pattern) => p.mask(this.from(this.len / 2));
+    const halfway = (p: Pattern) => p.mask(this.from(len / 2));
     switch (this.mat.texture) {
+      case 'arp':
+        // A keyboard arpeggio over a pad; bass and drums join halfway.
+        return {
+          drums: [halfway(stack(...drums))],
+          pitched: [band.arp(C), band.pad(C), halfway(B.gain(0.7)), this.teaser()],
+        };
+      case 'drumsFirst': {
+        // The drums alone, then the band in halfway on a crash.
+        const crash = s(Mini.perBar(Array.from({ length: len }, (_, i) => (i === len / 2 ? 'cr' : '~')))).gain(0.2);
+        return {
+          drums: [...drums, band.drum(crash)],
+          pitched: [halfway(B), halfway(band.keys(C).gain(0.26)), halfway(band.clav(C)), this.teaser()],
+        };
+      }
+      case 'fanfare': {
+        // The band hits together, horns playing the teaser over it, then
+        // grooves in the last bar.
+        const hits = (last: string) => Mini.lastBar(len, last, FIGURES.stops);
+        const intro = this.mat;
+        return {
+          drums: [stack(...drums).mask(hits('x'))],
+          pitched: [
+            B.struct(hits('x*8')),
+            band.stabs(C, hits('~')),
+            band.keys(C, hits('[~ x]*4')).clip(0.3),
+            intro.melody && band.horns(band.line(this.degrees(intro), this.scale)),
+          ],
+        };
+      }
       case 'keys':
         return {
           drums: [halfway(stack(...drums))],
@@ -178,13 +214,17 @@ class SectionArranger {
     };
   }
 
+  // White noise rising through the section.
+  private get riser(): Pattern {
+    return s('white').gain(saw.slow(this.len).range(0, 0.07)).hpf(3000);
+  }
+
   // The pre-chorus, in its flavour's texture. Later rounds add a layer.
   private pre(): ReturnType<SectionArranger['parts']> {
-    const { band, C, B, len } = this;
+    const { band, C, B, len, riser } = this;
     const drums = this.drums();
     const lead = band.lead(this.mel());
     const later = this.sec.opts.second;
-    const riser = s('white').gain(saw.slow(len).range(0, 0.07)).hpf(3000);
     switch (this.mat.flavour) {
       case 'pedal':
         // Long notes over a held bass, strings swelling.
@@ -239,11 +279,10 @@ class SectionArranger {
   }
 
   private chorus(): ReturnType<SectionArranger['parts']> {
-    const { band, C, mat, song } = this;
+    const { band, C, mat } = this;
     const { answer, big } = this.sec.opts;
-    // The flute doubles the hook an octave up, unless that would take it
-    // too high (melody notes count up from the tonic in octave 4).
-    const up = 60 + song.key.tonic + this.sec.shift + mat.melody!.top + 12 <= DOUBLE_TOP ? 12 : 0;
+    // The flute doubles the hook an octave up, if it fits.
+    const up = this.octaveUp(mat.melody!);
     return {
       drums: this.drums(),
       pitched: [
@@ -337,20 +376,44 @@ class SectionArranger {
     };
   }
 
-  // This lift's turnaround into its key, a rising horn line over it.
+  // This lift's turnaround into its key, played in its style.
   private lift(): ReturnType<SectionArranger['parts']> {
-    const { band } = this;
+    const { band, len } = this;
     const lift = this.mat.lifts![this.repeat];
     const C = Mini.chords(lift.bars, lift.key);
     const S = mini(BassWriter.scales(lift.bars, lift.key));
-    return {
-      drums: this.drums(),
-      pitched: [
-        band.bass(lift.bass!.pattern, S),
-        band.keys(C, 'x*4').clip(0.5).gain(0.32),
-        band.horns(band.line(FIGURES.liftLine, S, 36)),
-      ],
-    };
+    const B = band.bass(lift.bass!.pattern, S);
+    const drums = this.drums();
+    const keys = band.keys(C, 'x*4').clip(0.5).gain(0.32);
+    switch (lift.style) {
+      case 'stops':
+        // The whole band hits together, the drums with it.
+        return {
+          drums: [stack(...drums).mask(FIGURES.stops)],
+          pitched: [B.struct(FIGURES.stops), band.keys(C, FIGURES.stops).clip(0.3), band.stabs(C, FIGURES.stops)],
+        };
+      case 'drop':
+        // The drums drop out under held chords and a riser; the chorus lands on them.
+        return {
+          drums: [this.riser],
+          pitched: [B.gain(0.6), band.pad(C), band.strings(C).gain(saw.slow(len).range(0.04, 0.16))],
+        };
+      case 'run':
+        // The lead holds a chord tone, then runs up into the chorus.
+        return {
+          drums,
+          pitched: [B, keys, band.lead(band.line(Mini.lastBar(len, FIGURES.liftRun, FIGURES.liftHold), S, 24))],
+        };
+      case 'drums':
+        // The drums alone, then a bass pickup into the new key.
+        return {
+          drums,
+          pitched: [band.bass(Mini.lastBar(len, FIGURES.liftPickup, '~'), `${lift.key.tonicName}2:${lift.key.mode}`)],
+        };
+      default:
+        // A rising horn line over quarter-note keys.
+        return { drums, pitched: [B, keys, band.horns(band.line(FIGURES.liftLine, S, 36))] };
+    }
   }
 
   // Drums alone, then a bass pickup into what follows.
@@ -362,10 +425,57 @@ class SectionArranger {
   }
 
   // The final chord, built one instrument at a time.
+  // The last chord, rung out in the finale's style.
   private finale(): ReturnType<SectionArranger['parts']> {
     const { band, song } = this;
     const fin = this.mat.bars![0][0];
     const name = fin.name(song.key);
+    const keys = (c: Pattern) =>
+      c.voicing().sound(band.sounds.keys).gain(0.4).postgain(band.trim('keys')).room(0.5);
+    const swell = band.drum(s('rd*16').gain(0.09).velocity(saw.slow(2).range(0.3, 1)));
+    switch (this.mat.ending) {
+      case 'hits': {
+        // The band hits the chord with the drums, then one last stab rings
+        // out over the strings.
+        const hits = FIGURES.finaleHits;
+        return {
+          drums: [band.drum(s('[bd,sd,cr]').struct(hits).gain(0.5))],
+          pitched: [
+            keys(chord(name).struct(hits)).clip(0.4),
+            band.stabs(chord(name), hits),
+            band.bass('0', fin.bassScale(song.key)).struct(hits).clip(0.4),
+            band.strings(chord(name)).mask('<0 1>'),
+          ],
+        };
+      }
+      case 'slide': {
+        // The same chord a semitone up, slipping down onto the last one
+        // on the and of two.
+        const above = new Chord(fin.root + 1, fin.symbol, fin.scale);
+        const both = (a: string, b: string) => `[${a}@3 ${b}@13]`;
+        const chords = chord(both(above.name(song.key), name)).slow(2);
+        const scales = both(above.bassScale(song.key), fin.bassScale(song.key));
+        return {
+          drums: [band.drum(s('[~@3 [bd,cr]@13]').slow(2).gain(0.55)), swell],
+          pitched: [keys(chords), band.strings(chords), band.bass('[0@3 0@13]', scales).slow(2)],
+        };
+      }
+      case 'run':
+        // A run up the chord on the keys, landing on it held.
+        return {
+          drums: [band.drum(s('[bd,cr]').slow(2).gain(0.55)), swell],
+          pitched: [
+            band
+              .voiced(band.line(FIGURES.finaleRun, fin.bassScale(song.key, 2)).slow(2), band.sounds.keys)
+              .gain(0.32)
+              .room(0.5),
+            keys(chord(`[~ ${name}@3]`)).slow(2),
+            band.strings(chord(name)).slow(2),
+            band.bass('0', fin.bassScale(song.key)).slow(2),
+          ],
+        };
+    }
+    // Cascade: the band holds the chord as the voices stack up it.
     const voices = band.finaleVoices();
     const enters = FIGURES.finaleDegrees.map((d, i) => {
       const [sound, gain] = voices[i % voices.length];
@@ -375,12 +485,9 @@ class SectionArranger {
         .room(0.5);
     });
     return {
-      drums: [
-        band.drum(s('[bd,cr]').slow(2).gain(0.55)),
-        band.drum(s('rd*16').gain(0.09).velocity(saw.slow(2).range(0.3, 1))),
-      ],
+      drums: [band.drum(s('[bd,cr]').slow(2).gain(0.55)), swell],
       pitched: [
-        chord(name).voicing().slow(2).sound(band.sounds.keys).gain(0.4).postgain(band.trim('keys')).room(0.5),
+        keys(chord(name)).slow(2),
         band.strings(chord(name)).slow(2),
         band.bass('0', fin.bassScale(song.key)).slow(2),
         ...enters,
