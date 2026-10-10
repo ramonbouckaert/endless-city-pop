@@ -1,6 +1,6 @@
 // How the style colours and reharmonises chords.
 
-import type { Weighted } from '../lib/random';
+import type { Odds, Weighted } from '../lib/random';
 import type { ChordClass } from '../theory';
 
 export type PaletteName = ChordClass | 'majLydian' | 'domToMinor' | 'susToMinor' | 'minTonic' | 'domTonic';
@@ -8,57 +8,22 @@ export type PaletteName = ChordClass | 'majLydian' | 'domToMinor' | 'susToMinor'
 // Colours for each chord family; majLydian is a major chord away from
 // the tonic, domToMinor a dominant resolving to a minor chord (or a
 // minor key's V), susToMinor a minor key's sus V.
-export const PALETTE: Readonly<Record<PaletteName, Weighted<string>>> = {
-  maj: [
-    ['^9', 3],
-    ['^7', 1],
-    ['69', 1],
-  ],
-  majLydian: [
-    ['^9#11', 2],
-    ['^7#11', 2],
-    ['^9', 1],
-  ],
-  min: [
-    ['m9', 3],
-    ['m11', 2],
-    ['m7', 1],
-  ],
-  dom: [
-    ['13', 3],
-    ['9', 2],
-    ['9sus', 1],
-  ],
-  domToMinor: [
-    ['7alt', 3],
-    ['7b9', 1],
-    ['13b9', 1],
-  ],
+export const PALETTE: Readonly<Record<PaletteName, Odds<string>>> = {
+  maj: { '^9': 3, '^7': 1, '69': 1 },
+  majLydian: { '^9#11': 2, '^7#11': 2, '^9': 1 },
+  min: { m9: 3, m11: 2, m7: 1 },
+  dom: { '13': 3, '9': 2, '9sus': 1 },
+  domToMinor: { '7alt': 3, '7b9': 1, '13b9': 1 },
   // A minor key's suspended V: phrygian, or the plain 9sus.
-  susToMinor: [
-    ['7b9sus', 2],
-    ['9sus', 1],
-  ],
-  hdim: [['m7b5', 1]],
-  dim: [['o7', 1]],
-  sus: [
-    ['9sus', 2],
-    ['13', 1],
-  ],
-  power: [['9sus', 1]],
+  susToMinor: { '7b9sus': 2, '9sus': 1 },
+  hdim: { m7b5: 1 },
+  dim: { o7: 1 },
+  sus: { '9sus': 2, '13': 1 },
+  power: { '9sus': 1 },
   // A minor key's tonic: aeolian m9, dorian m6/9, or the melodic-minor m(maj9).
-  minTonic: [
-    ['m9', 3],
-    ['m69', 2],
-    ['m^9', 1],
-    ['m11', 1],
-  ],
+  minTonic: { m9: 3, m69: 2, 'm^9': 1, m11: 1 },
   // A mixolydian key's tonic: a dominant that doesn't resolve, sometimes the funk #9.
-  domTonic: [
-    ['13', 3],
-    ['9', 2],
-    ['7#9', 1],
-  ],
+  domTonic: { '13': 3, '9': 2, '7#9': 1 },
 };
 
 // `amount`: how much a section is reharmonised (0..1, times the

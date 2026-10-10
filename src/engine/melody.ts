@@ -7,6 +7,7 @@
 import type { Rng } from '../lib/random';
 import {
   ANSWER,
+  SLIDE_SECONDS,
   CADENCE_WEIGHTS,
   CELLS,
   CHROMATIC_PROB,
@@ -27,7 +28,6 @@ import {
   type ShapeName,
 } from '../style';
 import { chordAt, Scale, type Bar, type Chord, type Key } from '../theory';
-import { SLIDE_SECONDS } from './figures';
 import { Line, type Note } from './line';
 import { onChord, type Changes, type NoteSpec } from './score';
 
@@ -172,7 +172,7 @@ export class SoloWriter {
     const { rng } = this;
     const { lo, hi } = SOLO;
     if (rng.chance(SOLO.turn)) dir = -dir;
-    deg += dir * (rhythm[s + 1] === 'x' ? 1 : rng.pick(SOLO.leaps));
+    deg += dir * (rhythm[s + 1] === 'x' ? 1 : rng.weighted(SOLO.leaps));
     if (deg > hi) [deg, dir] = [hi - 1, -1];
     if (deg < lo) [deg, dir] = [lo + 1, 1];
     if (s % 4 === 0 && deg % 2 !== 0) deg += dir;
@@ -220,7 +220,7 @@ export class MelodyWriter {
     this.cells = pre?.cells ?? CELLS[kind];
     this.sequence = pre?.sequence ?? 0;
     const forms = FORM_CHOICES[kind];
-    if (forms) this.form = rng.weighted(forms);
+    if (forms) this.form = rng.weightedKey(forms);
   }
 
   private get phrase(): PhraseFormDef | undefined {
@@ -261,7 +261,7 @@ export class MelodyWriter {
       const chord = chordAt(bar, n.start, 8);
       const last = i === motif.notes.length - 1;
       const deg = motif.startDeg + climb + lift + drift + n.offset;
-      let semis = scale.semis(clamp(deg, range.lo, range.hi + climb));
+      let semis = scale.semis(foldByThirds(deg, range.lo, range.hi + climb));
       if (n.start % 4 === 0 || n.len >= 3 || i === 0 || (last && (letter === 'C' || letter === 'D'))) {
         const dir = i === 0 ? 0 : Math.sign(n.offset - motif.notes[i - 1].offset);
         // Riffs stay diatonic: they are harmonised by scale steps.
@@ -287,12 +287,12 @@ export class MelodyWriter {
     const cells = this.phrase?.cells?.[letter] ?? this.cells[letter];
     if (!cells) throw new Error(`No ${letter} cells for a ${this.kind} melody`);
     const rhythm = parseRhythm(rng.pick(cells));
-    const offsets = this.shape(rng.weighted(SHAPE_CHOICES[letter]), rhythm.length);
+    const offsets = this.shape(rng.weightedKey(SHAPE_CHOICES[letter]), rhythm.length);
     const top = Math.max(...offsets);
     const startDeg =
       letter === 'A'
         ? range.center - Math.floor((top - Math.min(...offsets)) / 2) + rng.pick([0, 0, 1])
-        : clamp(this.prevDeg - top + rng.pick([0, 1, 2]), range.lo, range.hi);
+        : foldByThirds(this.prevDeg - top + rng.pick([0, 1, 2]), range.lo, range.hi);
     return { notes: rhythm.map((n, i) => ({ ...n, offset: offsets[i] })), startDeg };
   }
 
@@ -353,7 +353,7 @@ const parseRhythm = (cell: string): Note[] =>
   );
 
 // Into the range lo to hi by thirds, so the note stays a chord-ish tone.
-function clamp(d: number, lo: number, hi: number): number {
+function foldByThirds(d: number, lo: number, hi: number): number {
   while (d > hi) d -= 2;
   while (d < lo) d += 2;
   return d;

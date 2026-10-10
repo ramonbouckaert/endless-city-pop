@@ -49,7 +49,7 @@ export class Harmonizer {
       else if (cls === 'maj' && this.key.modeAt(root) !== 'major')
         palette = 'majLydian'; // major chords take #11 unless they are the key's ionian chord
       else palette = cls;
-      return new Chord(root, this.rng.weighted(PALETTE[palette]));
+      return new Chord(root, this.rng.weightedKey(PALETTE[palette]));
     });
     return this.scaled(reshape(chords, bars));
   }

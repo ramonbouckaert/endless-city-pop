@@ -6,7 +6,7 @@ import { randomSeed } from '../lib/random';
 import { songToMidi } from '../midi/from-score';
 import { Song } from '../engine';
 import type { Player } from './player';
-import { seconds } from './time';
+import { songLength } from './time';
 
 // Seconds of silence after a song's final chord before the next starts.
 export const TAIL_SECONDS = 1;
@@ -43,7 +43,7 @@ export class Transport {
 
   /** The song's length in seconds, to its final chord. */
   get length(): number {
-    return seconds(this.current.bars, this.current.bpm);
+    return songLength(this.current);
   }
 
   /** Where the song is, in seconds: how far it has played, or stopped, where play() starts. */

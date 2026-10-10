@@ -3,12 +3,10 @@
 // bar it starts on.
 
 import { Rng } from '../lib/random';
-import type { Instruments, PartPath } from './orchestration';
-import type { Song } from './song';
-import type { SectionType } from '../style';
 import { ScoreBand } from './band';
+import type { Instruments } from './orchestration';
 import { Part, type Score, type ScoreNote } from './score';
-import { sectionParts } from './sections';
+import type { Song } from './song';
 
 export class ScoreArranger {
   /** `instruments`: to play the song with in place of its own. */
@@ -20,16 +18,14 @@ export class ScoreArranger {
   arrange(): Score {
     const { song } = this;
     const rng = new Rng(song.seed).fork('score');
-    const uses = new Map<PartPath, Set<SectionType>>();
     const notes = song.form.sections.flatMap((sec, index) => {
       const band = new ScoreBand(this.instruments, rng.fork(`section/${index}`));
-      const { drums, pitched } = sectionParts(sec, band, song.form.repeatOf(index));
-      for (const path of band.uses) uses.set(path, (uses.get(path) ?? new Set()).add(sec.type));
+      const { drums, pitched } = sec.parts(band, song.form.repeatOf(index));
       return Part.stack(...drums, Part.stack(...pitched).transpose(sec.shift))
         .map((n) => this.swung(n))
         .late(song.form.starts[index]).notes;
     });
-    return { notes: notes.toSorted((a, b) => a.time - b.time), bars: song.bars, uses };
+    return { notes: notes.toSorted((a, b) => a.time - b.time), bars: song.bars };
   }
 
   // Swing: a note starting in the second half of an eighth moves later

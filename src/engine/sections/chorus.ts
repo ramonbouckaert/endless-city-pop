@@ -1,15 +1,16 @@
 // The hook, doubled an octave up if it fits; later choruses add the
 // figures that answer it, and the last one stabs, strings and choir.
 
-import { RHYTHM } from '../../style';
-import { COMP, spans } from '../figures';
-import { AnswerWriter } from '../melody';
+import { COMP, RHYTHM } from '../../style';
+import { spans } from '../figures';
 import type { MaterialOf } from '../material';
+import { AnswerWriter } from '../melody';
 import type { SectionFields, SectionPlan } from '../plan';
-import type { Parts, PlayedScoreContext, BuildContext } from './context';
-import { Section } from './section';
+import type { BuildContext } from './build-context';
+import type { Parts, PlayedScoreContext } from './score-context';
+import { PlayedSection } from './section';
 
-export class Chorus extends Section<'chorus'> implements Readonly<SectionFields['chorus']> {
+export class Chorus extends PlayedSection<'chorus'> implements Readonly<SectionFields['chorus']> {
   readonly answer: boolean;
   readonly big: boolean;
   readonly material: MaterialOf<'chorus'>;
@@ -30,7 +31,7 @@ export class Chorus extends Section<'chorus'> implements Readonly<SectionFields[
     });
   }
 
-  play(ctx: PlayedScoreContext<'chorus'>): Parts {
+  protected play(ctx: PlayedScoreContext<'chorus'>): Parts {
     const { band, C, B, len } = ctx;
     const mat = this.material;
     const { answer, big } = this;
@@ -38,7 +39,7 @@ export class Chorus extends Section<'chorus'> implements Readonly<SectionFields[
       drums: ctx.drums(),
       pitched: [
         B,
-        band.keys(C, spans(COMP.chorus, len)).clip(0.5).gain(0.28),
+        band.comp(C, spans(COMP.chorus, len)),
         band.clav(C),
         band.pad(C),
         band.lead(ctx.line(mat.melody)),

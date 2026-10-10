@@ -19,6 +19,5 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
 /** A mode's tonality. */
 export const tonalityOf = (mode: Mode): Tonality => TONALITIES[mode];
 
-export { LIFT_TURNAROUNDS } from './major';
 export { Tonality } from './tonality';
 export type * from './types';

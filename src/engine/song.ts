@@ -8,7 +8,7 @@ import { Key } from '../theory';
 import type { Form } from './form';
 import { FormPlanner } from './form-planner';
 import { Instruments } from './orchestration';
-import { materialOf, type Material, type MaterialOf } from './material';
+import { materialOf, type MaterialOf } from './material';
 import { buildForm } from './sections';
 import { formatTitle, TitleWriter, type TitleParts } from './title';
 
@@ -64,11 +64,6 @@ export class Song {
   /** The soloists the form's solos go to, in order, as indexes into the sounds' soloists. */
   get soloists(): number[] {
     return this.form.soloists;
-  }
-
-  /** Each part's material, by part id. */
-  get materials(): Readonly<Record<string, Material>> {
-    return Object.fromEntries(this.form.sections.map((sec) => [sec.part, sec.material]));
   }
 
   /** The material of each part of a type, in form order. */

@@ -4,16 +4,16 @@
 
 import { autoplaySwitch } from './autoplay';
 import { FormStrip } from './form-strip';
-import { MediaControls, type Controls } from './media-session';
+import { MediaControls, type MediaActions } from './media-session';
 import { downloadMidi } from './midi-download';
 import { SynthPlayer } from './player';
-import { bars, clock, seconds } from './time';
+import { bars, clock, seconds, songLength } from './time';
 import { TitleMarquee } from './title-marquee';
 import { Transport } from './transport';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
-class App implements Controls {
+class App implements MediaActions {
   private readonly player = new SynthPlayer();
   private readonly transport = new Transport(this.player, () => this.render());
   private readonly title = new TitleMarquee($('title'));
@@ -52,7 +52,7 @@ class App implements Controls {
     await Promise.all([document.fonts.ready.then(() => this.title.fit()), this.loadSounds()]);
   }
 
-  // ---- Actions (Controls) -------------------------------------------------
+  // ---- Actions (MediaActions) -------------------------------------------------
 
   get time(): number {
     return this.transport.time;
@@ -107,7 +107,7 @@ class App implements Controls {
     const { song } = this.transport;
     this.title.show(song.titleParts);
     $('meta').textContent = `${song.key.name} · ${song.bpm} BPM`;
-    $('length').textContent = clock(seconds(song.bars, song.bpm));
+    $('length').textContent = clock(songLength(song));
     this.strip.show(song.form);
   }
 

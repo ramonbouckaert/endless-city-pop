@@ -3,28 +3,27 @@
 // band is already going.
 
 import { RHYTHM, VAMP_ENTRIES } from '../../style';
-import { Part, rise } from '../score';
 import type { MaterialOf } from '../material';
 import type { SectionFields, SectionPlan } from '../plan';
-import type { Parts, PlayedScoreContext, BuildContext } from './context';
-import { Section } from './section';
+import { Part, rise } from '../score';
+import type { BuildContext } from './build-context';
+import type { Parts, PlayedScoreContext } from './score-context';
+import { PlayedSection } from './section';
 
-export class Vamp extends Section<'vamp'> implements Readonly<SectionFields['vamp']> {
+export class Vamp extends PlayedSection<'vamp'> implements Readonly<SectionFields['vamp']> {
   readonly returning: boolean;
   readonly material: MaterialOf<'vamp'>;
 
   constructor(plan: SectionPlan<'vamp'>, ctx: BuildContext) {
     super(plan);
     this.returning = plan.returning;
-    this.material = ctx.material(this, (rng) => {
-      return {
-        ...ctx.band('vamp', ctx.key, ctx.vampBars(), RHYTHM.vamp, rng.fork('groove')),
-        variant: rng.weightedKey(VAMP_ENTRIES),
-      };
-    });
+    this.material = ctx.material(this, (rng) => ({
+      ...ctx.band('vamp', ctx.key, ctx.vampBars(), RHYTHM.vamp, rng.fork('groove')),
+      variant: rng.weightedKey(VAMP_ENTRIES),
+    }));
   }
 
-  play(ctx: PlayedScoreContext<'vamp'>): Parts {
+  protected play(ctx: PlayedScoreContext<'vamp'>): Parts {
     const { band, C, B, len } = ctx;
     const entry = this.returning ? 'full' : this.material.variant;
     let drums;

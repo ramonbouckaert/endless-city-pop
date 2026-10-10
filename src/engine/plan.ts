@@ -37,9 +37,7 @@ export interface SectionFields {
   breakdown: {};
   drumBreak: {};
   lift: {
-    /** The shift up the lift leads into. */
-    liftTo: number;
-    /** The turnaround it takes there (a name in the tonality's). */
+    /** The turnaround it takes into its key (a name in the tonality's). */
     turnaround: string;
   };
   outro: {
@@ -51,7 +49,7 @@ export interface SectionFields {
 
 // Sections with the same `part` play the same material (every chorus the
 // same chords and hook); a section longer than its material loops it.
-// `shift`: semitones up, after a last-chorus key change.
+// `shift`: semitones up, after a key change (a lift's: the key it lifts to).
 interface PlanBase<T extends SectionType> {
   type: T;
   bars: number;

@@ -1,13 +1,15 @@
 // The key's final chord, rung out in the finale's style over its two bars.
 
 import { PERCUSSION, type Percussion } from '../../lib/general-midi';
-import { FINALE_STYLES } from '../../style';
+import { FIGURES, FINALE_DEGREES, FINALE_HITS, FINALE_STYLES } from '../../style';
 import { Chord } from '../../theory';
-import { FIGURES, FINALE_DEGREES, FINALE_HITS, spans, timed } from '../figures';
+import type { ScoreBand } from '../band';
+import { spans, timed } from '../figures';
 import { Changes, onChord, Part, rise, type NoteSpec, type Span } from '../score';
 import type { MaterialOf } from '../material';
 import type { SectionPlan } from '../plan';
-import type { Parts, ScoreContext, BuildContext } from './context';
+import type { BuildContext } from './build-context';
+import type { Parts } from './score-context';
 import { Section } from './section';
 
 export class Finale extends Section<'finale'> {
@@ -27,8 +29,7 @@ export class Finale extends Section<'finale'> {
     });
   }
 
-  play(ctx: ScoreContext<'finale'>): Parts {
-    const { band } = ctx;
+  parts(band: ScoreBand): Parts {
     const mat = this.material;
     const { chord: fin } = mat;
     // The chord over spans of time.

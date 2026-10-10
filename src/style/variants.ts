@@ -1,40 +1,25 @@
 // The ways a section type can be played. A section picks one of its
 // type's variants by weight (a lift or a later solo never the way the
 // one before it was), and its recipe in engine/sections/ gives each a
-// texture of its own. A variant with a groove plays it in place of its
-// type's in RHYTHM.
+// texture of its own; some have a groove of their own, in RHYTHM.
 
 import type { PreMelody } from './melody';
-import type { GroovePlan } from './rhythm';
 
 export interface Variant {
   weight: number;
 }
 export type Variants<N extends string, V extends Variant = Variant> = Readonly<Record<N, V>>;
-type Grooved = Variant & { groove: GroovePlan };
 
-// Intro arrangements, each with its drums and the bass feels it may take.
+// Intro arrangements.
 export type IntroTexture = 'pads' | 'keys' | 'groove' | 'bassFirst' | 'arp' | 'drumsFirst' | 'fanfare';
-export const INTRO_TEXTURES: Variants<IntroTexture, Grooved> = {
-  pads: { weight: 1, groove: { bass: ['pedal', 'halfTime'], drums: { feels: ['introRide'], crash: 0, fill: 0 } } },
-  keys: { weight: 1, groove: { bass: ['pedal', 'halfTime'], drums: { feels: ['introRide'], crash: 0, fill: 0 } } },
-  groove: {
-    weight: 1,
-    groove: { bass: ['funk', 'funk', 'disco'], drums: { feels: ['funk', 'disco'], crash: 0, fill: 1 } },
-  },
-  bassFirst: {
-    weight: 1,
-    groove: { bass: ['funk', 'halfTime'], drums: { feels: ['introRide', 'halfTime'], crash: 0, fill: 1 } },
-  },
-  arp: {
-    weight: 1,
-    groove: { bass: ['pedal', 'halfTime'], drums: { feels: ['introRide', 'halfTime'], crash: 0, fill: 1 } },
-  },
-  drumsFirst: {
-    weight: 1,
-    groove: { bass: ['funk', 'disco'], drums: { feels: ['break', 'funk', 'disco'], crash: 0, fill: 1 } },
-  },
-  fanfare: { weight: 1, groove: { bass: ['drive', 'disco'], drums: { feels: ['funk', 'disco'], crash: 1, fill: 1 } } },
+export const INTRO_TEXTURES: Variants<IntroTexture> = {
+  pads: { weight: 1 },
+  keys: { weight: 1 },
+  groove: { weight: 1 },
+  bassFirst: { weight: 1 },
+  arp: { weight: 1 },
+  drumsFirst: { weight: 1 },
+  fanfare: { weight: 1 },
 };
 
 // How the drums start the opening vamp: in after two bars, kick and hats
@@ -51,55 +36,26 @@ export const VAMP_ENTRIES: Variants<VampEntry> = {
 // tonality, fitted to end on their cadence into the chorus), melody,
 // drums and bass.
 export type PreFlavour = 'climb' | 'pedal' | 'drop' | 'stops' | 'borrowed';
-export const PRE_FLAVOURS: Variants<PreFlavour, Grooved & { melody: PreMelody }> = {
+export const PRE_FLAVOURS: Variants<PreFlavour, Variant & { melody: PreMelody }> = {
   // A stepwise rise to the dominant, the band opening up.
-  climb: {
-    weight: 3,
-    melody: 'climb',
-    groove: { drums: { feels: ['build', 'funk', 'disco'], crash: 0.2, fill: 1 }, bass: ['drive', 'funk', 'disco'] },
-  },
+  climb: { weight: 3, melody: 'climb' },
   // Suspense over a held dominant (or IV over it): long notes, strings swelling.
-  pedal: {
-    weight: 2,
-    melody: 'hold',
-    groove: { drums: { feels: ['halfTime', 'introRide'], crash: 0, fill: 1 }, bass: ['pedal', 'halfTime'] },
-  },
+  pedal: { weight: 2, melody: 'hold' },
   // The drums drop out and come back halfway.
-  drop: {
-    weight: 2,
-    melody: 'question',
-    groove: { drums: { feels: ['funk', 'disco'], crash: 0, fill: 1 }, bass: ['halfTime', 'pedal', 'funk'] },
-  },
+  drop: { weight: 2, melody: 'question' },
   // Stop-time: the band hits together under a free lead, all in for the last bar.
-  stops: {
-    weight: 2,
-    melody: 'question',
-    groove: { drums: { feels: ['funk', 'disco'], crash: 0.5, fill: 1 }, bass: ['drive', 'disco'] },
-  },
+  stops: { weight: 2, melody: 'question' },
   // Darker colour borrowed from the minor key: iv, bIII, bVI, bVII.
-  borrowed: {
-    weight: 2,
-    melody: 'climb',
-    groove: { drums: { feels: ['halfTime', 'build'], crash: 0.3, fill: 1 }, bass: ['halfTime', 'drive'] },
-  },
+  borrowed: { weight: 2, melody: 'climb' },
 };
 
 // What a solo is played over: the band, or a bossa comp. The first solo
 // is always over the band; a later one is never over what the one before
 // it had.
 export type SoloComp = 'band' | 'bossa';
-export const SOLO_COMPS: Variants<SoloComp, Grooved> = {
-  band: {
-    weight: 1,
-    groove: { drums: { feels: ['funk', 'disco'], crash: 1, fill: 0.9 }, bass: ['funk', 'drive', 'disco'] },
-  },
-  bossa: {
-    weight: 1,
-    groove: {
-      drums: { feels: ['bossa', 'bossa', 'halfTime'], crash: 0.7, fill: 0.8 },
-      bass: ['bossa', 'bossa', 'halfTime'],
-    },
-  },
+export const SOLO_COMPS: Variants<SoloComp> = {
+  band: { weight: 1 },
+  bossa: { weight: 1 },
 };
 
 // How a lift into a last chorus is played: a rising horn line, band
@@ -119,20 +75,9 @@ export const LIFT_STYLES: Variants<LiftStyle> = {
 // soloists trade two-bar lines, each getting two turns. Picked with the
 // form, as it sets the outro's length.
 export type OutroStyle = 'reprise' | 'trade';
-export const OUTRO_STYLES: Variants<OutroStyle, Grooved & { bars: number }> = {
-  reprise: {
-    weight: 1,
-    bars: 4,
-    groove: { drums: { feels: ['introRide', 'halfTime'], crash: 1, fill: 0 }, bass: ['pedal'] },
-  },
-  trade: {
-    weight: 1,
-    bars: 8,
-    groove: {
-      drums: { feels: ['introRide', 'halfTime', 'bossa'], crash: 0, fill: 1 },
-      bass: ['halfTime', 'pedal', 'bossa'],
-    },
-  },
+export const OUTRO_STYLES: Variants<OutroStyle, Variant & { bars: number }> = {
+  reprise: { weight: 1, bars: 4 },
+  trade: { weight: 1, bars: 8 },
 };
 
 // How the last chord rings out: voices stacking up it one by one, band

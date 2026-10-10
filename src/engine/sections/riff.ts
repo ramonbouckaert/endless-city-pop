@@ -3,10 +3,11 @@
 import { RHYTHM } from '../../style';
 import type { MaterialOf } from '../material';
 import type { SectionPlan } from '../plan';
-import type { Parts, PlayedScoreContext, BuildContext } from './context';
-import { Section } from './section';
+import type { BuildContext } from './build-context';
+import type { Parts, PlayedScoreContext } from './score-context';
+import { PlayedSection } from './section';
 
-export class Riff extends Section<'riff'> {
+export class Riff extends PlayedSection<'riff'> {
   readonly material: MaterialOf<'riff'>;
 
   constructor(plan: SectionPlan<'riff'>, ctx: BuildContext) {
@@ -20,11 +21,11 @@ export class Riff extends Section<'riff'> {
     });
   }
 
-  play(ctx: PlayedScoreContext<'riff'>): Parts {
+  protected play(ctx: PlayedScoreContext<'riff'>): Parts {
     const { band, C, B } = ctx;
     return {
       drums: ctx.drums(),
-      pitched: [B, band.horns(ctx.harmonized(this.material.melody, 2)), band.keys(C).gain(0.28), band.clav(C)],
+      pitched: [B, band.horns(ctx.harmonized(this.material.melody, 2)), band.keysUnder(C), band.clav(C)],
     };
   }
 }

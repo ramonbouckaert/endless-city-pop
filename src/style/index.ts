@@ -4,10 +4,12 @@
 
 export * from './bass';
 export * from './drums';
+export * from './figures';
 export * from './form';
 export * from './harmony';
 export * from './instruments';
 export * from './melody';
+export * from './mix';
 export * from './rhythm';
 export * from './song';
 export * from './titles';

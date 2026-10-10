@@ -1,7 +1,7 @@
 // Melody: rhythm cells per motif, phrase forms, ranges and shapes; the
 // chorus answer's figures; and how solos run.
 
-import type { Weighted } from '../lib/random';
+import type { Odds, Weighted } from '../lib/random';
 
 export type MelodyKind = 'verse' | 'pre' | 'chorus' | 'bridge' | 'riff';
 // How a pre-chorus melody unfolds: climbing a step each repeat, call and
@@ -127,27 +127,10 @@ export const PHRASE_FORMS: Readonly<Record<PhraseForm, PhraseFormDef>> = {
   },
 };
 
-export const FORM_CHOICES: Readonly<Partial<Record<MelodyKind, Weighted<PhraseForm>>>> = {
-  chorus: [
-    ['period', 4],
-    ['pairs', 2],
-    ['sentence', 2],
-    ['aaba', 2],
-    ['callResponse', 2],
-  ],
-  verse: [
-    ['period', 3],
-    ['pairs', 2],
-    ['sentence', 2],
-    ['aaba', 1],
-    ['callResponse', 3],
-  ],
-  bridge: [
-    ['period', 2],
-    ['pairs', 1],
-    ['sentence', 3],
-    ['aaba', 2],
-  ],
+export const FORM_CHOICES: Readonly<Partial<Record<MelodyKind, Odds<PhraseForm>>>> = {
+  chorus: { period: 4, pairs: 2, sentence: 2, aaba: 2, callResponse: 2 },
+  verse: { period: 3, pairs: 2, sentence: 2, aaba: 1, callResponse: 3 },
+  bridge: { period: 2, pairs: 1, sentence: 3, aaba: 2 },
 };
 
 export const MELODY_RANGES: Readonly<Record<MelodyKind, { center: number; lo: number; hi: number }>> = {
@@ -185,45 +168,13 @@ export const PRE_MELODIES: Readonly<Record<PreMelody, { sequence: number; cells:
 // A riff's call and response, closing on a full cadence.
 export const RIFF_PLAN: LoopPlan = { loop: ['A', 'B'], end: ['D'] };
 
-export const SHAPE_CHOICES: Readonly<Record<MotifLetter, Weighted<ShapeName>>> = {
-  A: [
-    ['rise', 3],
-    ['arch', 3],
-    ['leapFall', 2],
-    ['zigzag', 2],
-    ['valley', 1],
-  ],
-  B: [
-    ['fall', 3],
-    ['valley', 2],
-    ['neighbor', 2],
-    ['arch', 2],
-    ['rise', 1],
-  ],
-  C: [
-    ['fall', 2],
-    ['neighbor', 2],
-    ['valley', 2],
-    ['arch', 1],
-  ],
-  D: [
-    ['fall', 2],
-    ['valley', 2],
-    ['neighbor', 2],
-    ['arch', 1],
-    ['leapFall', 1],
-  ],
-  E: [
-    ['rise', 2],
-    ['arch', 2],
-    ['leapFall', 1],
-  ],
-  F: [
-    ['zigzag', 2],
-    ['neighbor', 2],
-    ['fall', 2],
-    ['rise', 1],
-  ],
+export const SHAPE_CHOICES: Readonly<Record<MotifLetter, Odds<ShapeName>>> = {
+  A: { rise: 3, arch: 3, leapFall: 2, zigzag: 2, valley: 1 },
+  B: { fall: 3, valley: 2, neighbor: 2, arch: 2, rise: 1 },
+  C: { fall: 2, neighbor: 2, valley: 2, arch: 1 },
+  D: { fall: 2, valley: 2, neighbor: 2, arch: 1, leapFall: 1 },
+  E: { rise: 2, arch: 2, leapFall: 1 },
+  F: { zigzag: 2, neighbor: 2, fall: 2, rise: 1 },
 };
 
 export const ANSWER = {
@@ -264,7 +215,11 @@ export const SOLO = {
   lo: 6,
   hi: 18,
   turn: 0.2,
-  leaps: [1, 2, 2, 3],
+  leaps: [
+    [1, 1],
+    [2, 2],
+    [3, 1],
+  ] as Weighted<number>,
   // Grace notes flick into notes that stand out: on the beat, or after a
   // breath. Mostly a chromatic lean up from a semitone below.
   grace: {

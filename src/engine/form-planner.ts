@@ -15,7 +15,7 @@ export class FormPlanner {
     private readonly rng: Rng,
     private readonly turnarounds: Readonly<Record<string, Turnaround>>,
   ) {
-    this.preBars = rng.pick(FORM.preBars);
+    this.preBars = rng.weighted(FORM.preBars);
     this.chorusBars = rng.chance(FORM.chorusTag) ? 10 : 8;
   }
 
@@ -28,7 +28,7 @@ export class FormPlanner {
 
   private opening(): SectionPlan[] {
     const { rng } = this;
-    const s: SectionPlan[] = [planned('intro', rng.pick(FORM.introBars))];
+    const s: SectionPlan[] = [planned('intro', rng.weighted(FORM.introBars))];
     if (rng.chance(FORM.vamp.chance)) s.push(planned('vamp', rng.pick(FORM.vamp.bars), { returning: false }));
     return s;
   }
@@ -51,7 +51,7 @@ export class FormPlanner {
     const riffChance = rng.pick(FORM.riffChance);
     return Array.from({ length: rng.weighted(FORM.rounds) }, (_, r) => {
       const later = r > 0;
-      const round: SectionPlan[] = [planned('verse', rng.pick(FORM.verseBars), { later })];
+      const round: SectionPlan[] = [planned('verse', rng.weighted(FORM.verseBars), { later })];
       if (this.preBars) round.push(planned('pre', this.preBars, { later }));
       round.push(planned('chorus', this.chorusBars, { answer: later, big: false }));
       if (rng.chance(riffChance)) round.push(planned('riff', 4));
@@ -71,7 +71,7 @@ export class FormPlanner {
       const soloists = rng.shuffle(FORM.soloists);
       parts.push(
         Array.from({ length: soloCount }, (_, i) =>
-          planned('solo', rng.pick(FORM.soloBars), { soloist: soloists[i], part: `solo:${i}` }),
+          planned('solo', rng.weighted(FORM.soloBars), { soloist: soloists[i], part: `solo:${i}` }),
         ),
       );
     }
@@ -101,7 +101,7 @@ export class FormPlanner {
         shift += step;
         const turnaround = rng.weightedKey(this.turnarounds);
         const bars = this.turnarounds[turnaround].bars.length;
-        s.push(planned('lift', bars, { liftTo: shift, turnaround, part: `lift:${lifts++}` }));
+        s.push(planned('lift', bars, { turnaround, part: `lift:${lifts++}`, shift }));
       }
       const big = i === finals - 1;
       s.push(planned('chorus', this.chorusBars, { answer: true, big, shift }));

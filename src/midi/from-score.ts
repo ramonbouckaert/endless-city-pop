@@ -42,7 +42,8 @@ export function midiNotes(score: Score, bpm: number): TrackNote[] {
     const level = gain * velocity * postgain;
     const { pan = 0.5, room = 0, lpf } = controls;
     const length = program === 'drums' ? DRUM_TICKS : dur * TICKS_PER_BAR * clip;
-    const note: MidiNote = { tick: time * TICKS_PER_BAR, dur: length, pitch, velocity: midiLevel(level) };
+    // Its velocity is set with its track's mix, relative to the loudest note there.
+    const note: MidiNote = { tick: time * TICKS_PER_BAR, dur: length, pitch, velocity: 127 };
     if (slide) note.slide = { semis: slide.semis, ticks: slide.seconds * ticksPerSecond };
     return { program, note, level, pan, room, ...(lpf === undefined ? {} : { lpf }) };
   });
@@ -100,23 +101,28 @@ export function channelsFor(spans: readonly { first: number; last: number }[]): 
 // A track for each instrument's notes, the drums on the drum channel and
 // the rest on the others (channelsFor).
 function tracksFor(notes: readonly TrackNote[], kit: Kit): MidiTrack[] {
-  const programs = [...new Set(notes.map((n) => n.program))];
-  const of = (program: Program | 'drums') => notes.filter((n) => n.program === program);
-  const melodic = programs.filter((p): p is Program => p !== 'drums');
+  // Each instrument's notes, in order of its first.
+  const byProgram = new Map<Program | 'drums', TrackNote[]>();
+  for (const n of notes) {
+    const mine = byProgram.get(n.program);
+    if (mine) mine.push(n);
+    else byProgram.set(n.program, [n]);
+  }
+  const melodic = [...byProgram.keys()].filter((p): p is Program => p !== 'drums');
   const channels = channelsFor(
     melodic.map((program) => {
-      const mine = of(program);
+      const mine = byProgram.get(program) ?? [];
       return {
         first: Math.min(...mine.map((n) => n.note.tick)),
         last: Math.max(...mine.map((n) => n.note.tick + n.note.dur)),
       };
     }),
   );
-  return programs.map((program) => {
+  return [...byProgram].map(([program, mine]) => {
     if (program === 'drums')
-      return { name: `Drums (${kit.name})`, channel: DRUM_CHANNEL, program: kit.program, ...mixed(of(program), 0) };
+      return { name: `Drums (${kit.name})`, channel: DRUM_CHANNEL, program: kit.program, ...mixed(mine, 0) };
     const { channel, start } = channels[melodic.indexOf(program)];
-    return { name: programName(program), channel, program, start, ...mixed(of(program), start) };
+    return { name: programName(program), channel, program, start, ...mixed(mine, start) };
   });
 }
 

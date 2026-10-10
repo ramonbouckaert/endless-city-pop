@@ -129,10 +129,12 @@ describe('section materials', () => {
       let shift = 0;
       for (const [i, sec] of song.form.sections.entries()) {
         if (sec.type === 'lift') {
-          expect(sec.liftTo).toBeGreaterThan(shift);
-          expect(sec.liftTo).toBeLessThanOrEqual(MAX_SHIFT);
-          expect(song.form.at(i + 1)).toMatchObject({ type: 'chorus', shift: sec.liftTo });
-          shift = sec.liftTo;
+          expect(sec.shift).toBeGreaterThan(shift);
+          expect(sec.shift).toBeLessThanOrEqual(MAX_SHIFT);
+          const next = defined(song.form.at(i + 1), 'a chorus');
+          expect(next).toMatchObject({ type: 'chorus', shift: sec.shift });
+          if (next.type === 'chorus') expect(sec.material.into).toBe(next.material.bars[0][0]);
+          shift = sec.shift;
         } else if (song.form.sections.slice(0, i).some((s) => s.type === 'lift')) {
           expect(sec.shift).toBe(shift);
         }
@@ -144,8 +146,8 @@ describe('section materials', () => {
         // Each lift is played differently from the one before.
         if (i) expect(lift.variant).not.toBe(mats[i - 1].variant);
         expect(lift.turnaround).toBe(sec.turnaround);
-        expect(lift.key.tonic).toBe((song.key.tonic + sec.liftTo) % 12);
-        expect(lift.key.mode).toBe(mode);
+        // Written in the song's key, played shifted up into the new one.
+        expect(lift.key).toEqual(song.key);
         expect(lift.bars).toHaveLength(sec.bars);
         for (const chord of lift.bars.flat()) expect(MODES).toHaveProperty([defined(chord.scale, 'a chord-scale')]);
         expect(lift.bass.bars).toHaveLength(sec.bars);
@@ -159,7 +161,7 @@ describe('section materials', () => {
   it('varies the intro', () => {
     const intros = Array.from({ length: 150 }, (_, i) => defined(Song.generate(`intro${i}`).part('intro'), 'an intro'));
     expect(new Set(intros.map((m) => m.variant))).toEqual(new Set(Object.keys(INTRO_TEXTURES)));
-    expect(new Set(intros.map((m) => m.harmony))).toEqual(new Set(INTRO.harmony.map(([name]) => name)));
+    expect(new Set(intros.map((m) => m.harmony))).toEqual(new Set(Object.keys(INTRO.harmony)));
   });
 
   it('winds down in an outro of either style', () => {

@@ -5,7 +5,7 @@
 // groove follows the changes, and a bar's last note can approach the
 // next chord's root.
 
-import type { Rng } from '../lib/random';
+import type { Odds, Rng } from '../lib/random';
 import { BASS, BASS_DEGREES, BASS_FEELS, BASS_NOTES, type BassFeel, type BassFeelDef, type BassToken } from '../style';
 import { BASS_LOW, type Bar, type Chord, type Degree, type Key } from '../theory';
 import { Line, type Note } from './line';
@@ -39,11 +39,11 @@ export class BassWriter {
   private readonly variety: number;
 
   constructor(
-    feels: readonly BassFeel[],
+    feels: Odds<BassFeel>,
     private readonly key: Key,
     private readonly rng: Rng,
   ) {
-    this.feel = rng.pick(feels);
+    this.feel = rng.weightedKey(feels);
     this.def = BASS_FEELS[this.feel];
     this.density = rng.range(this.def.density);
     this.sync = rng.range(this.def.sync);
@@ -139,7 +139,7 @@ export class BassWriter {
     if (root - target > 6) target += 12;
     const { rng } = this;
     const approach = rng.chance(BASS.chromatic) ? BASS.approachChromatic : BASS.approachDiatonic;
-    let pitch = target === root ? root + rng.pick(BASS.approachSame) : target + rng.pick(approach);
+    let pitch = target === root ? root + rng.pick(BASS.approachSame) : target + rng.weighted(approach);
     while (pitch < BASS_LOW) pitch += 12;
     return cur.chordScale.degree(pitch - root, this.key.usesFlats);
   }

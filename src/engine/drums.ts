@@ -69,7 +69,7 @@ export class DrumWriter {
     plan: DrumPlan,
     private readonly rng: Rng,
   ) {
-    this.feel = rng.pick(plan.feels);
+    this.feel = rng.weightedKey(plan.feels);
     this.crash = rng.chance(plan.crash);
     this.fill = rng.chance(plan.fill);
     this.recipe = DRUM_FEELS[this.feel];
@@ -107,7 +107,7 @@ export class DrumWriter {
 }
 
 // One bar of a drum part, as the recipe made it.
-interface Voice {
+interface VoiceBar {
   drum: Percussion;
   role: DrumRole;
   bar: StepGains;
@@ -115,7 +115,7 @@ interface Voice {
 
 /** One run of a recipe's steps, in order: the voices they add, and whether an open hat may close the phrase. */
 class RecipeRun {
-  private readonly voices: Voice[] = [];
+  private readonly voices: VoiceBar[] = [];
   private openOnFour: boolean;
   private timekeeper: Percussion = PERCUSSION.closedHat; // the hi-hat or ride
 
@@ -126,7 +126,7 @@ class RecipeRun {
     this.openOnFour = !!recipe.openOnFour;
   }
 
-  run(): { voices: readonly Voice[]; openOnFour: boolean } {
+  run(): { voices: readonly VoiceBar[]; openOnFour: boolean } {
     for (const step of this.recipe.steps) this.step(step);
     return { voices: this.voices, openOnFour: this.openOnFour };
   }
@@ -220,7 +220,7 @@ class RecipeRun {
 
   private voice({ chance, voices }: Op<'voice'>): void {
     if (chance !== undefined && !this.rng.chance(chance)) return;
-    const { drum, role, bars } = this.rng.pick(voices);
+    const { drum, role, bars } = this.rng.weighted(voices.map((v) => [v, v.weight ?? 1] as const));
     this.add(drum, role, this.rng.pick(bars));
   }
 }
@@ -235,9 +235,9 @@ class FillWriter {
     private readonly rng: Rng,
     quiet: boolean,
   ) {
-    const weight = <T>([v, loud, soft]: readonly [T, number, number]) => [v, quiet ? soft : loud] as const;
-    this.start = rng.weighted(FILLS.starts.map(weight));
-    this.kind = rng.weighted(FILLS.kinds.map(weight));
+    const loudness = quiet ? 'quiet' : 'loud';
+    this.start = rng.weighted(FILLS.starts[loudness]);
+    this.kind = rng.weightedKey(FILLS.kinds[loudness]);
     this.level = quiet ? FILLS.quietLevel : 1;
   }
 

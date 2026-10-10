@@ -5,12 +5,12 @@
 // played, as notes.
 
 import { SECTION_TYPES, type PlayedType, type SectionType } from '../../style';
+import type { ScoreBand } from '../band';
 import type { MaterialOf } from '../material';
 import type { SectionPlan } from '../plan';
 import type { Breakdown } from './breakdown';
 import type { Bridge } from './bridge';
 import type { Chorus } from './chorus';
-import type { Parts, ScoreContextOf } from './context';
 import type { DrumBreak } from './drum-break';
 import type { Finale } from './finale';
 import type { Intro } from './intro';
@@ -18,15 +18,16 @@ import type { Lift } from './lift';
 import type { Outro } from './outro';
 import type { PreChorus } from './pre';
 import type { Riff } from './riff';
+import { PlayedScoreContext, type Parts } from './score-context';
 import type { SoloSection } from './solo';
 import type { Vamp } from './vamp';
 import type { Verse } from './verse';
 
 /**
  * One section of a song's form (of a type, if given). Each type's class
- * extends it; its constructor takes its plan and the BuildContext it is
- * built in, copies its own fields from the plan, then writes its
- * material (ctx.material).
+ * extends it (or PlayedSection); its constructor takes its plan and the
+ * BuildContext it is built in, copies its own fields from the plan, then
+ * writes its material (ctx.material).
  */
 export abstract class Section<T extends SectionType = SectionType> {
   readonly type: T;
@@ -36,7 +37,7 @@ export abstract class Section<T extends SectionType = SectionType> {
    * same chords and hook); a section longer than its material loops it.
    */
   readonly part: string;
-  /** Semitones up, after a last-chorus key change. */
+  /** Semitones up, after a key change (a lift's: the key it lifts to). */
   readonly shift: number;
   /** Its part's material: every section of the part has the same. */
   abstract readonly material: MaterialOf<T>;
@@ -48,19 +49,34 @@ export abstract class Section<T extends SectionType = SectionType> {
     this.shift = shift;
   }
 
-  /** Which instruments play its material, and how, as notes. */
-  abstract play(ctx: ScoreContextOf<T>): Parts;
+  /** What the section plays, the `repeat`th time its part plays, as notes. */
+  abstract parts(band: ScoreBand, repeat: number): Parts;
 
-  /** The section in a line: "chorus (+2) 8", "lift (to +2, ii-V) 2". */
+  /** The section in a line: "chorus (+2) 8", "lift (+2, ii-V) 2". */
   describe(): string {
-    const shift = this.shift ? ` (+${this.shift})` : '';
-    return `${this.label}${shift} ${this.bars}`;
+    const details = [this.shift ? `+${this.shift}` : '', ...this.details].filter(Boolean);
+    return `${this.label}${details.length ? ` (${details.join(', ')})` : ''} ${this.bars}`;
   }
 
   // What describe() calls the section.
   protected get label(): string {
-    return this.type;
+    return SECTION_TYPES[this.type].label;
   }
+
+  // What describe() says of it besides its shift.
+  protected get details(): string[] {
+    return [];
+  }
+}
+
+/** A section the band plays through: its chords, drums and bass, and its type's recipe over them. */
+export abstract class PlayedSection<T extends PlayedType = PlayedType> extends Section<T> {
+  parts(band: ScoreBand, repeat: number): Parts {
+    return this.play(new PlayedScoreContext(this, band, repeat));
+  }
+
+  /** Which instruments play its material, and how. */
+  protected abstract play(ctx: PlayedScoreContext<T>): Parts;
 }
 
 interface SectionClasses {
@@ -83,6 +99,3 @@ interface SectionClasses {
 export type SectionOf<T extends SectionType> = SectionClasses[T];
 /** A section of any type, as its type's class (narrowed by its `type`). */
 export type AnySection = SectionOf<SectionType>;
-
-/** Whether the band plays through a section (it has chords, drums and bass). */
-export const isPlayed = (sec: Section): sec is SectionOf<PlayedType> => SECTION_TYPES[sec.type].played;

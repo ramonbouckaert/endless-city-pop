@@ -2,20 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { Song } from '../src/engine';
 import { TONALITIES } from '../src/style';
 import { CHORDS, MODES, type Mode } from '../src/theory';
-import { defined } from './helpers';
+import { defined, materials } from './helpers';
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => `seed${i}`);
 
 describe('Song', () => {
   it('is deterministic for a seed', () => {
     expect(Song.generate('abc')).toEqual(Song.generate('abc'));
-    expect(Song.generate('abc').materials).not.toEqual(Song.generate('abd').materials);
+    expect(materials(Song.generate('abc'))).not.toEqual(materials(Song.generate('abd')));
   });
 
   it('writes complete songs', () => {
     for (const seed of SEEDS) {
       const song = Song.generate(seed);
-      for (const mat of Object.values(song.materials)) {
+      for (const mat of Object.values(materials(song))) {
         for (const chord of ('bars' in mat ? mat.bars : []).flat()) {
           expect(CHORDS).toHaveProperty([chord.symbol]);
           expect(MODES).toHaveProperty([defined(chord.scale, 'a chord-scale')]);
@@ -23,7 +23,7 @@ describe('Song', () => {
         if ('drums' in mat) expect(mat.drums.fills.length > 0).toBe(mat.drums.fill);
         if ('bass' in mat) expect(mat.bass.bars).toHaveLength(mat.bars.length);
       }
-      for (const s of song.form) expect(song.materials).toHaveProperty([s.part]);
+      for (const s of song.form) expect(materials(song)).toHaveProperty([s.part]);
       const types = song.form.sections.map((s) => s.type);
       expect(types[0]).toBe('intro');
       expect(types.at(-1)).toBe('finale');
@@ -60,7 +60,7 @@ describe('Song', () => {
     for (const song of songs) {
       expect(song.key.mode).toBe(mode);
       expect(tonics).toContain(song.key.tonic);
-      for (const mat of Object.values(song.materials)) {
+      for (const mat of Object.values(materials(song))) {
         for (const chord of ('bars' in mat ? mat.bars : []).flat()) {
           expect(CHORDS).toHaveProperty([chord.symbol]);
           expect(MODES).toHaveProperty([defined(chord.scale, 'a chord-scale')]);

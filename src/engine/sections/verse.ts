@@ -3,10 +3,11 @@
 import { RHYTHM } from '../../style';
 import type { MaterialOf } from '../material';
 import type { SectionFields, SectionPlan } from '../plan';
-import type { Parts, PlayedScoreContext, BuildContext } from './context';
-import { Section } from './section';
+import type { BuildContext } from './build-context';
+import type { Parts, PlayedScoreContext } from './score-context';
+import { PlayedSection } from './section';
 
-export class Verse extends Section<'verse'> implements Readonly<SectionFields['verse']> {
+export class Verse extends PlayedSection<'verse'> implements Readonly<SectionFields['verse']> {
   readonly later: boolean;
   readonly material: MaterialOf<'verse'>;
 
@@ -22,7 +23,7 @@ export class Verse extends Section<'verse'> implements Readonly<SectionFields['v
     });
   }
 
-  play(ctx: PlayedScoreContext<'verse'>): Parts {
+  protected play(ctx: PlayedScoreContext<'verse'>): Parts {
     const { band, C, B } = ctx;
     const { later } = this;
     return {

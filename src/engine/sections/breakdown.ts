@@ -1,13 +1,14 @@
 // The hook over the chorus's first bars, on pads, keys coming in halfway.
 
-import { RHYTHM } from '../../style';
-import { COMP, spans } from '../figures';
+import { COMP, RHYTHM } from '../../style';
+import { spans } from '../figures';
 import type { MaterialOf } from '../material';
 import type { SectionPlan } from '../plan';
-import type { Parts, PlayedScoreContext, BuildContext } from './context';
-import { Section } from './section';
+import type { BuildContext } from './build-context';
+import type { Parts, PlayedScoreContext } from './score-context';
+import { PlayedSection } from './section';
 
-export class Breakdown extends Section<'breakdown'> {
+export class Breakdown extends PlayedSection<'breakdown'> {
   readonly material: MaterialOf<'breakdown'>;
 
   constructor(plan: SectionPlan<'breakdown'>, ctx: BuildContext) {
@@ -21,19 +22,15 @@ export class Breakdown extends Section<'breakdown'> {
     });
   }
 
-  play(ctx: PlayedScoreContext<'breakdown'>): Parts {
-    const { band, C, B, len } = ctx;
+  protected play(ctx: PlayedScoreContext<'breakdown'>): Parts {
+    const { band, C, underB, len } = ctx;
     return {
       drums: ctx.drums(),
       pitched: [
-        B.gain(0.6),
-        band.pad(C).gain(0.18),
+        underB,
+        band.pad(C),
         band.choir(C),
-        band
-          .keys(C, spans(COMP.chorus, len))
-          .clip(0.5)
-          .gain(0.24)
-          .mask(ctx.from(Math.floor(len / 2))),
+        band.comp(C, spans(COMP.chorus, len)).mask(ctx.from(Math.floor(len / 2))),
         band.lead(ctx.line(this.material.melody)),
       ],
     };

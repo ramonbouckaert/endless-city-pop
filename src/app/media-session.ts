@@ -3,10 +3,10 @@
 // the controls do.
 
 import type { Song } from '../engine';
-import { seconds } from './time';
+import { songLength } from './time';
 
 /** What the media controls do: the page's own actions. */
-export interface Controls {
+export interface MediaActions {
   play(): void;
   /** Stops where the song is, for play() to carry on from. */
   pause(): void;
@@ -36,7 +36,7 @@ export class MediaControls {
   private readonly session = navigator.mediaSession;
   private told: Told;
 
-  constructor(controls: Controls, song: Song) {
+  constructor(controls: MediaActions, song: Song) {
     this.handle('play', () => controls.play());
     this.handle('pause', () => controls.pause());
     this.handle('stop', () => controls.stop());
@@ -79,7 +79,7 @@ export class MediaControls {
       });
     }
     session.playbackState = playing ? 'playing' : 'paused';
-    const duration = seconds(song.bars, song.bpm);
+    const duration = songLength(song);
     try {
       // Held at the end through the silence after the final chord.
       session.setPositionState({ duration, position: Math.min(Math.max(time, 0), duration), playbackRate: 1 });

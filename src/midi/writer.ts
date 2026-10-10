@@ -14,11 +14,11 @@ export interface MidiNote {
   dur: number; // ticks
   pitch: number; // 0-127
   velocity: number; // 1-127
-  slide?: Slide;
+  slide?: MidiSlide;
 }
 
 /** A note that starts `semis` off its pitch (negative: below) and slides onto it over `ticks`. */
-export interface Slide {
+export interface MidiSlide {
   semis: number;
   ticks: number;
 }
@@ -122,7 +122,7 @@ const bendRange = (ch: number, semis: number) =>
 
 // A note's slide as pitch bends: off its pitch at the note-on, back to
 // centre in steps, never past the note's end.
-function slide(ch: number, n: MidiNote, { semis: from, ticks: over }: Slide, range: number): TrackEvent[] {
+function slide(ch: number, n: MidiNote, { semis: from, ticks: over }: MidiSlide, range: number): TrackEvent[] {
   const ticks = Math.min(over, n.dur);
   const steps = Math.max(1, Math.min(BEND_STEPS, Math.floor(ticks)));
   return Array.from({ length: steps + 1 }, (_, i) => {

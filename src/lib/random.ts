@@ -2,6 +2,8 @@
 
 /** Choices with weights: [item, weight] pairs. */
 export type Weighted<T> = readonly (readonly [T, number])[];
+/** Choices named by strings, with weights: { name: weight }. */
+export type Odds<K extends string> = Readonly<Partial<Record<K, number>>>;
 /** A [lo, hi) range to roll a number in. */
 export type Range = readonly [number, number];
 
@@ -73,11 +75,14 @@ export class Rng {
     return last[0];
   }
 
-  /** A key of a record, weighted by its entry's `weight`, other than `except`. */
-  weightedKey<K extends string>(entries: Readonly<Record<K, { weight: number }>>, except?: K): K {
+  /** A key of a record, weighted by its entry (Odds) or its entry's `weight`, other than `except`. */
+  weightedKey<K extends string>(
+    entries: Readonly<Partial<Record<K, number | { readonly weight: number }>>>,
+    except?: K,
+  ): K {
     return this.weighted(
-      Object.entries<{ weight: number }>(entries).flatMap(([k, v]) =>
-        k === except ? [] : [[k as K, v.weight] as const],
+      Object.entries<number | { readonly weight: number } | undefined>(entries).flatMap(([k, v]) =>
+        k === except || v === undefined ? [] : [[k as K, typeof v === 'number' ? v : v.weight] as const],
       ),
     );
   }

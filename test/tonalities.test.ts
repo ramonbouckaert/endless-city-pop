@@ -6,7 +6,7 @@ import { CHORDS, Key, MODES, parseChordSpec, Template, type Mode } from '../src/
 
 describe('tonalities', () => {
   const modes = Object.keys(TONALITIES) as Mode[];
-  const symbols = (palette: keyof typeof PALETTE) => PALETTE[palette].map(([s]) => s);
+  const symbols = (palette: keyof typeof PALETTE) => Object.keys(PALETTE[palette]);
 
   it('has templates and chords that parse', () => {
     for (const mode of modes) {

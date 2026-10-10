@@ -4,7 +4,6 @@
 
 import type { Program } from '../lib/general-midi';
 import type { PartPath } from './orchestration';
-import type { SectionType } from '../style';
 import type { Bar, Chord } from '../theory';
 
 /** Effects on a note, as MIDI carries them: pan, reverb (room) and the filter (lpf). */
@@ -47,7 +46,7 @@ export const scoreNote = (
 /** A value, or one that changes through a section: given a note's time in bars from the section's start. */
 type Ramp = number | ((time: number) => number);
 
-const at = (ramp: Ramp, time: number): number => (typeof ramp === 'number' ? ramp : ramp(time));
+const valueAt = (ramp: Ramp, time: number): number => (typeof ramp === 'number' ? ramp : ramp(time));
 
 /** A ramp from `from` to `to` over `bars` bars. */
 export const rise =
@@ -99,7 +98,7 @@ export class Part {
   }
 
   gain(ramp: Ramp): Part {
-    return this.map((n) => ({ ...n, gain: at(ramp, n.time) }));
+    return this.map((n) => ({ ...n, gain: valueAt(ramp, n.time) }));
   }
 
   postgain(value: number): Part {
@@ -107,7 +106,7 @@ export class Part {
   }
 
   velocity(ramp: Ramp): Part {
-    return this.map((n) => ({ ...n, velocity: at(ramp, n.time) }));
+    return this.map((n) => ({ ...n, velocity: valueAt(ramp, n.time) }));
   }
 
   clip(value: number): Part {
@@ -134,7 +133,7 @@ export class Part {
   }
 
   lpf(ramp: Ramp): Part {
-    return this.map((n) => ({ ...n, controls: { ...n.controls, lpf: at(ramp, n.time) } }));
+    return this.map((n) => ({ ...n, controls: { ...n.controls, lpf: valueAt(ramp, n.time) } }));
   }
 
   private control(controls: Controls): Part {
@@ -178,10 +177,9 @@ export class Changes {
   }
 }
 
-/** A song as timed notes, and the section types each part plays in. */
+/** A song as timed notes. */
 export interface Score {
   /** Every note, by time. */
   readonly notes: readonly ScoreNote[];
   readonly bars: number;
-  readonly uses: ReadonlyMap<PartPath, ReadonlySet<SectionType>>;
 }

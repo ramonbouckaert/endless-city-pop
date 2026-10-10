@@ -3,7 +3,7 @@
 // percussion keys (PERCUSSION).
 
 import { PERCUSSION, type Percussion } from '../lib/general-midi';
-import type { Range, Weighted } from '../lib/random';
+import type { Odds, Range, Weighted } from '../lib/random';
 import { at, empty, steps, type StepGains } from '../lib/steps';
 
 export type DrumFeel = 'funk' | 'disco' | 'halfTime' | 'bossa' | 'introRide' | 'claps' | 'build' | 'break';
@@ -13,6 +13,7 @@ export interface DrumVoice {
   drum: Percussion;
   role: DrumRole;
   bars: readonly StepGains[]; // choices; a recipe picks one
+  weight?: number; // how often a recipe picks it among others (default 1)
 }
 
 // One step of a drum feel's recipe, run in order.
@@ -47,14 +48,8 @@ const BEATS = [0, 4, 8, 12];
 export const EIGHTH_OFFS = [2, 6, 10, 14];
 
 // Extra percussion: shaker, tambourine or cowbell.
-const shaker: DrumVoice = {
-  drum: PERCUSSION.shaker,
-  role: 'perc',
-  bars: [empty().map((_, i) => (i % 2 ? 0.06 : 0.1))],
-};
 const EXTRAS: readonly DrumVoice[] = [
-  shaker,
-  shaker,
+  { drum: PERCUSSION.shaker, role: 'perc', bars: [empty().map((_, i) => (i % 2 ? 0.06 : 0.1))], weight: 2 },
   {
     drum: PERCUSSION.tambourine,
     role: 'perc',
@@ -269,21 +264,24 @@ export const DRUMS = {
   openHatGain: 0.13,
 };
 
-// Fills: [value, weight, weight in a quiet feel].
+// Fills: where they start and what they are, in a loud feel and a quiet one.
 export const FILLS = {
   count: 3,
-  starts: [
-    [12, 3, 3],
-    [8, 4, 4],
-    [0, 1, 0],
-  ] as readonly (readonly [number, number, number])[],
-  kinds: [
-    ['roll', 3, 3],
-    ['toms', 3, 1],
-    ['mixed', 2, 0.5],
-    ['unison', 1, 1],
-    ['stop', 1, 0.3],
-  ] as readonly (readonly [FillKind, number, number])[],
+  starts: {
+    loud: [
+      [12, 3],
+      [8, 4],
+      [0, 1],
+    ] as Weighted<number>,
+    quiet: [
+      [12, 3],
+      [8, 4],
+    ] as Weighted<number>,
+  },
+  kinds: {
+    loud: { roll: 3, toms: 3, mixed: 2, unison: 1, stop: 1 } as Odds<FillKind>,
+    quiet: { roll: 3, toms: 1, mixed: 0.5, unison: 1, stop: 0.3 } as Odds<FillKind>,
+  },
   mixed: [
     [PERCUSSION.snare, 3],
     [PERCUSSION.highTom, 1],

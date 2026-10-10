@@ -2,15 +2,16 @@
 // or perhaps a riff of its own; the teaser (if any) on bells over the top.
 
 import { PERCUSSION } from '../../lib/general-midi';
-import { INTRO, INTRO_TEXTURES } from '../../style';
-import type { Melody } from '../melody';
-import { Part } from '../score';
+import { INTRO, INTRO_TEXTURES, RHYTHM } from '../../style';
 import type { MaterialOf } from '../material';
+import type { Melody } from '../melody';
 import type { SectionPlan } from '../plan';
-import type { Parts, PlayedScoreContext, BuildContext } from './context';
-import { Section } from './section';
+import { Part } from '../score';
+import type { BuildContext } from './build-context';
+import type { Parts, PlayedScoreContext } from './score-context';
+import { PlayedSection } from './section';
 
-export class Intro extends Section<'intro'> {
+export class Intro extends PlayedSection<'intro'> {
   readonly material: MaterialOf<'intro'>;
 
   constructor(plan: SectionPlan<'intro'>, ctx: BuildContext) {
@@ -23,7 +24,7 @@ export class Intro extends Section<'intro'> {
       else if (harmony === 'template' && rng.chance(INTRO.melodyChance))
         melody = ctx.melody('riff', ctx.key, bars, rng.fork('melody'));
       return {
-        ...ctx.band('intro', ctx.key, bars, INTRO_TEXTURES[variant].groove, rng.fork('groove')),
+        ...ctx.band('intro', ctx.key, bars, RHYTHM.intro[variant], rng.fork('groove')),
         harmony,
         variant,
         ...(melody ? { melody } : {}),
@@ -31,8 +32,8 @@ export class Intro extends Section<'intro'> {
     });
   }
 
-  play(ctx: PlayedScoreContext<'intro'>): Parts {
-    const { band, C, B, len } = ctx;
+  protected play(ctx: PlayedScoreContext<'intro'>): Parts {
+    const { band, C, B, underB, len } = ctx;
     const mat = this.material;
     const drums = ctx.drums();
     const halfway = (p: Part) => p.mask(ctx.from(len / 2));
@@ -41,14 +42,14 @@ export class Intro extends Section<'intro'> {
         // A keyboard arpeggio over a pad; bass and drums join halfway.
         return {
           drums: [halfway(Part.stack(...drums))],
-          pitched: [band.arp(C), band.pad(C), halfway(B.gain(0.7)), ctx.teaser(mat.melody)],
+          pitched: [band.arp(C), band.pad(C), halfway(underB), ctx.teaser(mat.melody)],
         };
       case 'drumsFirst': {
         // The drums alone, then the band in halfway on a crash.
         const crash = band.kit(PERCUSSION.crash, [{ time: len / 2, dur: 1, gain: 0.2 }]);
         return {
           drums: [...drums, crash],
-          pitched: [halfway(B), halfway(band.keys(C).gain(0.26)), halfway(band.clav(C)), ctx.teaser(mat.melody)],
+          pitched: [halfway(B), halfway(band.keysUnder(C)), halfway(band.clav(C)), ctx.teaser(mat.melody)],
         };
       }
       case 'fanfare': {
@@ -60,14 +61,14 @@ export class Intro extends Section<'intro'> {
       case 'keys':
         return {
           drums: [halfway(Part.stack(...drums))],
-          pitched: [band.keys(C).room(0.35), halfway(B.gain(0.6)), ctx.teaser(mat.melody)],
+          pitched: [band.keys(C).room(0.35), halfway(underB), ctx.teaser(mat.melody)],
         };
       case 'groove':
-        return { drums, pitched: [B, band.keys(C).gain(0.26), band.clav(C), ctx.teaser(mat.melody)] };
+        return { drums, pitched: [B, band.keysUnder(C), band.clav(C), ctx.teaser(mat.melody)] };
       case 'bassFirst':
         return { drums, pitched: [B, halfway(band.softKeys(C)), halfway(band.pad(C)), ctx.teaser(mat.melody)] };
       case 'pads':
-        return { drums, pitched: [band.softKeys(C), band.strings(C), B.gain(0.6), ctx.teaser(mat.melody)] };
+        return { drums, pitched: [band.softKeys(C), band.strings(C), underB, ctx.teaser(mat.melody)] };
     }
   }
 }

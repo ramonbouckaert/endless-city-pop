@@ -1,7 +1,7 @@
 // Bass feels: how busy, syncopated, octave-popping and legato each is,
 // rolled within these ranges per section; and the notes a line is made of.
 
-import type { Range } from '../lib/random';
+import type { Range, Weighted } from '../lib/random';
 
 export type BassFeel = 'pedal' | 'funk' | 'drive' | 'disco' | 'halfTime' | 'bossa';
 // Chord tones by name (Root, Third, Fifth, Seventh, Octave) and the scale steps between.
@@ -21,8 +21,16 @@ export const BASS = {
   densityBoost: 1.3,
   fill: { density: 0.35, sync: 0.3 },
   approachSame: [7, 10, -2],
-  approachChromatic: [-1, 1, -1],
-  approachDiatonic: [-2, 2, 7, -5],
+  approachChromatic: [
+    [-1, 2],
+    [1, 1],
+  ] as Weighted<number>,
+  approachDiatonic: [
+    [-2, 1],
+    [2, 1],
+    [7, 1],
+    [-5, 1],
+  ] as Weighted<number>,
   // How often an approach note is chromatic rather than diatonic.
   chromatic: 0.75,
 };

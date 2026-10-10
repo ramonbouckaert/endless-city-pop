@@ -41,7 +41,14 @@ export type PlayedType = {
 }[SectionType];
 
 export const FORM = {
-  preBars: [0, 2, 4, 4, 6, 8], // 0: no pre-chorus
+  // 0: no pre-chorus
+  preBars: [
+    [0, 1],
+    [2, 1],
+    [4, 2],
+    [6, 1],
+    [8, 1],
+  ] as Weighted<number>,
   chorusTag: 0.45,
   rounds: [
     [1, 2],
@@ -49,13 +56,19 @@ export const FORM = {
     [3, 2],
   ] as Weighted<number>,
   riffChance: [0, 0.4, 0.7],
-  introBars: [4, 4, 8],
+  introBars: [
+    [4, 2],
+    [8, 1],
+  ] as Weighted<number>,
   vamp: {
     chance: 0.6,
     bars: [4, 8],
     returns: 0.45,
   },
-  verseBars: [8, 8, 16],
+  verseBars: [
+    [8, 2],
+    [16, 1],
+  ] as Weighted<number>,
   bridgeChance: 0.65,
   soloists: [0, 1, 2, 3],
   soloCount: [
@@ -63,7 +76,10 @@ export const FORM = {
     [1, 4],
     [2, 3],
   ] as Weighted<number>,
-  soloBars: [8, 8, 16],
+  soloBars: [
+    [8, 2],
+    [16, 1],
+  ] as Weighted<number>,
   breakdown: { chance: 0.45, bars: [4, 8] },
   drumBreakChance: 0.7,
   lift: {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { songToMidi } from '../src/midi/from-score';
 import { ScoreArranger, Song } from '../src/engine';
 import { PERCUSSION } from '../src/lib/general-midi';
-import { Chord, voice, voicingNote } from '../src/theory';
+import { BASS_LOW, Chord, voice, voicingNote } from '../src/theory';
 import { defined } from './helpers';
 
 const songs = Array.from({ length: 20 }, (_, i) => Song.generate(`score${i}`));
@@ -56,12 +56,12 @@ describe('score', () => {
     }
   });
 
-  it('notes the section types each part plays in', () => {
-    const song = songs[0];
-    const { uses } = scoreOf(song);
-    expect(uses.get('kit')).toContain('chorus');
-    expect(uses.get('lead')).toContain('chorus');
-    expect(uses.get('bass')).toContain('verse');
+  it('keeps the bass at or above its lowest note', () => {
+    for (const song of songs) {
+      const bass = scoreOf(song).notes.filter((n) => n.path === 'bass');
+      expect(bass.length).toBeGreaterThan(0);
+      for (const n of bass) expect(n.note).toBeGreaterThanOrEqual(BASS_LOW);
+    }
   });
 
   it('writes a MIDI file from the score', () => {
