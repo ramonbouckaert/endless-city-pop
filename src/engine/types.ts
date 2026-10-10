@@ -66,7 +66,9 @@ export type MelodyKind = 'verse' | 'pre' | 'chorus' | 'bridge' | 'riff';
 // How a pre-chorus melody unfolds: climbing a step each repeat, call and
 // response, or long held notes.
 export type PreMelody = 'climb' | 'question' | 'hold';
-export type MotifLetter = 'A' | 'B' | 'C' | 'D' | 'E';
+export type MotifLetter = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+// How a verse, chorus or bridge melody lays its motifs over eight bars.
+export type PhraseForm = 'period' | 'pairs' | 'sentence' | 'aaba' | 'callResponse';
 
 // ---- Drums and bass -------------------------------------------------
 

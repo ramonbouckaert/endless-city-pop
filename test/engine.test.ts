@@ -222,6 +222,20 @@ describe('Song', () => {
     expect(used).toEqual(new Set(Object.keys(TONALITIES[mode].turnarounds)));
   });
 
+  it('varies the phrase form of each melody', () => {
+    const songs = Array.from({ length: 100 }, (_, i) => Song.generate(`phrase${i}`));
+    const forms = (type: 'verse' | 'chorus' | 'bridge') =>
+      new Set(songs.flatMap((song) => song.materials[type]?.melody?.form ?? []));
+    const all = ['period', 'pairs', 'sentence', 'aaba', 'callResponse'];
+    expect(forms('chorus')).toEqual(new Set(all));
+    expect(forms('verse')).toEqual(new Set(all));
+    expect(forms('bridge')).toEqual(new Set(all.filter((f) => f !== 'callResponse')));
+    for (const song of songs) {
+      const chorus = song.materials.chorus!;
+      expect(chorus.melody!.bars).toHaveLength(chorus.bars!.length);
+    }
+  });
+
   it('fits a pre-chorus template to end on its cadence', () => {
     const t = new Template('ii7 iii7 IVmaj7 V7sus');
     const texts = (n: number) => t.fitEnding(n).map((bar) => bar.map((r) => r.text).join(' '));

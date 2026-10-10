@@ -118,6 +118,12 @@ export class Song {
       bars: this.bars,
       sections: this.form.map((s) => s.describe()),
       pre: this.materials.pre?.flavour,
+      phrases: Object.fromEntries(
+        (['verse', 'chorus', 'bridge'] as const).flatMap((t) => {
+          const form = this.materials[t]?.melody?.form;
+          return form ? [[t, form]] : [];
+        }),
+      ),
     };
   }
 }

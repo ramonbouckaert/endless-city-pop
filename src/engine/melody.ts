@@ -7,26 +7,54 @@
 import { Line } from './line';
 import type { Chord, Key } from './music';
 import type { Rng } from './random';
-import type { Bar, MelodyKind, MelodyNote, MotifLetter, Note, PreMelody, SoloNote, Weighted } from './types';
+import type {
+  Bar,
+  MelodyKind,
+  MelodyNote,
+  MotifLetter,
+  Note,
+  PhraseForm,
+  PreMelody,
+  SoloNote,
+  Weighted,
+} from './types';
 
 export { Line };
 
 export type ShapeName = 'rise' | 'fall' | 'arch' | 'valley' | 'neighbor' | 'leapFall' | 'zigzag';
 
-const CELLS: Readonly<Record<MelodyKind, Readonly<Record<MotifLetter, readonly string[]>>>> = {
+type Cells = Readonly<Partial<Record<MotifLetter, readonly string[]>>>;
+
+// F, the fragment, only appears in phrase forms (verse, chorus, bridge):
+// a short figure stated twice in the bar.
+const CELLS: Readonly<Record<MelodyKind, Cells>> = {
   chorus: {
-    A: ['.xxxx---', '.x.xx---', 'x-.xx---', '.xx-x---', '..xxx---', '.xxx.x--', 'x.xxx---', '.x.x.xx-', 'x--xxx--'],
-    B: ['x-.x.x--', 'x.xxx.x.', '.x.xx.x.', 'x-xx.x--', 'xx.x.x--', '.xx.xx--', 'x...xxx-'],
+    A: [
+      '.xxxx---', '.x.xx---', 'x-.xx---', '.xx-x---', '..xxx---', '.xxx.x--', 'x.xxx---', '.x.x.xx-', 'x--xxx--',
+      '.xx-----', 'x-----xx', '..xx----', 'x---x---',
+    ],
+    B: [
+      'x-.x.x--', 'x.xxx.x.', '.x.xx.x.', 'x-xx.x--', 'xx.x.x--', '.xx.xx--', 'x...xxx-',
+      'x-----x-', '.x.x----', 'x--x----',
+    ],
     C: ['x---x---', 'x-x-x---', '.x.x----', 'x--x----', '.x--x---', 'x----x--'],
     D: ['x-------', '.xx-x---', 'xx-x----', '.x------', 'x---x---', '..x.x---', 'x-x.x---'],
-    E: ['.xxxx---', '.x.xx---', 'x.x.xx--'],
+    E: ['.xxxx---', '.x.xx---', 'x.x.xx--', '.xx-----', 'x---x---'],
+    F: ['.xx..xx.', 'x.x-x.x-', 'xx-.xx-.', '.x.x.x.x', 'x--x--x-'],
   },
   verse: {
-    A: ['.xx.x.x.', '..xx.xx-', '.x.xxx--', 'x.x.xx--', '.xxxx-..', 'x..xx.x.', '.x.x.xx-', 'x.xxx...'],
-    B: ['.x.x.x--', 'x-.xx.x-', '..x.xxx-', '.xx.x---', 'x--.x.x-', 'x...xx.x'],
+    A: [
+      '.xx.x.x.', '..xx.xx-', '.x.xxx--', 'x.x.xx--', '.xxxx-..', 'x..xx.x.', '.x.x.xx-', 'x.xxx...',
+      '.x.x----', 'xx------', '..xx----',
+    ],
+    B: [
+      '.x.x.x--', 'x-.xx.x-', '..x.xxx-', '.xx.x---', 'x--.x.x-', 'x...xx.x',
+      'x-----x-', 'x--x----', '.xx-----',
+    ],
     C: ['x--.xx--', 'x-x-x---', '.x.x----', '.x--x---', 'x----x--'],
     D: ['x--x----', 'x-------', '.xx-x---', '.x------', 'x.x-----', '..x.x---', 'x---.x--'],
-    E: ['.xx.x---', 'x-.x----', '.x.x----'],
+    E: ['.xx.x---', 'x-.x----', '.x.x----', 'x---x---'],
+    F: ['.xx..xx.', 'x.x.x.x.', '.x.x.x.x', 'x--x--x-', 'xx..xx..'],
   },
   pre: {
     A: ['.x.xxx--', '.x.xx-x-', 'x.x.xx--', 'x.x.x.x-', '.xx.x.x-'],
@@ -41,6 +69,7 @@ const CELLS: Readonly<Record<MelodyKind, Readonly<Record<MotifLetter, readonly s
     C: ['x-------', 'x---x---', '.x------', '.x--x---'],
     D: ['x-------', 'x-----x-', '.x------', 'x---x---', 'x..x----', '..x-----'],
     E: ['x---x---', 'x-------'],
+    F: ['x--x--x-', 'x-x-x-x-', 'x---x-x-', '.x-.x-x-'],
   },
   riff: {
     A: ['x.xx.x.x', 'x..x.xx.', '.xx.xx.x', 'x.x..xx.', '.x.xx.xx', 'xx..x.xx'],
@@ -51,8 +80,42 @@ const CELLS: Readonly<Record<MelodyKind, Readonly<Record<MotifLetter, readonly s
   },
 };
 
-const PHRASE: readonly MotifLetter[] = ['A', 'B', 'A', 'C', 'A', 'B', 'A', 'D'];
-const PHRASE_ALT: readonly MotifLetter[] = ['A', 'B', 'A', 'B', 'A', 'C', 'A', 'D'];
+interface PhraseFormDef {
+  plan: readonly MotifLetter[];
+  /** Rhythm cells used in place of the kind's own. */
+  cells?: Cells;
+  /** Degrees a motif sits above where it would otherwise start. */
+  lift?: Partial<Record<MotifLetter, number>>;
+  /** Degrees a motif moves on each repeat, in sequence. */
+  step?: Partial<Record<MotifLetter, number>>;
+}
+
+// Eight-bar phrase forms. A is the idea; C a half cadence, D the full one.
+const PHRASE_FORMS: Readonly<Record<PhraseForm, PhraseFormDef>> = {
+  // Antecedent and consequent: the same opening, ending open then closed.
+  period: { plan: ['A', 'B', 'A', 'C', 'A', 'B', 'A', 'D'] },
+  // The opening pair twice, then a late half cadence holds off the close.
+  pairs: { plan: ['A', 'B', 'A', 'B', 'A', 'C', 'A', 'D'] },
+  // An idea and its repeat, then fragments climbing in sequence, then a
+  // broadening into the cadence.
+  sentence: { plan: ['A', 'B', 'A', 'B', 'F', 'F', 'C', 'D'], step: { F: 1 } },
+  // Two A pairs, a contrasting pair set higher, and the A back home.
+  aaba: { plan: ['A', 'B', 'A', 'B', 'E', 'C', 'A', 'D'], lift: { E: 2 } },
+  // Short calls that leave room, answered by busier lines.
+  callResponse: {
+    plan: ['A', 'B', 'A', 'B', 'A', 'B', 'A', 'D'],
+    cells: {
+      A: ['.xxx-...', 'x.xx-...', '.x.xx-..', 'xx.x-...', '..xxx-..'],
+      B: ['x.x.xx--', '.xx.xxx-', 'x.xxx.x-', '.x.x.xx-', 'xx.xx---'],
+    },
+  },
+};
+
+const FORM_CHOICES: Readonly<Partial<Record<MelodyKind, Weighted<PhraseForm>>>> = {
+  chorus: [['period', 4], ['pairs', 2], ['sentence', 2], ['aaba', 2], ['callResponse', 2]],
+  verse: [['period', 3], ['pairs', 2], ['sentence', 2], ['aaba', 1], ['callResponse', 3]],
+  bridge: [['period', 2], ['pairs', 1], ['sentence', 3], ['aaba', 2]],
+};
 
 const MELODY_RANGES: Readonly<Record<MelodyKind, { center: number; lo: number; hi: number }>> = {
   chorus: { center: 4, lo: -1, hi: 9 },
@@ -62,7 +125,7 @@ const MELODY_RANGES: Readonly<Record<MelodyKind, { center: number; lo: number; h
   riff: { center: 6, lo: 2, hi: 10 },
 };
 
-const HOLD_CELLS: Readonly<Record<MotifLetter, readonly string[]>> = {
+const HOLD_CELLS: Cells = {
   A: ['x-------', 'x-----x-', 'x---x---', '.x------'],
   B: ['x---x---', 'x-----.x'],
   C: ['x-------'],
@@ -70,7 +133,7 @@ const HOLD_CELLS: Readonly<Record<MotifLetter, readonly string[]>> = {
   E: ['x-------'],
 };
 
-const PRE_MELODIES: Readonly<Record<PreMelody, { sequence: number; cells: Readonly<Record<MotifLetter, readonly string[]>> }>> = {
+const PRE_MELODIES: Readonly<Record<PreMelody, { sequence: number; cells: Cells }>> = {
   climb: { sequence: 1, cells: CELLS.pre },
   question: { sequence: 0, cells: CELLS.pre },
   hold: { sequence: 1, cells: HOLD_CELLS },
@@ -82,6 +145,7 @@ const SHAPE_CHOICES: Readonly<Record<MotifLetter, Weighted<ShapeName>>> = {
   C: [['fall', 2], ['neighbor', 2], ['valley', 2], ['arch', 1]],
   D: [['fall', 2], ['valley', 2], ['neighbor', 2], ['arch', 1], ['leapFall', 1]],
   E: [['rise', 2], ['arch', 2], ['leapFall', 1]],
+  F: [['zigzag', 2], ['neighbor', 2], ['fall', 2], ['rise', 1]],
 };
 
 const ANSWER = {
@@ -117,7 +181,7 @@ const CADENCE_WEIGHTS: Weighted<number> = [[0, 11], [7, 5], [-1, 4]];
 
 /** A line in semitones above a key's tonic, on an eighth-note grid. */
 export class Melody extends Line<MelodyNote> {
-  constructor(bars: MelodyNote[][]) {
+  constructor(bars: MelodyNote[][], readonly form?: PhraseForm) {
     super(bars, 8);
   }
 
@@ -127,7 +191,7 @@ export class Melody extends Line<MelodyNote> {
 
   /** The first `n` bars. */
   take(n: number): Melody {
-    return new Melody(this.bars.slice(0, n));
+    return new Melody(this.bars.slice(0, n), this.form);
   }
 
   /** One item per bar, in degrees of `key`. */
@@ -251,12 +315,14 @@ interface Motif {
 
 /**
  * Writes one melody of a kind in a key, remembering its motifs as it
- * goes. A pre-chorus melody also takes a style.
+ * goes. A pre-chorus melody also takes a style; verses, choruses and
+ * bridges pick a phrase form.
  */
 export class MelodyWriter {
   private readonly range;
-  private readonly cells: Readonly<Record<MotifLetter, readonly string[]>>;
+  private readonly cells: Cells;
   private readonly sequence: number;
+  private readonly form?: PhraseForm;
   private readonly motifs: Partial<Record<MotifLetter, Motif>> = {};
   private readonly seen: Partial<Record<MotifLetter, number>> = {};
   private readonly drifts: Partial<Record<MotifLetter, number>> = {};
@@ -274,10 +340,17 @@ export class MelodyWriter {
     const pre = kind === 'pre' ? PRE_MELODIES[style] : undefined;
     this.cells = pre?.cells ?? CELLS[kind];
     this.sequence = pre?.sequence ?? 0;
+    const forms = FORM_CHOICES[kind];
+    if (forms) this.form = rng.weighted(forms);
   }
 
-  /** Which motif plays in each of `n` bars. C: half cadence, D: full cadence, E: tag. */
-  static plan(n: number, kind: MelodyKind, style: PreMelody = 'climb', rng?: Rng): MotifLetter[] {
+  private get phrase(): PhraseFormDef | undefined {
+    return this.form && PHRASE_FORMS[this.form];
+  }
+
+  /** Which motif plays in each of `n` bars. C: half cadence, D: full cadence, E: tag, F: fragment. */
+  private plan(n: number): MotifLetter[] {
+    const { kind, style } = this;
     const each = (f: (i: number) => MotifLetter) => Array.from({ length: n }, (_, i) => f(i));
     if (kind === 'pre') {
       // All end on a half cadence into the chorus.
@@ -298,7 +371,7 @@ export class MelodyWriter {
         if (i % 2 === 0) return 'A';
         return i === n - 1 ? 'D' : 'B';
       });
-    const phrase = rng?.chance(0.35) ? PHRASE_ALT : PHRASE;
+    const phrase = this.phrase!.plan;
     if (n <= 8) return phrase.slice(8 - n);
     return each((i) => {
       if (i < 8) return phrase[i];
@@ -307,8 +380,8 @@ export class MelodyWriter {
   }
 
   write(bars: Bar[]): Melody {
-    const plan = MelodyWriter.plan(bars.length, this.kind, this.style, this.rng);
-    return new Melody(bars.map((bar, b) => this.bar(bar, plan[b])));
+    const plan = this.plan(bars.length);
+    return new Melody(bars.map((bar, b) => this.bar(bar, plan[b])), this.form);
   }
 
   private bar(bar: Bar, letter: MotifLetter): MelodyNote[] {
@@ -316,10 +389,13 @@ export class MelodyWriter {
     const scale = key.scale;
     const occurrence = (this.seen[letter] = (this.seen[letter] ?? -1) + 1);
     const motif = (this.motifs[letter] ??= this.motif(letter));
-    // Some pre-choruses climb with every repeat of the motif.
-    const climb = this.sequence * occurrence;
-    // Non-A motifs drift ±1 degree on each repeat so the line develops.
-    if (letter !== 'A' && occurrence > 0 && this.sequence === 0) {
+    // Some pre-choruses, and a sentence's fragments, climb with every
+    // repeat of the motif.
+    const step = this.phrase?.step?.[letter] ?? this.sequence;
+    const climb = step * occurrence;
+    const lift = this.phrase?.lift?.[letter] ?? 0;
+    // Other non-A motifs drift ±1 degree on each repeat so the line develops.
+    if (letter !== 'A' && occurrence > 0 && step === 0) {
       const raw = (this.drifts[letter] ?? 0) + this.rng.pick([-1, 0, 0, 1]);
       this.drifts[letter] = Math.max(-2, Math.min(2, raw));
     }
@@ -327,7 +403,8 @@ export class MelodyWriter {
     const notes = motif.notes.map((n, i): MelodyNote => {
       const chord = chordAt(bar, n.start, 8);
       const last = i === motif.notes.length - 1;
-      let semis = scale.semis(clamp(motif.startDeg + climb + drift + n.offset, range.lo, range.hi + climb));
+      const deg = motif.startDeg + climb + lift + drift + n.offset;
+      let semis = scale.semis(clamp(deg, range.lo, range.hi + climb));
       if (n.start % 4 === 0 || n.len >= 3 || i === 0 || (last && (letter === 'C' || letter === 'D'))) {
         const dir = i === 0 ? 0 : Math.sign(n.offset - motif.notes[i - 1].offset);
         // Riffs stay diatonic: they are harmonised by scale steps.
@@ -350,7 +427,9 @@ export class MelodyWriter {
   // answers carry on from wherever the line has got to.
   private motif(letter: MotifLetter): Motif {
     const { rng, range } = this;
-    const rhythm = parseRhythm(rng.pick(this.cells[letter]));
+    const cells = this.phrase?.cells?.[letter] ?? this.cells[letter];
+    if (!cells) throw new Error(`No ${letter} cells for a ${this.kind} melody`);
+    const rhythm = parseRhythm(rng.pick(cells));
     const offsets = shapeOffsets(rng.weighted(SHAPE_CHOICES[letter]), rhythm.length, rng);
     const top = Math.max(...offsets);
     const startDeg =
