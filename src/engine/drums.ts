@@ -6,14 +6,22 @@
 // for its repeats to pick from. A bar is 16 steps of gains (0 = silent).
 
 import type { Rng } from './random';
-import type { DrumFeel, DrumFill, DrumHit, DrumPart, DrumRecipe, DrumRole, DrumStep, DrumVoice, Range, StepGains, Weighted } from './types';
+import type {
+  DrumFeel,
+  DrumFill,
+  DrumHit,
+  DrumPart,
+  DrumRecipe,
+  DrumRole,
+  DrumStep,
+  DrumVoice,
+  Range,
+  StepGains,
+  Weighted,
+} from './types';
 
-export const empty = (): StepGains => new Array(16).fill(0);
-export const at = (hits: Record<number, number>): StepGains => {
-  const bar = empty();
-  for (const [i, v] of Object.entries(hits)) bar[Number(i)] = v;
-  return bar;
-};
+export const empty = (): StepGains => Array.from({ length: 16 }, () => 0);
+export const at = (hits: Readonly<Record<number, number>>): StepGains => empty().map((_, i) => hits[i] ?? 0);
 const steps = (list: readonly number[], gain: number | ((i: number) => number)) =>
   at(Object.fromEntries(list.map((i) => [i, typeof gain === 'number' ? gain : gain(i)])));
 
@@ -142,7 +150,20 @@ export const DRUM_FEELS: Readonly<Record<DrumFeel, DrumRecipe>> = {
       {
         op: 'voice',
         chance: 0.5,
-        voices: [{ sound: 'sh', role: 'perc', bars: [empty().map((_, i) => { if (i % 2) { return 0; } return i % 4 ? 0.06 : 0.1; })] }],
+        voices: [
+          {
+            sound: 'sh',
+            role: 'perc',
+            bars: [
+              empty().map((_, i) => {
+                if (i % 2) {
+                  return 0;
+                }
+                return i % 4 ? 0.06 : 0.1;
+              }),
+            ],
+          },
+        ],
       },
     ],
   },
@@ -232,7 +253,7 @@ export const FILLS = {
     ['mixed', 2, 0.5],
     ['unison', 1, 1],
     ['stop', 1, 0.3],
-  ] as readonly (readonly [string, number, number])[],
+  ] as readonly (readonly [FillKind, number, number])[],
   mixed: [
     ['sd', 3],
     ['ht', 1],
@@ -245,6 +266,10 @@ export const FILLS = {
 };
 
 type Op<K extends DrumStep['op']> = Extract<DrumStep, { op: K }>;
+
+// A snare roll, a run round the toms, the two mixed, kick and snare in
+// unison, or everything stopping for a snare pickup.
+type FillKind = 'roll' | 'toms' | 'mixed' | 'unison' | 'stop';
 
 export class DrumWriter {
   private readonly recipe: DrumRecipe;
@@ -299,23 +324,23 @@ export class DrumWriter {
   }
 
   private kicks({ required, optional, gain }: Op<'kicks'>): void {
-    const bar = empty();
-    for (const i of required) bar[i] = gain;
     const density = optional.length ? this.rng.range(DRUMS.kickDensity) : 0;
-    for (const [i, p] of optional) if (this.rng.chance(p * density)) bar[i] = gain * this.rng.range(DRUMS.kickSoft);
-    this.add('bd', 'kick', bar);
+    const soft = optional.flatMap(([i, p]) =>
+      this.rng.chance(p * density) ? [[i, gain * this.rng.range(DRUMS.kickSoft)]] : [],
+    );
+    this.add('bd', 'kick', at({ ...Object.fromEntries(required.map((i) => [i, gain])), ...Object.fromEntries(soft) }));
   }
 
   // Snare, clap or both; a rim click plays softer.
-  private backbeat({ steps, gain, orElse }: Op<'backbeat'>): void {
-    const hits = orElse && !this.rng.chance(orElse.keep) ? orElse.steps : steps;
+  private backbeat({ steps: beats, gain, orElse }: Op<'backbeat'>): void {
+    const hits = orElse && !this.rng.chance(orElse.keep) ? orElse.steps : beats;
     const sounds = this.rng.weighted(BACKBEATS);
     for (const sound of sounds) {
       let level: number;
       if (sound === 'rim') level = gain * 0.4;
       else if (sound === 'cp' && sounds.length > 1) level = gain * 0.8;
       else level = gain;
-      this.add(sound, 'snare', at(Object.fromEntries(hits.map((i) => [i, level]))));
+      this.add(sound, 'snare', steps(hits, level));
     }
   }
 
@@ -347,12 +372,16 @@ export class DrumWriter {
       if (i % 4 === 2) return off;
       return weak;
     };
-    this.add(sound, 'hat', empty().map((_, i) => cymbalGain(i)));
+    this.add(
+      sound,
+      'hat',
+      empty().map((_, i) => cymbalGain(i)),
+    );
   }
 
   private openHats({ chance }: Op<'openHats'>): void {
     if (this.cymbalSound === 'hh' && this.rng.chance(chance)) {
-      this.add('oh', 'hat', at(Object.fromEntries(EIGHTH_OFFS.map((i) => [i, DRUMS.openHatGain]))));
+      this.add('oh', 'hat', steps(EIGHTH_OFFS, DRUMS.openHatGain));
     } else this.openOnFour = true;
   }
 
@@ -365,11 +394,9 @@ export class DrumWriter {
   // Bar four of a phrase: a kick dropped (perhaps) and one added.
   private varyKick(bar: StepGains): StepGains {
     const v = DRUMS.vary;
-    const out = [...bar];
-    const hits = out.flatMap((g, i) => (g && i ? [i] : []));
-    if (hits.length && this.rng.chance(v.drop)) out[this.rng.pick(hits)] = 0;
-    out[this.rng.pick(v.steps)] = this.rng.pick(v.gains);
-    return out;
+    const hits = bar.flatMap((g, i) => (g && i ? [i] : []));
+    const dropped = hits.length && this.rng.chance(v.drop) ? bar.with(this.rng.pick(hits), 0) : bar;
+    return dropped.with(this.rng.pick(v.steps), this.rng.pick(v.gains));
   }
 }
 
@@ -377,7 +404,7 @@ export class DrumWriter {
 class FillWriter {
   private readonly hits: DrumHit[] = [];
   private readonly start: number;
-  private readonly kind: string;
+  private readonly kind: FillKind;
   private readonly level: number;
 
   constructor(
@@ -416,7 +443,7 @@ class FillWriter {
           this.hit(i, 'bd', 0.6 * level);
         }
         break;
-      default:
+      case 'stop':
         // Everything stops, then a snare pickup.
         this.hit(rng.pick([14, 15]), 'sd', 0.35 * level);
     }

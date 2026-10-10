@@ -20,8 +20,6 @@ import type {
   Weighted,
 } from './types';
 
-export { Line };
-
 export type ShapeName = 'rise' | 'fall' | 'arch' | 'valley' | 'neighbor' | 'leapFall' | 'zigzag';
 
 type Cells = Readonly<Partial<Record<MotifLetter, readonly string[]>>>;
@@ -233,12 +231,14 @@ export class Melody extends Line<MelodyNote> {
         // Figures cut at the barline, keeping those with two notes left.
         const fitting = ANSWER.figures.map((f) => f.filter(([o, l]) => at + o + l <= 8)).filter((f) => f.length > 1);
         if (!fitting.length) return [];
-        let semis = key.scale.semis(rng.pick(ANSWER.startDegrees));
-        return rng.pick(fitting).map(([o, len], i) => {
-          const target = semis + (i ? rng.pick(ANSWER.steps) : 0);
-          semis = chordAt(bars[b], at + o, 8).snap(target, key, { prev: semis, dir: 1 });
-          return { start: at + o, len, semis };
-        });
+        const first = key.scale.semis(rng.pick(ANSWER.startDegrees));
+        // Each note steps from the one before, snapped to the chord.
+        return rng.pick(fitting).reduce<MelodyNote[]>((notes, [o, len], i) => {
+          const prev = notes.at(-1)?.semis ?? first;
+          const target = prev + (i ? rng.pick(ANSWER.steps) : 0);
+          const semis = chordAt(bars[b], at + o, 8).snap(target, key, { prev, dir: 1 });
+          return [...notes, { start: at + o, len, semis }];
+        }, []);
       }),
     );
   }
@@ -272,27 +272,27 @@ export class Solo extends Line<SoloNote> {
   /** An improvised solo. Chord tones are the even degrees, and beats land on them. */
   static improvise(bars: Bar[], rng: Rng): Solo {
     const { lo } = SOLO;
-    let deg = rng.int(lo + 2, lo + 6);
-    let dir = 1;
-    return new Solo(
-      bars.map((bar, b) => {
-        let rhythm = rng.pick(SOLO.rhythms);
+    // Each bar carries on from where the last left the line: its degree and direction.
+    const { lines } = bars.reduce<{ deg: number; dir: number; lines: SoloNote[][] }>(
+      ({ deg, dir, lines }, bar, b) => {
         // Breathe at the end of every other bar.
-        if (b % 2) rhythm = rhythm.slice(0, 12) + '....';
-        const notes: SoloNote[] = [];
-        for (let s = 0; s < 16; s++) {
-          if (rhythm[s] !== 'x') continue;
-          const r = Solo.advance(rhythm, s, deg, dir, rng);
-          if ((s % 4 === 0 || rhythm[s - 1] !== 'x') && rng.chance(SOLO.grace.chance)) {
-            r.note.grace = Solo.grace(chordAt(bar, s, 16), r.deg, deg, rng);
-          }
-          deg = r.deg;
-          dir = r.dir;
-          notes.push(r.note);
-        }
-        return notes;
-      }),
+        const picked = rng.pick(SOLO.rhythms);
+        const rhythm = b % 2 ? picked.slice(0, 12) + '....' : picked;
+        const line = [...rhythm].reduce(
+          (at, ch, s) => {
+            if (ch !== 'x') return at;
+            const r = Solo.advance(rhythm, s, at.deg, at.dir, rng);
+            const graced = (s % 4 === 0 || rhythm[s - 1] !== 'x') && rng.chance(SOLO.grace.chance);
+            const note = graced ? { ...r.note, grace: Solo.grace(chordAt(bar, s, 16), r.deg, at.deg, rng) } : r.note;
+            return { deg: r.deg, dir: r.dir, notes: [...at.notes, note] };
+          },
+          { deg, dir, notes: [] as SoloNote[] },
+        );
+        return { deg: line.deg, dir: line.dir, lines: [...lines, line.notes] };
+      },
+      { deg: rng.int(lo + 2, lo + 6), dir: 1, lines: [] },
     );
+    return new Solo(lines);
   }
 
   // A grace note into `target`, never from `prev`, the note just played.

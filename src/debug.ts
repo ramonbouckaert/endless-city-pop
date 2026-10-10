@@ -53,10 +53,16 @@ type Choices = Record<string, string>; // path (or KIT) -> sound (or bank, or 'd
 
 const get = (sounds: Sounds, path: string): string => path.split('.').reduce<any>((x, k) => x[k], sounds) as string;
 
-function set(sounds: Sounds, path: string, value: unknown): void {
-  const keys = path.split('.');
-  const last = keys.pop()!;
-  keys.reduce<any>((x, k) => x[k], sounds)[last] = value;
+// A copy of `x` with the value at a path (keys or array indexes) replaced.
+function withPath<T>(x: T, [key, ...rest]: string[], value: unknown): T {
+  const next = rest.length ? withPath((x as any)[key], rest, value) : value;
+  return Array.isArray(x) ? (x.with(Number(key), next) as T) : { ...x, [key]: next };
+}
+
+// Choices with one changed (empty: back to the song's pick).
+function withChoice(choices: Choices, path: string, value: string): Choices {
+  const { [path]: _, ...rest } = choices;
+  return value ? { ...rest, [path]: value } : rest;
 }
 
 // Choices remembered from before, for rows that still exist.
@@ -99,12 +105,10 @@ export interface DebugPanel {
 
 /** Fills `root` with the panel. `onChange` runs whenever a choice changes. */
 export function createDebugPanel(root: HTMLElement, sounds: Promise<SoundInfo[]>, onChange: () => void): DebugPanel {
-  const choices = load();
+  let choices = load();
   let song: Song | undefined;
   let groups: [string, string[]][] = [];
   let banks: string[] = [];
-  const selects = new Map<string, HTMLSelectElement>();
-  const plays = new Map<string, HTMLElement>();
   const changes = el('pre', { className: 'debug-changes' });
   const note = el('p', { className: 'debug-note', textContent: "Loading Strudel's sounds…" });
 
@@ -117,8 +121,7 @@ export function createDebugPanel(root: HTMLElement, sounds: Promise<SoundInfo[]>
 
   // A row's menu: the song's own pick, then each sound type in a group
   // (the choice kept even if it isn't in them).
-  function fill(path: string) {
-    const select = selects.get(path)!;
+  function fill(path: string, select: HTMLSelectElement) {
     const value = choices[path] ?? '';
     select.replaceChildren(new Option(`Song's pick (${songsPick(path)})`, ''));
     const options = path === KIT ? ([['Drum machines', banks]] as [string, string[]][]) : groups;
@@ -132,8 +135,7 @@ export function createDebugPanel(root: HTMLElement, sounds: Promise<SoundInfo[]>
   }
 
   function choose(path: string, value: string) {
-    if (value) choices[path] = value;
-    else delete choices[path];
+    choices = withChoice(choices, path, value);
     save(choices);
     refresh();
     onChange();
@@ -143,17 +145,24 @@ export function createDebugPanel(root: HTMLElement, sounds: Promise<SoundInfo[]>
     const select = el('select', { title: label });
     select.addEventListener('change', () => choose(path, select.value));
     const where = el('span', { className: 'debug-plays', textContent: playsText });
-    selects.set(path, select);
-    plays.set(path, where);
-    fill(path);
-    return el(
+    fill(path, select);
+    const node = el(
       'div',
       { className: 'debug-row' },
       el('span', { className: 'debug-label', textContent: label }),
       where,
       select,
     );
+    return { path, select, where, node };
   }
+
+  const rows = [
+    ...ROLES.map((r) => row(r.path, r.label, r.from ? `${r.plays} (random each song)` : r.plays)),
+    row(KIT, 'Drum kit', 'Every drum part'),
+  ];
+  const selects = new Map(rows.map((r) => [r.path, r.select]));
+  const plays = new Map(rows.map((r) => [r.path, r.where]));
+  const fillAll = () => selects.forEach((select, path) => fill(path, select));
 
   // Marks the chosen rows and lists the choices, each with what it
   // replaces: a BAND default, or a random pick.
@@ -181,21 +190,16 @@ export function createDebugPanel(root: HTMLElement, sounds: Promise<SoundInfo[]>
   });
   const reset = el('button', { type: 'button', textContent: 'Reset all' });
   reset.addEventListener('click', () => {
-    for (const path of Object.keys(choices)) delete choices[path];
+    choices = {};
     save(choices);
-    for (const path of selects.keys()) fill(path);
+    fillAll();
     refresh();
     onChange();
   });
 
   root.replaceChildren(
     el('div', { className: 'debug-head' }, el('h2', { textContent: 'Instruments' }), note),
-    el(
-      'div',
-      { className: 'debug-rows' },
-      ...ROLES.map((r) => row(r.path, r.label, r.from ? `${r.plays} (random each song)` : r.plays)),
-      row(KIT, 'Drum kit', 'Every drum part'),
-    ),
+    el('div', { className: 'debug-rows' }, ...rows.map((r) => r.node)),
     el(
       'div',
       { className: 'debug-head' },
@@ -222,31 +226,28 @@ export function createDebugPanel(root: HTMLElement, sounds: Promise<SoundInfo[]>
     banks = [...new Set(names('sample', (n) => n.endsWith('_bd')).map((n) => n.replace(/_bd$/, '')))].filter((b) =>
       list.some((s) => s.name === `${b}_sd`),
     );
-    for (const path of selects.keys()) fill(path);
+    fillAll();
     note.textContent = `${list.length} sounds. Changes play at once and carry over to new songs.`;
   });
 
   return {
     instruments(of) {
-      const sounds = structuredClone(of.sounds);
-      for (const [path, value] of Object.entries(choices)) {
-        if (path === KIT) continue;
-        // A melody voice takes its part's gain at the new sound's level.
+      // A melody voice takes its part's gain at the new sound's level.
+      const sounds = Object.entries(choices).reduce((acc, [path, value]) => {
+        if (path === KIT) return acc;
         const voice = ROLES.find((r) => r.path === path)?.voice;
-        if (voice) set(sounds, path.replace(/\.0$/, ''), Song.voice(value, voice));
-        else set(sounds, path, value);
-      }
+        if (voice) return withPath(acc, path.replace(/\.0$/, '').split('.'), Song.voice(value, voice));
+        return withPath(acc, path.split('.'), value);
+      }, of.sounds);
       const kit = choices[KIT];
       if (kit === undefined) return { sounds };
       return { sounds, kit: kit === 'default' ? null : kit };
     },
     showSong(next) {
       song = next;
-      for (const path of selects.keys()) fill(path);
+      fillAll();
       // Which soloists this song has.
-      const soloists = new Set(
-        song.form.flatMap((s) => (s.opts.soloist === undefined ? [] : [s.opts.soloist % VOICES.soloists])),
-      );
+      const soloists = new Set(song.soloists);
       for (let i = 0; i < VOICES.soloists; i++) {
         plays.get(`soloists.${i}.0`)!.textContent =
           `Solos (${soloists.has(i) ? 'in this song' : 'not this song'}), and a note of the final chord (random each song)`;

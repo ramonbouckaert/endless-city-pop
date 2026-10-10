@@ -14,9 +14,8 @@ import {
 const DOUGH = 'https://raw.githubusercontent.com/felixroos/dough-samples/main';
 const UZU = 'https://raw.githubusercontent.com/tidalcycles/uzu-drumkit/main';
 
-let sounds: Promise<unknown> | undefined;
 function loadSounds(): Promise<unknown> {
-  sounds ??= Promise.all([
+  return Promise.all([
     registerSynthSounds(),
     // Imported lazily: the soundfont module touches `window` on load.
     import('@strudel/soundfonts').then(({ registerSoundfonts }) => registerSoundfonts()),
@@ -24,7 +23,6 @@ function loadSounds(): Promise<unknown> {
     samples(`${DOUGH}/Dirt-Samples.json`),
     samples(`${UZU}/strudel.json`),
   ]);
-  return sounds;
 }
 
 // iPhones mute Web Audio with the ring/silent switch, as they would a
@@ -32,26 +30,29 @@ function loadSounds(): Promise<unknown> {
 // the page asks for media playback: through Safari's Audio Session API
 // (iOS 16.4 on), or on older iPhones and iPads by keeping a silent
 // <audio> loop going while a song plays. Called from Play's tap, as iOS
-// only starts audio in answer to one.
-let silence: HTMLAudioElement | undefined;
-function playThroughSilentMode(): void {
-  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
-  if (session) {
-    session.type = 'playback';
-    return;
-  }
+// only starts audio in answer to one. `silence` is the loop, on older
+// iPhones and iPads (silentLoop).
+function playThroughSilentMode(silence: HTMLAudioElement | undefined): void {
+  const session = audioSession();
+  if (session) session.type = 'playback';
+  else if (silence?.paused) void silence.play().catch(() => {});
+}
+
+const audioSession = () => (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+
+// The silent loop, on iPhones and iPads without the Audio Session API.
+function silentLoop(): HTMLAudioElement | undefined {
   const ios =
     /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  if (!ios) return;
-  silence ??= Object.assign(new Audio(silentWav()), { loop: true });
-  if (silence.paused) void silence.play().catch(() => {});
+  if (audioSession() || !ios) return undefined;
+  return Object.assign(new Audio(silentWav()), { loop: true });
 }
 
 // A tenth of a second of silence, as a WAV file: 8 kHz, 8-bit, mono.
 function silentWav(): string {
   const samples = 800;
   const wav = new DataView(new ArrayBuffer(44 + samples));
-  const text = (at: number, s: string) => [...s].forEach((c, i) => wav.setUint8(at + i, c.charCodeAt(0)));
+  const text = (at: number, s: string) => [...s].forEach((c, i) => wav.setUint8(at + i, c.codePointAt(0) ?? 0));
   text(0, 'RIFF');
   wav.setUint32(4, 36 + samples, true);
   text(8, 'WAVEfmt ');
@@ -89,12 +90,13 @@ export interface Player {
 export function createPlayer({ onUpdate }: { onUpdate?: (state: ReplState) => void } = {}): Player {
   initAudioOnFirstClick();
   // Start loading now; play() waits for it.
-  void loadSounds();
+  const loaded = loadSounds();
+  const silence = silentLoop();
   const repl = webaudioRepl({ onUpdateState: (state) => onUpdate?.(state) });
   return {
     async play(pattern, cps) {
-      playThroughSilentMode(); // before any await: still in the tap
-      await loadSounds();
+      playThroughSilentMode(silence); // before any await: still in the tap
+      await loaded;
       repl.setCps(cps);
       await repl.setPattern(pattern, true);
     },
@@ -104,7 +106,7 @@ export function createPlayer({ onUpdate }: { onUpdate?: (state: ReplState) => vo
     },
     now: () => (repl.scheduler.started ? repl.scheduler.now() : undefined),
     async sounds() {
-      await loadSounds();
+      await loaded;
       return Object.entries(soundMap.get()).map(([name, { data }]) => ({ name, type: data?.type ?? 'other' }));
     },
   };

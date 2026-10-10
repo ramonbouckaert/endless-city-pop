@@ -44,12 +44,12 @@ describe('Song', () => {
     for (const seed of SEEDS) {
       const song = Song.generate(seed);
       for (const mat of Object.values(song.materials)) {
-        for (const chord of (mat.bars ?? []).flat()) {
+        for (const chord of ('bars' in mat ? mat.bars : []).flat()) {
           expect(CHORDS).toHaveProperty([chord.symbol]);
           expect(MODES).toHaveProperty([chord.scale!]);
         }
-        if (mat.drums) expect(mat.drums.fills.length > 0).toBe(mat.drums.fill);
-        if (mat.type !== 'finale' && mat.bars) expect(mat.bass?.pattern).toBeTruthy();
+        if ('drums' in mat) expect(mat.drums.fills.length > 0).toBe(mat.drums.fill);
+        if ('bass' in mat) expect(mat.bass.pattern).toBeTruthy();
       }
       for (const s of song.form) expect(song.materials).toHaveProperty([s.type]);
       const types = song.form.map((s) => s.type);
@@ -330,16 +330,19 @@ describe('Song', () => {
     const song = Song.generate('snap0');
     expect(song.key.name).toBe('G major');
     expect(song.materials.chorus!.bars!.flat().map((c) => c.name(song.key))).toEqual([
-      'G^9',
-      'B9',
-      'Bb13#11',
-      'Am9',
+      'C^9#11',
+      'C13#11',
+      'F#m7b5',
+      'B7b9',
+      'Em9',
+      'Dm9',
+      'G9sus',
+      'C^9',
+      'B7alt',
+      'Em9',
       'A13',
+      'Am9',
       'D13',
-      'Bm7',
-      'E13b9',
-      'Am11',
-      'Ab13#11',
     ]);
   });
 
@@ -354,11 +357,11 @@ describe('Song', () => {
       expect(song.key.mode).toBe(mode);
       expect(tonics).toContain(song.key.tonic);
       for (const mat of Object.values(song.materials)) {
-        for (const chord of (mat.bars ?? []).flat()) {
+        for (const chord of ('bars' in mat ? mat.bars : []).flat()) {
           expect(CHORDS).toHaveProperty([chord.symbol]);
           expect(MODES).toHaveProperty([chord.scale!]);
         }
-        if (mat.type !== 'finale' && mat.bars) expect(mat.bass?.pattern).toBeTruthy();
+        if ('bass' in mat) expect(mat.bass.pattern).toBeTruthy();
       }
       const fin = song.materials.finale!.bars![0][0];
       expect(fin.root).toBe(song.key.tonic);
@@ -488,11 +491,13 @@ describe('rhythm', () => {
   it('gives every section with chords a non-empty bass pattern', () => {
     for (const song of songs) {
       for (const mat of Object.values(song.materials)) {
-        // finale has bars (the final chord) but no rhythm — skip it like rhythm() does.
-        if (mat.type === 'finale' || !mat.bars) continue;
-        expect(mat.bass, mat.type).toBeDefined();
-        expect(mat.bass!.pattern.trim(), mat.type).not.toBe('');
-        expect(mat.bass!.scales.trim(), mat.type).not.toBe('');
+        // The finale has the final chord but no bass line; each lift has its own.
+        if (mat.type === 'finale' || mat.type === 'drumBreak') continue;
+        const basses = mat.type === 'lift' ? mat.lifts.map((l) => l.bass) : [mat.bass];
+        for (const bass of basses) {
+          expect(bass.pattern.trim(), mat.type).not.toBe('');
+          expect(bass.scales.trim(), mat.type).not.toBe('');
+        }
       }
     }
   });

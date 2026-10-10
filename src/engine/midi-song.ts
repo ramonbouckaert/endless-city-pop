@@ -34,18 +34,22 @@ const num = (f: Fraction) => f.valueOf();
 // its square root spreads those over MIDI velocities.
 const velocity = (v: Record<string, any>) => 127 * Math.sqrt(Math.min(1, (v.gain ?? 1) * (v.velocity ?? 1)));
 
-function trackFor(sound: string, tracks: Map<string, MidiTrack>): MidiTrack {
-  let t = tracks.get(sound);
-  if (t) return t;
-  const drums = sound === 'drums';
-  const melodicCount = [...tracks.values()].filter((x) => x.channel !== DRUM_CHANNEL).length;
+// A track for each sound's notes, the drums on the drum channel and the
+// rest on the others in turn.
+function tracksFor(notes: readonly { sound: string; note: MidiNote }[]): MidiTrack[] {
+  const sounds = [...new Set(notes.map((n) => n.sound))];
   const melodicChannels = Array.from({ length: 16 }, (_, i) => i).filter((c) => c !== DRUM_CHANNEL);
-  const channel = drums ? DRUM_CHANNEL : melodicChannels[melodicCount % 15];
-  const name = drums ? 'Drums' : sound.replace(/^gm_/, '').replaceAll('_', ' ');
-  t = { name, channel, notes: [] };
-  if (!drums) t.program = GM_PROGRAMS[sound] ?? 0;
-  tracks.set(sound, t);
-  return t;
+  const melodic = sounds.filter((sound) => sound !== 'drums');
+  return sounds.map((sound) => {
+    const trackNotes = notes.filter((n) => n.sound === sound).map((n) => n.note);
+    if (sound === 'drums') return { name: 'Drums', channel: DRUM_CHANNEL, notes: trackNotes };
+    return {
+      name: sound.replace(/^gm_/, '').replaceAll('_', ' '),
+      channel: melodicChannels[melodic.indexOf(sound) % 15],
+      program: GM_PROGRAMS[sound] ?? 0,
+      notes: trackNotes,
+    };
+  });
 }
 
 // Superdough's pitch-envelope attack when a pattern sets none, in seconds.
@@ -66,27 +70,18 @@ function noteFromHap(hap: Hap, ticksPerSecond: number): { sound: string; note: M
   const pitch = typeof v.note === 'number' ? v.note : noteToMidi(v.note);
   if (!Number.isFinite(pitch)) return null;
   const dur = (num(whole.end) - num(whole.begin)) * TICKS_PER_BAR * (v.clip ?? v.legato ?? 1);
-  const note: MidiNote = { ...base, pitch, dur };
   // A pitch envelope (penv semitones up into the note) slides it in.
-  if (v.penv) note.slide = { semis: -v.penv, ticks: (v.pattack ?? PATTACK) * ticksPerSecond };
-  return { sound, note };
+  const slide = v.penv ? { slide: { semis: -v.penv, ticks: (v.pattack ?? PATTACK) * ticksPerSecond } } : {};
+  return { sound, note: { ...base, pitch, dur, ...slide } };
 }
 
 /** The song as a MIDI file. `pattern` is the Arranger's pattern for it. */
 export function songToMidi(song: Song, pattern: Pattern): Uint8Array {
-  const tracks = new Map<string, MidiTrack>();
   const ticksPerSecond = (song.bpm / 60) * PPQ;
-  for (let bar = 0; bar < song.bars; bar++) {
-    for (const hap of pattern.queryArc(bar, bar + 1) as unknown as Hap[]) {
-      const result = noteFromHap(hap, ticksPerSecond);
-      if (result) trackFor(result.sound, tracks).notes.push(result.note);
-    }
-  }
-  let bar = 0;
-  const markers = song.form.map((s) => {
-    const marker = { tick: bar * TICKS_PER_BAR, text: s.describe() };
-    bar += s.bars;
-    return marker;
-  });
-  return writeMidi({ title: song.title, bpm: song.bpm, key: song.key, markers, tracks: [...tracks.values()] });
+  const notes = Array.from({ length: song.bars }, (_, bar) => pattern.queryArc(bar, bar + 1) as unknown as Hap[])
+    .flat()
+    .flatMap((hap) => noteFromHap(hap, ticksPerSecond) ?? []);
+  const starts = song.form.map((_, i) => song.form.slice(0, i).reduce((n, s) => n + s.bars, 0));
+  const markers = song.form.map((s, i) => ({ tick: starts[i] * TICKS_PER_BAR, text: s.describe() }));
+  return writeMidi({ title: song.title, bpm: song.bpm, key: song.key, markers, tracks: tracksFor(notes) });
 }

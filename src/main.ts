@@ -1,5 +1,5 @@
 import type { Pattern } from '@strudel/core';
-import { randomSeed, Song, titleParts, type SectionType } from './engine';
+import { joinAside, randomSeed, type Section, Song, titleParts, type SectionType } from './engine';
 // The engine's index leaves out Arranger, so it loads no Strudel.
 // noinspection ES6PreferShortImport
 import { Arranger } from './engine/arranger';
@@ -40,19 +40,19 @@ const playing = () => document.body.classList.contains('playing');
 const debug =
   new URLSearchParams(location.search).get('debug') === 'true'
     ? createDebugPanel($('debug'), player.sounds(), () => {
-        arrangeSong(current.song);
+        current = arrangeSong(current.song);
         if (playing()) void play();
       })
     : undefined;
 
-function arrangeSong(song: Song) {
-  current = { song, ...new Arranger(song, debug?.instruments(song)).pattern() };
+function arrangeSong(song: Song): typeof current {
+  return { song, ...new Arranger(song, debug?.instruments(song)).pattern() };
 }
 
 // A new song from a random seed, its key, mode and tempo left to the seed.
 function generate() {
   try {
-    arrangeSong(Song.generate(randomSeed()));
+    current = arrangeSong(Song.generate(randomSeed()));
   } catch (e) {
     showError(`Could not generate a song: ${(e as Error).message}`);
     throw e;
@@ -66,15 +66,20 @@ function generate() {
 // last one started (a new arrangement of the same song).
 async function play(from?: number) {
   showError('');
-  if (!playing())
-    start = 0; // the clock restarts too
-  else if (from !== undefined) start = from;
+  start = startFor(playing(), from, start);
   try {
     await player.play(current.pattern.late(start), current.cps);
   } catch (e) {
     showError(`Strudel: ${(e as Error).message ?? e}`);
   }
 }
+
+// Where a song played now starts: at 0 if nothing is playing, as the
+// clock restarts too; else at `from`, or where the last one started.
+const startFor = (isPlaying: boolean, from: number | undefined, last: number): number => {
+  if (!isPlaying) return 0;
+  return from ?? last;
+};
 
 // Reading every bar of the pattern takes a few seconds: the button shows
 // a spinner, drawn before the work starts, until the file is ready.
@@ -119,24 +124,28 @@ function followPlayhead() {
   const played = clock(seconds(Math.min(Math.max(pos, 0), current.song.bars), current.song.bpm));
   if (positionEl.textContent !== played) positionEl.textContent = played;
   const items = [...formEl.children] as HTMLElement[];
-  let bar = 0;
-  let at: { item: HTMLElement; through: number } | undefined;
-  current.song.form.forEach((s, i) => {
-    const here = pos >= bar && pos < bar + s.bars;
-    items[i]?.classList.toggle('now', here);
-    if (here && items[i]) at = { item: items[i], through: (pos - bar) / s.bars };
-    bar += s.bars;
-  });
-  if (pos >= bar && items.length) at = { item: items.at(-1)!, through: 1 };
+  const head = playheadAt(current.song.form, pos);
+  items.forEach((item, i) => item.classList.toggle('now', head?.index === i && head.through < 1));
+  const item = head && items[head.index];
   const line = $('playhead');
-  line.hidden = !at;
-  if (at) {
-    const { item, through } = at;
+  line.hidden = !item;
+  if (item) {
+    const { through } = head;
     line.style.transform = `translateX(${item.offsetLeft + through * item.offsetWidth}px)`;
     line.style.top = `${item.offsetTop - 5}px`;
     line.style.height = `${item.offsetHeight + 10}px`;
   }
   requestAnimationFrame(followPlayhead);
+}
+
+// The section at `pos` bars into a form, and how far through it; past
+// the end, the end of the last section; before the start, none.
+function playheadAt(form: readonly Section[], pos: number): { index: number; through: number } | undefined {
+  if (pos < 0 || !form.length) return undefined;
+  const starts = form.map((_, i) => form.slice(0, i).reduce((n, s) => n + s.bars, 0));
+  const index = form.findIndex((s, i) => pos < starts[i] + s.bars);
+  if (index < 0) return { index: form.length - 1, through: 1 };
+  return { index, through: (pos - starts[index]) / form[index].bars };
 }
 
 function showSong(song: Song) {
@@ -206,11 +215,7 @@ function showTitle(song: Song) {
     el.append(...kids);
     return el;
   };
-  let second: string;
-  if (join === 'brackets') second = `(${aside})`;
-  else if (join === 'dash') second = `– ${aside}`;
-  else second = aside;
-  const text = () => span('marquee-text', main, ' ', span('title-aside', second));
+  const text = () => span('marquee-text', main, ' ', span('title-aside', joinAside(aside, join)));
   const copy = text();
   copy.setAttribute('aria-hidden', 'true');
   titleEl.replaceChildren(span('marquee-track', text(), copy));

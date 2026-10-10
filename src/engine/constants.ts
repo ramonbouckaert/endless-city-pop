@@ -8,7 +8,6 @@ import type {
   ChordDef,
   DrumEntry,
   DrumFeel,
-  DrumPlan,
   FinaleStyle,
   IntroTexture,
   LiftStyle,
@@ -17,6 +16,7 @@ import type {
   PreFlavour,
   PreFlavourDef,
   Range,
+  Rhythm,
   SectionType,
   Tonality,
   Turnaround,
@@ -225,21 +225,34 @@ export const STYLE = {
     ['light', 3],
     ['full', 2],
   ] as Weighted<DrumEntry>,
-  // Drums per section: the feels it may take, and how likely it starts
-  // with a crash and ends with a fill.
-  drums: {
-    vamp: { feels: ['funk'], crash: 0, fill: 1 },
-    verse: { feels: ['funk', 'funk', 'halfTime', 'disco'], crash: 0.3, fill: 0.7 },
-    chorus: { feels: ['disco', 'disco', 'funk'], crash: 1, fill: 0.9 },
-    bridge: { feels: ['halfTime', 'halfTime', 'bossa', 'introRide'], crash: 0.3, fill: 0.5 },
-    solo: { feels: ['funk', 'disco'], crash: 1, fill: 0.9 },
-    solo2: { feels: ['bossa', 'bossa', 'halfTime'], crash: 0.7, fill: 0.8 },
-    riff: { feels: ['funk', 'disco'], crash: 1, fill: 1 },
-    breakdown: { feels: ['claps', 'halfTime'], crash: 0, fill: 1 },
-    lift: { feels: ['build'], crash: 1, fill: 0 },
-    outro: { feels: ['introRide', 'halfTime'], crash: 1, fill: 0 },
-    drumBreak: { feels: ['break'], crash: 0, fill: 1 },
-  } as Partial<Record<SectionType, DrumPlan>>,
+  // Drums and bass per section: the drum feels it may take, how likely
+  // it starts with a crash and ends with a fill, and the bass feels it
+  // may take (none for a drum break, which has no bass line).
+  rhythm: {
+    vamp: { drums: { feels: ['funk'], crash: 0, fill: 1 }, bass: ['funk', 'funk', 'disco'] },
+    verse: {
+      drums: { feels: ['funk', 'funk', 'halfTime', 'disco'], crash: 0.3, fill: 0.7 },
+      bass: ['funk', 'funk', 'drive', 'halfTime'],
+    },
+    chorus: {
+      drums: { feels: ['disco', 'disco', 'funk'], crash: 1, fill: 0.9 },
+      bass: ['disco', 'disco', 'funk', 'drive'],
+    },
+    bridge: {
+      drums: { feels: ['halfTime', 'halfTime', 'bossa', 'introRide'], crash: 0.3, fill: 0.5 },
+      bass: ['halfTime', 'halfTime', 'pedal', 'bossa'],
+    },
+    solo: { drums: { feels: ['funk', 'disco'], crash: 1, fill: 0.9 }, bass: ['funk', 'drive', 'disco'] },
+    solo2: {
+      drums: { feels: ['bossa', 'bossa', 'halfTime'], crash: 0.7, fill: 0.8 },
+      bass: ['bossa', 'bossa', 'halfTime'],
+    },
+    riff: { drums: { feels: ['funk', 'disco'], crash: 1, fill: 1 }, bass: ['funk', 'disco'] },
+    breakdown: { drums: { feels: ['claps', 'halfTime'], crash: 0, fill: 1 }, bass: ['disco', 'halfTime', 'pedal'] },
+    lift: { drums: { feels: ['build'], crash: 1, fill: 0 }, bass: ['disco', 'drive'] },
+    outro: { drums: { feels: ['introRide', 'halfTime'], crash: 1, fill: 0 }, bass: ['pedal'] },
+    drumBreak: { drums: { feels: ['break'], crash: 0, fill: 1 }, bass: [] },
+  } as Partial<Record<SectionType, Rhythm>>,
   // Bass feels that sit with a quieter drum feel.
   bassWith: {
     bossa: ['bossa', 'halfTime', 'pedal'],
@@ -251,7 +264,7 @@ export const STYLE = {
   tradeOutro: {
     bass: ['halfTime', 'pedal', 'bossa'],
     drums: { feels: ['introRide', 'halfTime', 'bossa'], crash: 0, fill: 1 },
-  } as { bass: BassFeel[]; drums: DrumPlan },
+  } as Rhythm,
   // Intro arrangements, with the bass feels each may take and their drums.
   introTextures: {
     pads: { bass: ['pedal', 'halfTime'], drums: { feels: ['introRide'], crash: 0, fill: 0 } },
@@ -261,20 +274,7 @@ export const STYLE = {
     arp: { bass: ['pedal', 'halfTime'], drums: { feels: ['introRide', 'halfTime'], crash: 0, fill: 1 } },
     drumsFirst: { bass: ['funk', 'disco'], drums: { feels: ['break', 'funk', 'disco'], crash: 0, fill: 1 } },
     fanfare: { bass: ['drive', 'disco'], drums: { feels: ['funk', 'disco'], crash: 1, fill: 1 } },
-  } as Record<IntroTexture, { bass: BassFeel[]; drums: DrumPlan }>,
-  // Bass feels each section may take.
-  bassFeels: {
-    vamp: ['funk', 'funk', 'disco'],
-    verse: ['funk', 'funk', 'drive', 'halfTime'],
-    chorus: ['disco', 'disco', 'funk', 'drive'],
-    bridge: ['halfTime', 'halfTime', 'pedal', 'bossa'],
-    solo: ['funk', 'drive', 'disco'],
-    solo2: ['bossa', 'bossa', 'halfTime'],
-    riff: ['funk', 'disco'],
-    breakdown: ['disco', 'halfTime', 'pedal'],
-    lift: ['disco', 'drive'],
-    outro: ['pedal'],
-  } as Partial<Record<SectionType, BassFeel[]>>,
+  } as Record<IntroTexture, Rhythm>,
   comp: { main: '~ [~ x] ~ [~ ~ x ~]', chorus: '[~ x]*4', bossa: '[x ~ ~ x] [~ ~ x ~] [~ x ~ ~] [x ~ ~ ~]' },
 };
 

@@ -1,5 +1,5 @@
 // Generate many songs and check each one plays without errors.
-// Usage: scripts/run-node.sh scripts/sweep.ts [count] [mode]
+// Usage: scripts/run-node.sh scripts/sweep.ts [count]
 import { Song } from '../src/engine';
 // The engine's index leaves out Arranger, so it loads no Strudel.
 // noinspection ES6PreferShortImport

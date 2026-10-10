@@ -6,9 +6,18 @@
 // next chord's root.
 
 import { Line } from './line';
-import { BASS, type Chord, type Key, Scale } from './music';
+import { BASS_LOW, barTokens, type Chord, type Key, Scale } from './music';
 import type { Rng } from './random';
-import type { Bar, Bass, BassFeel, BassFeelDef, BassToken } from './types';
+import type { Bar, Bass, BassFeel, BassFeelDef, BassToken, Range } from './types';
+
+const BASS = {
+  variety: [0.05, 0.3] as Range,
+  densityBoost: 1.3,
+  fill: { density: 0.35, sync: 0.3 },
+  approachSame: [7, 10, -2],
+  approachChromatic: [-1, 1, -1],
+  approachDiatonic: [-2, 2, 7, -5],
+};
 
 const BASS_FEELS: Readonly<Record<BassFeel, BassFeelDef>> = {
   pedal: { grid: 8, density: [0.05, 0.25], sync: [0, 0.3], octave: [0, 0.3], legato: [0.7, 1], approach: 0.6 },
@@ -28,18 +37,36 @@ const BASS_FEELS: Readonly<Record<BassFeel, BassFeelDef>> = {
 };
 
 const BASS_DEGREES: Readonly<Record<BassToken, string>> = {
-  R: '0', T: '2', F: '4', S: '6', O: '7',
-  two: '1', four: '3', six: '5', below: '-1',
+  R: '0',
+  T: '2',
+  F: '4',
+  S: '6',
+  O: '7',
+  two: '1',
+  four: '3',
+  six: '5',
+  below: '-1',
 };
 
 type NoteWeights = readonly (readonly [BassToken, number, number])[];
 const BASS_NOTES: { onBeat: NoteWeights; offBeat: NoteWeights } = {
   onBeat: [
-    ['R', 3, 0], ['F', 2, 0], ['O', 1, 3], ['T', 1, 0], ['S', 0.5, 0],
+    ['R', 3, 0],
+    ['F', 2, 0],
+    ['O', 1, 3],
+    ['T', 1, 0],
+    ['S', 0.5, 0],
   ],
   offBeat: [
-    ['O', 0.5, 4], ['R', 1.5, 0], ['F', 1, 0], ['S', 1, 0], ['T', 0.7, 0],
-    ['two', 0.4, 0], ['four', 0.4, 0], ['six', 0.3, 0], ['below', 0.3, 0],
+    ['O', 0.5, 4],
+    ['R', 1.5, 0],
+    ['F', 1, 0],
+    ['S', 1, 0],
+    ['T', 0.7, 0],
+    ['two', 0.4, 0],
+    ['four', 0.4, 0],
+    ['six', 0.3, 0],
+    ['below', 0.3, 0],
   ],
 };
 
@@ -71,10 +98,7 @@ export class BassWriter {
 
   /** "<D2:dorian G1:mixolydian [A1:dorian Ab1:lydian:dominant] ...>" */
   static scales(bars: Bar[], key: Key): string {
-    const items = bars.map((bar) =>
-      bar.length === 1 ? bar[0].bassScale(key) : `[${bar.map((c) => c.bassScale(key)).join(' ')}]`,
-    );
-    return `<${items.join(' ')}>`;
+    return `<${barTokens(bars, (c) => c.bassScale(key)).join(' ')}>`;
   }
 
   write(bars: Bar[]): Bass {
@@ -87,15 +111,15 @@ export class BassWriter {
       const at = this.rng.chance(this.def.approach) ? approachStep : 16;
       const split = bar.length > 1;
       const free = (i: number) => i !== 0 && !this.anchor(i) && i < at && !(split && i === 8);
-      let steps = b === 0 ? [...groove] : this.vary(groove, free);
-      if (b === bars.length - 1 || b % 4 === 3) steps = this.fill(steps, free);
-      if (split) steps[8] = 'R';
-      let target = '';
-      if (at < 16) {
-        steps.fill(null, at);
-        steps[at] = 'A';
-        target = this.approach(bar.at(-1)!, bars[(b + 1) % bars.length][0]);
-      }
+      const varied = b === 0 ? groove : this.vary(groove, free);
+      const played = b === bars.length - 1 || b % 4 === 3 ? this.fill(varied, free) : varied;
+      // The approach note, then silence to the barline.
+      const steps = played.map((tok, i): Step => {
+        if (i === at) return 'A';
+        if (i > at) return null;
+        return split && i === 8 ? 'R' : tok;
+      });
+      const target = at < 16 ? this.approach(bar.at(-1)!, bars[(b + 1) % bars.length][0]) : '';
       return this.render(steps, (tok) => (tok === 'A' ? target : BASS_DEGREES[tok]));
     });
     return { feel: this.feel, pattern: `<${items.join(' ')}>`, scales: BassWriter.scales(bars, this.key) };
@@ -128,14 +152,14 @@ export class BassWriter {
   }
 
   // One bar as 16 steps: a note where one starts, null elsewhere.
-  private groove(): Step[] {
+  private groove(): readonly Step[] {
     return Array.from({ length: 16 }, (_, i) =>
       i === 0 || this.anchor(i) || this.sounds(i) ? (this.anchor(i) ?? this.note(i)) : null,
     );
   }
 
   // The groove with a few free steps re-rolled.
-  private vary(groove: Step[], free: (i: number) => boolean): Step[] {
+  private vary(groove: readonly Step[], free: (i: number) => boolean): readonly Step[] {
     return groove.map((tok, i) => {
       if (!free(i) || !this.rng.chance(this.variety)) return tok;
       return this.sounds(i) ? this.note(i) : null;
@@ -143,7 +167,7 @@ export class BassWriter {
   }
 
   // A busier second half to close a phrase.
-  private fill(steps: Step[], free: (i: number) => boolean): Step[] {
+  private fill(steps: readonly Step[], free: (i: number) => boolean): readonly Step[] {
     const density = Math.min(1, this.density + BASS.fill.density);
     const sync = Math.min(1, this.sync + BASS.fill.sync);
     return steps.map((tok, i) => {
@@ -160,17 +184,14 @@ export class BassWriter {
     if (root - target > 6) target += 12;
     const { rng } = this;
     const approach = rng.chance(this.chromatic) ? BASS.approachChromatic : BASS.approachDiatonic;
-    let pitch =
-      target === root
-        ? root + rng.pick(BASS.approachSame)
-        : target + rng.pick(approach);
-    while (pitch < BASS.low) pitch += 12;
+    let pitch = target === root ? root + rng.pick(BASS.approachSame) : target + rng.pick(approach);
+    while (pitch < BASS_LOW) pitch += 12;
     return Scale.named(cur.scale!).degree(pitch - root, this.key.usesFlats);
   }
 
   // Notes ring to the next one, or are cut short when the feel is
   // choppy; the gap becomes a rest.
-  private render(steps: Step[], degree: (tok: BassToken | 'A') => string): string {
+  private render(steps: readonly Step[], degree: (tok: BassToken | 'A') => string): string {
     const starts = steps.flatMap((tok, i) => (tok ? [i] : []));
     const notes = starts.map((start, k) => {
       const gap = (starts[k + 1] ?? 16) - start;

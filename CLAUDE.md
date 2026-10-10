@@ -10,10 +10,8 @@ npm run build          # production build
 npm run preview        # serve the production build (required before npm run smoke)
 npm test               # vitest unit tests + check:songs on 12 seeds
 npm run check:songs -- 25          # sweep 25 seeds for pattern errors
-npm run check:songs -- 25 minor    # same, in a specific mode
 npm run song -- mySeed             # print a song's outline
-npm run song -- mySeed dorian      # same, with a forced mode
-npm run midi -- mySeed minor       # write mySeed.mid
+npm run midi -- mySeed             # write mySeed.mid (a second argument names the file)
 npm run smoke          # Playwright smoke test (needs npm run preview running)
 npm run format         # Prettier
 npm run typecheck      # tsc type-check only

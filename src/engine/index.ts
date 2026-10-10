@@ -11,5 +11,5 @@ export { Melody, Solo } from './melody';
 export { Chord, Key, pcName, Roman, Scale } from './music';
 export { randomSeed, Rng } from './random';
 export { Song } from './song';
-export { titleFor, titleParts } from './title';
+export { joinAside, titleFor, titleParts } from './title';
 export type * from './types';

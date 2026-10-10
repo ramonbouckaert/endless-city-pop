@@ -91,9 +91,14 @@ const TITLE_WORDS: { modifiers: readonly TitleWord[]; nouns: readonly TitleWord[
 /** A city pop title (titleParts), the second part in brackets, after a dash, or straight after. */
 export function titleFor(seed: string): string {
   const { title, aside, join } = titleParts(seed);
-  if (join === 'brackets') return `${title} (${aside})`;
-  if (join === 'dash') return `${title} – ${aside}`;
-  return `${title} ${aside}`;
+  return `${title} ${joinAside(aside, join)}`;
+}
+
+/** A title's second part as it follows the first: "(Midnight Drive)", "– Midnight Drive". */
+export function joinAside(aside: string, join: TitleParts['join']): string {
+  if (join === 'brackets') return `(${aside})`;
+  if (join === 'dash') return `– ${aside}`;
+  return aside;
 }
 
 /**

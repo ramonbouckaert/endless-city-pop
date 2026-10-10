@@ -2,6 +2,7 @@
 // stack of drums and instruments, arranged end to end. Note sequences
 // are written in mini-notation, Strudel's sequence language.
 
+import './strudel-setup';
 import { arrange, chord, s, saw, silence, stack, type Pattern } from '@strudel/core';
 import { mini } from '@strudel/mini';
 import { Band, DOUBLE_TOP, FIGURES, type Instruments, Mini, TAIL_SECONDS } from './band';
@@ -9,11 +10,36 @@ import { BassWriter } from './bass';
 import { STYLE } from './constants';
 import { FORM, type Section } from './form';
 import { type Melody, Solo } from './melody';
-import { Chord } from './music';
+import { Chord, type Key } from './music';
 import type { Song } from './song';
-import type { DrumFill, DrumRole, Material, SectionType, StepGains } from './types';
+import { at } from './drums';
+import type {
+  Bar,
+  Bass,
+  DrumBreakMaterial,
+  DrumFill,
+  DrumRole,
+  FinaleMaterial,
+  LiftMaterial,
+  Material,
+  MaterialOf,
+  SectionType,
+} from './types';
 
 export type { Instruments };
+
+// A melody and the key it's written in.
+type Tune = { melody: Melody; key: Key };
+
+// A section's drums, and its pitched parts (falsy ones left out).
+type Parts = { drums: Pattern[]; pitched: (Pattern | null | false | undefined)[] };
+
+// Chords, chord-scales and bass for some bars in a key.
+function harmonyParts(band: Band, bars: Bar[], key: Key, bass: Bass) {
+  const C = Mini.chords(bars, key);
+  const S = mini(BassWriter.scales(bars, key));
+  return { C, S, B: band.bass(bass.pattern, S) };
+}
 
 export class Arranger {
   private readonly band: Band;
@@ -63,56 +89,65 @@ class SectionArranger {
     this.len = sec.bars;
   }
 
-  parts(): { drums: Pattern[]; pitched: (Pattern | null | false | undefined)[] } {
-    const recipes: Record<SectionType, () => ReturnType<SectionArranger['parts']>> = {
-      intro: () => this.intro(),
-      outro: () => this.outro(),
-      vamp: () => this.vamp(),
-      verse: () => this.verse(),
-      pre: () => this.pre(),
-      chorus: () => this.chorus(),
-      riff: () => this.riff(),
-      bridge: () => this.bridge(),
-      solo: () => this.solo(),
-      solo2: () => this.solo(),
-      breakdown: () => this.breakdown(),
-      lift: () => this.lift(),
-      drumBreak: () => this.drumBreak(),
-      finale: () => this.finale(),
+  parts(): Parts {
+    const { song } = this;
+    const recipes: Record<SectionType, () => Parts> = {
+      intro: () => this.intro(song.material('intro')),
+      outro: () => this.outro(song.material('outro')),
+      vamp: () => this.vamp(song.material('vamp')),
+      verse: () => this.verse(song.material('verse')),
+      pre: () => this.pre(song.material('pre')),
+      chorus: () => this.chorus(song.material('chorus')),
+      riff: () => this.riff(song.material('riff')),
+      bridge: () => this.bridge(song.material('bridge')),
+      solo: () => this.solo(song.material('solo').solo),
+      solo2: () => this.solo(song.material('solo2').solo),
+      breakdown: () => this.breakdown(song.material('breakdown')),
+      lift: () => this.lift(song.material('lift')),
+      drumBreak: () => this.drumBreak(song.material('drumBreak')),
+      finale: () => this.finale(song.material('finale')),
     };
     return recipes[this.sec.type]();
   }
 
   // ---- Shared material ------------------------------------------------
 
-  // The material whose harmony this section plays.
-  private get harmony(): Material {
-    return this.mat.outro === 'reprise' ? this.song.material('intro') : this.mat;
+  // The band's chords, scales and bass, built on first use. A reprise
+  // plays the intro's chords.
+  private played?: ReturnType<typeof harmonyParts>;
+  private get chords() {
+    if (this.played) return this.played;
+    const { mat } = this;
+    if (!('bass' in mat)) throw new Error(`A ${mat.type} has no band part`);
+    const { bars, key } = mat.type === 'outro' && mat.outro === 'reprise' ? this.song.material('intro') : mat;
+    this.played = harmonyParts(this.band, bars, key, mat.bass);
+    return this.played;
   }
   private get C(): Pattern {
-    return Mini.chords(this.harmony.bars!, this.harmony.key);
+    return this.chords.C;
   }
   private get S(): Pattern {
-    return mini(BassWriter.scales(this.harmony.bars!, this.harmony.key));
+    return this.chords.S;
   }
   private get B(): Pattern {
-    return this.band.bass(this.mat.bass!.pattern, this.S);
+    return this.chords.B;
   }
   private get scale(): string {
     return `${this.mat.key.tonicName}4:${this.mat.key.mode}`;
   }
-  // A material's melody as degrees, and as a line in this section's key.
-  private degrees(x: Material, which: 'melody' | 'answer' = 'melody'): Pattern {
-    return Mini.perBar(x[which]!.render(x.key));
+  // A melody as degrees of its key, and as a line in this section's key.
+  private degrees({ melody, key }: Tune): Pattern {
+    return Mini.perBar(melody.render(key));
   }
-  private mel(x: Material = this.mat): Pattern {
-    return this.band.line(this.degrees(x), this.scale);
+  private mel(tune: Tune): Pattern {
+    return this.band.line(this.degrees(tune), this.scale);
   }
   // The intro's line on bells, if it has one: an octave up, if it fits.
   private teaser(): Pattern | undefined {
     const intro = this.song.material('intro');
     if (!intro.melody) return undefined;
-    return this.band.bell(this.band.line(this.degrees(intro), this.scale, this.octaveUp(intro.melody)));
+    const { melody, key } = intro;
+    return this.band.bell(this.band.line(this.degrees({ melody, key }), this.scale, this.octaveUp(melody)));
   }
   // 12 to play a melody an octave up, or 0 if that would take it too high
   // (melody notes count up from the tonic in octave 4).
@@ -122,14 +157,27 @@ class SectionArranger {
   private from(start: number): string {
     return Mini.from(this.len, start);
   }
+  // Stop-time: the band and drums hit together, then drive the last bar.
+  private stopTime(drums: Pattern[], C: Pattern, B: Pattern): Parts & { pitched: Pattern[] } {
+    const { band, len } = this;
+    const hits = (last: string) => Mini.lastBar(len, last, FIGURES.stops);
+    return {
+      drums: [stack(...drums).mask(hits('x'))],
+      pitched: [B.struct(hits('x*8')), band.keys(C, hits('[~ x]*4')).clip(0.3), band.stabs(C, hits('~'))],
+    };
+  }
+  // Strings swelling through the section, up to `top`.
+  private swell(C: Pattern, top: number): Pattern {
+    return this.band.strings(C).gain(saw.slow(this.len).range(0.04, top));
+  }
 
   // ---- Recipes --------------------------------------------------------
 
-  private intro(): ReturnType<SectionArranger['parts']> {
+  private intro(intro: MaterialOf<'intro'>): Parts {
     const { band, C, B, len } = this;
     const drums = this.drums();
     const halfway = (p: Pattern) => p.mask(this.from(len / 2));
-    switch (this.mat.texture) {
+    switch (intro.texture) {
       case 'arp':
         // A keyboard arpeggio over a pad; bass and drums join halfway.
         return {
@@ -147,16 +195,11 @@ class SectionArranger {
       case 'fanfare': {
         // The band hits together, horns playing the teaser over it, then
         // grooves in the last bar.
-        const hits = (last: string) => Mini.lastBar(len, last, FIGURES.stops);
-        const intro = this.mat;
+        const { melody, key } = intro;
+        const stop = this.stopTime(drums, C, B);
         return {
-          drums: [stack(...drums).mask(hits('x'))],
-          pitched: [
-            B.struct(hits('x*8')),
-            band.stabs(C, hits('~')),
-            band.keys(C, hits('[~ x]*4')).clip(0.3),
-            intro.melody && band.horns(band.line(this.degrees(intro), this.scale)),
-          ],
+          drums: stop.drums,
+          pitched: [...stop.pitched, melody && band.horns(band.line(this.degrees({ melody, key }), this.scale))],
         };
       }
       case 'keys':
@@ -173,18 +216,18 @@ class SectionArranger {
     }
   }
 
-  private outro(): ReturnType<SectionArranger['parts']> {
+  private outro(outro: MaterialOf<'outro'>): Parts {
     const { band, C } = this;
-    if (this.mat.outro === 'trade') return this.trade();
+    if (outro.outro === 'trade') return this.trade(outro.solo);
     return { drums: this.drums(), pitched: [band.softKeys(C), band.strings(C), this.B.gain(0.6), this.teaser()] };
   }
 
   // The opening vamp's drums come in after two bars, start with kick and
   // hats alone, or play throughout, as the material says; when the vamp
   // comes back, the band is already going.
-  private vamp(): ReturnType<SectionArranger['parts']> {
+  private vamp(vamp: MaterialOf<'vamp'>): Parts {
     const { band, C } = this;
-    const entry = this.sec.opts.second ? 'full' : this.mat.entry;
+    const entry = this.sec.opts.second ? 'full' : vamp.entry;
     let drums;
     if (entry === 'late') drums = [stack(...this.drums()).mask(this.from(2))];
     else if (entry === 'light')
@@ -199,7 +242,7 @@ class SectionArranger {
     };
   }
 
-  private verse(): ReturnType<SectionArranger['parts']> {
+  private verse(verse: MaterialOf<'verse'>): Parts {
     const { band, C } = this;
     const second = this.sec.opts.second;
     return {
@@ -208,7 +251,7 @@ class SectionArranger {
         this.B,
         band.keys(C),
         band.clav(C),
-        band.lead(this.mel()),
+        band.lead(this.mel(verse)),
         second && band.scratch(C),
         second && band.pad(C),
       ],
@@ -221,23 +264,17 @@ class SectionArranger {
   }
 
   // The pre-chorus, in its flavour's texture. Later rounds add a layer.
-  private pre(): ReturnType<SectionArranger['parts']> {
+  private pre(pre: MaterialOf<'pre'>): Parts {
     const { band, C, B, len, riser } = this;
     const drums = this.drums();
-    const lead = band.lead(this.mel());
+    const lead = band.lead(this.mel(pre));
     const later = this.sec.opts.second;
-    switch (this.mat.flavour) {
+    switch (pre.flavour) {
       case 'pedal':
         // Long notes over a held bass, strings swelling.
         return {
           drums: [...drums, riser],
-          pitched: [
-            B,
-            band.softKeys(C).gain(0.26),
-            band.strings(C).gain(saw.slow(len).range(0.04, 0.14)),
-            lead,
-            later && band.choir(C),
-          ],
+          pitched: [B, band.softKeys(C).gain(0.26), this.swell(C, 0.14), lead, later && band.choir(C)],
         };
       case 'drop':
         // The drums drop out, then come back halfway.
@@ -246,18 +283,9 @@ class SectionArranger {
           pitched: [B.gain(0.6), band.pad(C), band.softKeys(C).gain(0.26), lead, later && band.strings(C)],
         };
       case 'stops': {
-        // Stop-time hits under a free lead; the band drives the last bar.
-        const hits = (last: string) => Mini.lastBar(len, last, FIGURES.stops);
-        return {
-          drums: [stack(...drums).mask(hits('x'))],
-          pitched: [
-            B.struct(hits('x*8')),
-            band.keys(C, hits('[~ x]*4')).clip(0.3),
-            band.stabs(C, hits('~')),
-            lead,
-            later && band.strings(C),
-          ],
-        };
+        // Stop-time hits under a free lead.
+        const stop = this.stopTime(drums, C, B);
+        return { drums: stop.drums, pitched: [...stop.pitched, lead, later && band.strings(C)] };
       }
       case 'borrowed':
         return {
@@ -279,11 +307,11 @@ class SectionArranger {
     }
   }
 
-  private chorus(): ReturnType<SectionArranger['parts']> {
-    const { band, C, mat } = this;
+  private chorus(chorus: MaterialOf<'chorus'>): Parts {
+    const { band, C } = this;
     const { answer, big } = this.sec.opts;
     // The flute doubles the hook an octave up, if it fits.
-    const up = this.octaveUp(mat.melody!);
+    const up = this.octaveUp(chorus.melody);
     return {
       drums: this.drums(),
       pitched: [
@@ -291,9 +319,9 @@ class SectionArranger {
         band.keys(C, STYLE.comp.chorus).clip(0.5).gain(0.28),
         band.clav(C),
         band.pad(C),
-        band.lead(this.mel()),
-        band.double(this.mel(), up),
-        answer && band.counter(band.line(this.degrees(mat, 'answer'), this.scale)),
+        band.lead(this.mel(chorus)),
+        band.double(this.mel(chorus), up),
+        answer && band.counter(band.line(this.degrees({ melody: chorus.answer, key: chorus.key }), this.scale)),
         big && band.stabs(C),
         big && band.strings(C),
         big && band.choir(C),
@@ -301,20 +329,20 @@ class SectionArranger {
     };
   }
 
-  private riff(): ReturnType<SectionArranger['parts']> {
+  private riff(riff: MaterialOf<'riff'>): Parts {
     const { band, C } = this;
     return {
       drums: this.drums(),
       pitched: [
         this.B,
-        band.horns(band.line(band.harmonize(this.degrees(this.mat), 2), this.scale)),
+        band.horns(band.line(band.harmonize(this.degrees(riff), 2), this.scale)),
         band.keys(C).gain(0.28),
         band.clav(C),
       ],
     };
   }
 
-  private bridge(): ReturnType<SectionArranger['parts']> {
+  private bridge(bridge: MaterialOf<'bridge'>): Parts {
     const { band, C } = this;
     return {
       drums: this.drums(),
@@ -322,14 +350,14 @@ class SectionArranger {
         this.B.gain(0.65),
         band.arp(C),
         band.strings(C),
-        band.lead(this.mel()),
-        band.bell(band.line(this.degrees(this.mat), this.scale, 12)).gain(0.15),
+        band.lead(this.mel(bridge)),
+        band.bell(band.line(this.degrees(bridge), this.scale, 12)).gain(0.15),
       ],
     };
   }
 
   // The first soloist plays over the band; the second over a bossa comp.
-  private solo(): ReturnType<SectionArranger['parts']> {
+  private solo(solo: Solo): Parts {
     const { band, C } = this;
     const bossa = this.sec.type === 'solo2';
     return {
@@ -338,19 +366,18 @@ class SectionArranger {
         this.B,
         bossa ? band.keys(C, STYLE.comp.bossa).gain(0.26) : band.keys(C).gain(0.3),
         bossa ? band.strings(C).gain(0.08) : band.clav(C),
-        this.soloist(this.sec.opts.soloist!, this.soloLine()).pan(bossa ? 0.42 : 0.55),
+        this.soloist(this.sec.opts.soloist!, this.soloLine(solo)).pan(bossa ? 0.42 : 0.55),
       ],
     };
   }
 
   // A pared-back vamp, soft keys over light drums, while two soloists
   // (the song's, if it had solos) trade two-bar lines.
-  private trade(): ReturnType<SectionArranger['parts']> {
+  private trade(solo: Solo): Parts {
     const { band, C, len, song } = this;
     const count = band.sounds.soloists.length;
-    const soloed = song.form.flatMap((s) => (s.opts.soloist === undefined ? [] : [s.opts.soloist]));
-    const [first, second = first] = [...new Set([...soloed, ...FORM.soloists].map((i) => i % count))];
-    const line = this.soloLine();
+    const [first, second = first] = [...new Set([...song.soloists, ...FORM.soloists.map((i) => i % count)])];
+    const line = this.soloLine(solo);
     // Two bars each: the first soloist on bars 1-2, 5-6, ...
     const turns = (mine: number) =>
       Mini.perBar(Array.from({ length: len }, (_, b) => (Math.floor(b / 2) % 2 === mine ? '1' : '0')));
@@ -365,24 +392,23 @@ class SectionArranger {
     };
   }
 
-  // This section's improvised line, slurs and all.
-  private soloLine(): Pattern {
-    const solo = this.mat.solo!;
-    return this.band
-      .line(Mini.perBar(solo.render()), this.S, 24)
-      .penv(Mini.perBar(solo.slides()))
-      .pattack(Solo.slide);
+  // An improvised line, slurs and all.
+  private soloLine(solo: Solo): Pattern {
+    return this.band.line(Mini.perBar(solo.render()), this.S, 24).penv(Mini.perBar(solo.slides())).pattack(Solo.slide);
   }
 
   // A line on one of the song's soloists, in the solo room.
   private soloist(index: number, line: Pattern): Pattern {
     const { soloists } = this.band.sounds;
-    const [sound, gain] = soloists[index % soloists.length];
-    return this.band.voiced(line, sound).gain(gain).room(0.3).delay(0.15).delaytime(0.27);
+    return this.band
+      .voice(soloists[index % soloists.length], line)
+      .room(0.3)
+      .delay(0.15)
+      .delaytime(0.27);
   }
 
   // The hook over pads, keys coming in halfway.
-  private breakdown(): ReturnType<SectionArranger['parts']> {
+  private breakdown(breakdown: MaterialOf<'breakdown'>): Parts {
     const { band, C } = this;
     return {
       drums: this.drums(),
@@ -395,18 +421,16 @@ class SectionArranger {
           .clip(0.5)
           .gain(0.24)
           .mask(this.from(Math.floor(this.len / 2))),
-        band.lead(this.mel(this.song.material('chorus'))),
+        band.lead(this.mel(breakdown)),
       ],
     };
   }
 
   // This lift's turnaround into its key, played in its style.
-  private lift(): ReturnType<SectionArranger['parts']> {
+  private lift({ lifts }: LiftMaterial): Parts {
     const { band, len } = this;
-    const lift = this.mat.lifts![this.repeat];
-    const C = Mini.chords(lift.bars, lift.key);
-    const S = mini(BassWriter.scales(lift.bars, lift.key));
-    const B = band.bass(lift.bass!.pattern, S);
+    const lift = lifts[this.repeat];
+    const { C, S, B } = harmonyParts(band, lift.bars, lift.key, lift.bass);
     const drums = this.drums();
     const keys = band.keys(C, 'x*4').clip(0.5).gain(0.32);
     switch (lift.style) {
@@ -420,7 +444,7 @@ class SectionArranger {
         // The drums drop out under held chords and a riser; the chorus lands on them.
         return {
           drums: [this.riser],
-          pitched: [B.gain(0.6), band.pad(C), band.strings(C).gain(saw.slow(len).range(0.04, 0.16))],
+          pitched: [B.gain(0.6), band.pad(C), this.swell(C, 0.16)],
         };
       case 'run':
         // The lead holds a chord tone, then runs up into the chorus.
@@ -441,23 +465,22 @@ class SectionArranger {
   }
 
   // Drums alone, then a bass pickup into what follows.
-  private drumBreak(): ReturnType<SectionArranger['parts']> {
-    const { mat } = this;
-    const into = mat.pickupInto!.bassScale(this.song.material(mat.pickupFrom!).key);
-    const pickup = this.band.bass(FIGURES.pickup, into);
-    return { drums: this.drums(), pitched: [mat.pickupShift ? pickup.transpose(mat.pickupShift) : pickup] };
+  private drumBreak({ pickup: { into, key, shift } }: DrumBreakMaterial): Parts {
+    const pickup = this.band.bass(FIGURES.pickup, into.bassScale(key));
+    return { drums: this.drums(), pitched: [shift ? pickup.transpose(shift) : pickup] };
   }
 
-  // The final chord, built one instrument at a time.
   // The last chord, rung out in the finale's style.
-  private finale(): ReturnType<SectionArranger['parts']> {
+  private finale({ bars, ending }: FinaleMaterial): Parts {
     const { band, song } = this;
-    const fin = this.mat.bars![0][0];
+    const fin = bars[0][0];
     const name = fin.name(song.key);
-    const keys = (c: Pattern) =>
-      c.voicing().sound(band.sounds.keys).gain(0.4).postgain(band.trim('keys')).room(0.5);
-    const swell = band.drum(s('rd*16').gain(0.09).velocity(saw.slow(2).range(0.3, 1)));
-    switch (this.mat.ending) {
+    const keys = (c: Pattern) => band.chords('keys', c, 0.4).room(0.5);
+    const root = band.bass('0', fin.bassScale(song.key));
+    // The ride swelling under the held chord, after a kick and crash.
+    const ride = band.drum(s('rd*16').gain(0.09).velocity(saw.slow(2).range(0.3, 1)));
+    const ring = [band.drum(s('[bd,cr]').slow(2).gain(0.55)), ride];
+    switch (ending) {
       case 'hits': {
         // The band hits the chord with the drums, then one last stab rings
         // out over the strings.
@@ -467,7 +490,7 @@ class SectionArranger {
           pitched: [
             keys(chord(name).struct(hits)).clip(0.4),
             band.stabs(chord(name), hits),
-            band.bass('0', fin.bassScale(song.key)).struct(hits).clip(0.4),
+            root.struct(hits).clip(0.4),
             band.strings(chord(name)).mask('<0 1>'),
           ],
         };
@@ -480,14 +503,14 @@ class SectionArranger {
         const chords = chord(both(above.name(song.key), name)).slow(2);
         const scales = both(above.bassScale(song.key), fin.bassScale(song.key));
         return {
-          drums: [band.drum(s('[~@3 [bd,cr]@13]').slow(2).gain(0.55)), swell],
+          drums: [band.drum(s('[~@3 [bd,cr]@13]').slow(2).gain(0.55)), ride],
           pitched: [keys(chords), band.strings(chords), band.bass('[0@3 0@13]', scales).slow(2)],
         };
       }
       case 'run':
         // A run up the chord on the keys, landing on it held.
         return {
-          drums: [band.drum(s('[bd,cr]').slow(2).gain(0.55)), swell],
+          drums: ring,
           pitched: [
             band
               .voiced(band.line(FIGURES.finaleRun, fin.bassScale(song.key, 2)).slow(2), band.sounds.keys)
@@ -495,7 +518,7 @@ class SectionArranger {
               .room(0.5),
             keys(chord(`[~ ${name}@3]`)).slow(2),
             band.strings(chord(name)).slow(2),
-            band.bass('0', fin.bassScale(song.key)).slow(2),
+            root.slow(2),
           ],
         };
     }
@@ -509,13 +532,8 @@ class SectionArranger {
         .room(0.5);
     });
     return {
-      drums: [band.drum(s('[bd,cr]').slow(2).gain(0.55)), swell],
-      pitched: [
-        keys(chord(name)).slow(2),
-        band.strings(chord(name)).slow(2),
-        band.bass('0', fin.bassScale(song.key)).slow(2),
-        ...enters,
-      ],
+      drums: ring,
+      pitched: [keys(chord(name)).slow(2), band.strings(chord(name)).slow(2), root.slow(2), ...enters],
     };
   }
 
@@ -527,24 +545,27 @@ class SectionArranger {
   // a stop.
   // `enter` may hold a part back, by role, with a mask.
   private drums(enter?: (role: DrumRole) => string | undefined): Pattern[] {
-    const d = this.mat.drums!;
+    const { mat } = this;
+    if (mat.type === 'finale') throw new Error('The finale has no groove');
+    const d = mat.drums;
     const { len } = this;
     const fill: DrumFill | null = d.fill ? d.fills[this.repeat % d.fills.length] : null;
     const cut = fill && Mini.lastBar(len, fill.start ? `[1@${fill.start} 0@${16 - fill.start}]` : '0', '1');
-    const parts = d.parts.map(({ sound, role, bars }) => {
-      let p = s(Mini.perBar(bars.map((b) => Mini.hits(b, sound)))).gain(Mini.perBar(bars.map(Mini.gains)));
+    const groove = d.parts.map(({ sound, role, bars }) => {
+      const p = s(Mini.perBar(bars.map((b) => Mini.hits(b, sound)))).gain(Mini.perBar(bars.map(Mini.gains)));
       const held = enter?.(role);
-      if (held) p = p.mask(held);
-      return cut && (fill.stop || role === 'kick' || role === 'snare' || role === 'ghost') ? p.mask(cut) : p;
+      const entered = held ? p.mask(held) : p;
+      return cut && (fill.stop || role === 'kick' || role === 'snare' || role === 'ghost')
+        ? entered.mask(cut)
+        : entered;
     });
-    if (fill) {
-      for (const sound of new Set(fill.hits.map((h) => h.sound))) {
-        const bar: StepGains = new Array(16).fill(0);
-        for (const h of fill.hits) if (h.sound === sound) bar[h.step] = h.gain;
-        parts.push(s(Mini.lastBar(len, Mini.hits(bar, sound), '~')).gain(Mini.lastBar(len, Mini.gains(bar), '0')));
-      }
-    }
-    if (d.crash) parts.push(s(`<cr ${'~ '.repeat(len - 1)}>`).gain(0.2));
+    // The fill's hits, one part per sound, in the last bar.
+    const fillParts = [...new Set(fill?.hits.map((h) => h.sound))].map((sound) => {
+      const bar = at(Object.fromEntries(fill!.hits.filter((h) => h.sound === sound).map((h) => [h.step, h.gain])));
+      return s(Mini.lastBar(len, Mini.hits(bar, sound), '~')).gain(Mini.lastBar(len, Mini.gains(bar), '0'));
+    });
+    const crash = d.crash ? [s(`<cr ${'~ '.repeat(len - 1)}>`).gain(0.2)] : [];
+    const parts = [...groove, ...fillParts, ...crash];
     return parts.map((p) => this.band.drum(p));
   }
 }

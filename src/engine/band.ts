@@ -2,18 +2,17 @@
 // Mini builds mini-notation strings from song data; Band builds the
 // patterns themselves.
 
+import './strudel-setup';
 import { chord, n, noteToMidi, rand, stack, type Pattern } from '@strudel/core';
-import { mini, miniAllStrings } from '@strudel/mini';
-import '@strudel/tonal';
+import { mini } from '@strudel/mini';
 import { STYLE } from './constants';
 import { FORM } from './form';
 import { BAND, KIT_GAPS, SOUND_LEVELS, SOUND_TOPS } from './instruments';
-import type { Key } from './music';
-import type { Bar, BandSounds, PickedPart, Sounds, StepGains } from './types';
+import { barTokens, type Key } from './music';
+import type { Bar, BandSounds, PickedPart, Sounds, StepGains, Voice } from './types';
 
-// Plain strings passed to Strudel functions are mini-notation, as in the
-// Strudel REPL.
-miniAllStrings();
+// The parts that play chords.
+type ChordPart = 'keys' | 'guitar' | 'pad' | 'strings' | 'choir' | 'stabs';
 
 export const FIGURES = {
   arp: '[0 1 2 3]*2',
@@ -50,12 +49,7 @@ export const Mini = {
   groups: (tokens: (string | number)[]) =>
     '[' + [0, 4, 8, 12].map((i) => '[' + tokens.slice(i, i + 4).join(' ') + ']').join(' ') + ']',
   /** A chord pattern, one bar per item. */
-  chords: (bars: Bar[], key: Key) =>
-    chord(
-      Mini.perBar(
-        bars.map((bar) => (bar.length === 1 ? bar[0].name(key) : `[${bar.map((c) => c.name(key)).join(' ')}]`)),
-      ),
-    ),
+  chords: (bars: Bar[], key: Key) => chord(Mini.perBar(barTokens(bars, (c) => c.name(key)))),
 };
 
 /**
@@ -114,62 +108,38 @@ export class Band {
       .sound(sound);
   }
 
-  keys(c: Pattern, rhythm = STYLE.comp.main) {
-    return c
-      .struct(rhythm)
-      .voicing()
-      .sound(this.sounds.keys)
-      .gain(0.34)
-      .postgain(this.trim('keys'))
-      .velocity(rand.range(0.8, 1))
-      .room(0.2);
+  /** A chord pattern voiced on a part's sound, at a gain, trimmed for the sound picked. */
+  chords(part: ChordPart, c: Pattern, gain: number) {
+    return c.voicing().sound(this.sounds[part]).gain(gain).postgain(this.trim(part));
+  }
+
+  keys(c: Pattern, rhythm: Pattern | string = STYLE.comp.main) {
+    return this.chords('keys', c.struct(rhythm), 0.34).velocity(rand.range(0.8, 1)).room(0.2);
   }
   softKeys(c: Pattern) {
-    return c.voicing().sound(this.sounds.keys).gain(0.32).postgain(this.trim('keys')).room(0.35);
+    return this.chords('keys', c, 0.32).room(0.35);
   }
   arp(c: Pattern) {
-    return n(FIGURES.arp)
-      .set(c)
-      .voicing()
-      .sound(this.sounds.keys)
-      .gain(0.24)
-      .postgain(this.trim('keys'))
-      .room(0.4)
-      .delay(0.2)
-      .delaytime(0.375);
+    return this.chords('keys', n(FIGURES.arp).set(c), 0.24).room(0.4).delay(0.2).delaytime(0.375);
   }
+  // The clavinet isn't picked per song, so it has no trim.
   clav(c: Pattern) {
     return n(FIGURES.clav).set(c).voicing().sound(this.sounds.clav).gain(0.19).velocity(rand.range(0.7, 1)).pan(0.28);
   }
   scratch(c: Pattern) {
-    return n(FIGURES.scratch)
-      .set(c)
-      .voicing()
-      .sound(this.sounds.guitar)
-      .postgain(this.trim('guitar'))
-      .clip(0.5)
-      .gain(0.28)
-      .velocity(rand.range(0.7, 1))
-      .pan(0.72);
+    return this.chords('guitar', n(FIGURES.scratch).set(c), 0.28).clip(0.5).velocity(rand.range(0.7, 1)).pan(0.72);
   }
   pad(c: Pattern) {
-    return c.anchor('a4').voicing().sound(this.sounds.pad).gain(0.14).postgain(this.trim('pad')).room(0.4);
+    return this.chords('pad', c.anchor('a4'), 0.14).room(0.4);
   }
   strings(c: Pattern) {
-    return c.anchor('d6').voicing().sound(this.sounds.strings).gain(0.11).postgain(this.trim('strings')).room(0.45);
+    return this.chords('strings', c.anchor('d6'), 0.11).room(0.45);
   }
   choir(c: Pattern) {
-    return c.anchor('e5').voicing().sound(this.sounds.choir).gain(0.09).postgain(this.trim('choir')).room(0.45);
+    return this.chords('choir', c.anchor('e5'), 0.09).room(0.45);
   }
   stabs(c: Pattern, rhythm: Pattern | string = FIGURES.stab) {
-    return c
-      .struct(rhythm)
-      .anchor('g5')
-      .voicing()
-      .sound(this.sounds.stabs)
-      .clip(0.3)
-      .gain(0.22)
-      .postgain(this.trim('stabs'));
+    return this.chords('stabs', c.struct(rhythm).anchor('g5'), 0.22).clip(0.3);
   }
   bass(degrees: Pattern | string, scales: Pattern | string) {
     return n(degrees).scale(scales).sound(this.sounds.bass).clip(0.8).gain(0.75).postgain(this.trim('bass'));
@@ -182,19 +152,21 @@ export class Band {
   harmonize(p: Pattern, ...steps: number[]) {
     return stack(p, ...steps.map((st) => p.sub(st)));
   }
+  /** A line on a melody voice, at its gain. */
+  voice([sound, gain]: Voice, p: Pattern) {
+    return this.voiced(p, sound).gain(gain);
+  }
   lead(p: Pattern) {
-    return this.voiced(p, this.sounds.lead[0]).gain(this.sounds.lead[1]).room(0.25);
+    return this.voice(this.sounds.lead, p).room(0.25);
   }
   double(p: Pattern, up = 12) {
-    return this.voiced(p.transpose(up), this.sounds.double[0]).gain(this.sounds.double[1]).room(0.35);
+    return this.voice(this.sounds.double, p.transpose(up)).room(0.35);
   }
   counter(p: Pattern) {
-    const [sound, gain] = this.sounds.answer;
-    return this.voiced(p, sound).gain(gain).postgain(this.trim('answer')).pan(0.62).room(0.25);
+    return this.voice(this.sounds.answer, p).postgain(this.trim('answer')).pan(0.62).room(0.25);
   }
   bell(p: Pattern) {
-    const [sound, gain] = this.sounds.bell;
-    return this.voiced(p, sound).gain(gain).postgain(this.trim('bell')).room(0.4);
+    return this.voice(this.sounds.bell, p).postgain(this.trim('bell')).room(0.4);
   }
   horns(p: Pattern) {
     const { stabs, hornDouble } = this.sounds;

@@ -4,7 +4,7 @@
 import type { Chord, Key } from './music';
 import type { Melody, Solo } from './melody';
 
-export type Bar = Chord[];
+export type Bar = readonly Chord[];
 
 // The modes a song can be in. Each has a tonality (TONALITIES) with its
 // own progressions; all are church modes, named as Strudel's scale() wants.
@@ -88,12 +88,12 @@ export type PhraseForm = 'period' | 'pairs' | 'sentence' | 'aaba' | 'callRespons
 
 export type DrumFeel = 'funk' | 'disco' | 'halfTime' | 'bossa' | 'introRide' | 'claps' | 'build' | 'break';
 export type DrumRole = 'kick' | 'snare' | 'ghost' | 'hat' | 'perc';
-export type StepGains = number[]; // 16 sixteenths, 0 = silent
+export type StepGains = readonly number[]; // 16 sixteenths, 0 = silent
 
 export interface DrumVoice {
   sound: string;
   role: DrumRole;
-  bars: StepGains[]; // choices; a recipe picks one
+  bars: readonly StepGains[]; // choices; a recipe picks one
 }
 
 // One step of a drum feel's recipe, run in order.
@@ -123,7 +123,7 @@ export interface DrumRecipe {
 export interface DrumPart {
   sound: string;
   role: DrumRole;
-  bars: StepGains[]; // four bars, the fourth a variation
+  bars: readonly StepGains[]; // four bars, the fourth a variation
 }
 export interface DrumHit {
   step: number;
@@ -133,12 +133,12 @@ export interface DrumHit {
 export interface DrumFill {
   start: number;
   stop: boolean;
-  hits: DrumHit[];
+  hits: readonly DrumHit[];
 }
 export interface Drums {
   feel: DrumFeel;
-  parts: DrumPart[];
-  fills: DrumFill[];
+  parts: readonly DrumPart[];
+  fills: readonly DrumFill[];
   crash: boolean;
   fill: boolean;
 }
@@ -173,35 +173,62 @@ export interface DrumPlan {
   crash: number; // chance of a crash on the first bar
   fill: number; // chance of a fill at the end
 }
-export interface PreFlavourDef {
-  weight: number;
-  melody: PreMelody;
+// A section's drums, and the bass feels that go with them.
+export interface Rhythm {
   drums: DrumPlan;
   bass: BassFeel[];
 }
-
-export interface Material {
-  type: SectionType;
-  key: Key;
-  bars?: Bar[];
-  melody?: Melody;
-  answer?: Melody;
-  solo?: Solo;
-  harmony?: IntroHarmony;
-  texture?: IntroTexture;
-  flavour?: PreFlavour; // pre-chorus only
-  entry?: DrumEntry; // vamp only: how the drums start the opening vamp
-  lifts?: Lift[]; // lift only: one per lift in the form, in order
-  ending?: FinaleStyle; // finale only
-  outro?: OutroStyle; // outro only
-  drums?: Drums;
-  bass?: Bass;
-  // drumBreak: the chord, section and shift it hands over to.
-  pickupInto?: Chord;
-  pickupFrom?: SectionType;
-  pickupShift?: number;
+export interface PreFlavourDef extends Rhythm {
+  weight: number;
+  melody: PreMelody;
 }
-export type Materials = Partial<Record<SectionType, Material>>;
+
+// What a section plays. Every type has its own shape (MaterialOf), so
+// the arranger can rely on what's there: a section with a band has its
+// chords, drums and bass; the rest is per type.
+interface MaterialBase<T extends SectionType> {
+  type: T;
+  key: Key;
+}
+// A section the band plays through: its chords, groove and bass line.
+type Played<T extends SectionType> = MaterialBase<T> & { bars: Bar[]; drums: Drums; bass: Bass };
+
+// What each band section has besides.
+interface PlayedFields {
+  intro: { harmony: IntroHarmony; texture: IntroTexture; melody?: Melody };
+  vamp: { entry: DrumEntry }; // how the drums start the opening vamp
+  verse: { melody: Melody };
+  pre: { flavour: PreFlavour; melody: Melody };
+  chorus: { melody: Melody; answer: Melody };
+  riff: { melody: Melody };
+  bridge: { melody: Melody };
+  breakdown: { melody: Melody };
+  solo: { solo: Solo };
+  solo2: { solo: Solo };
+  // A reprise plays the intro's chords; a trade, soloists over a vamp.
+  outro: { outro: 'reprise' } | { outro: 'trade'; solo: Solo };
+}
+
+// One lift for each in the form, in order; each brings its own chords and bass.
+export type LiftMaterial = MaterialBase<'lift'> & { drums: Drums; lifts: Lift[] };
+// Drums alone, then a bass pickup into `into`, the next section's first
+// chord (in `key`, that section's key, shifted up `shift`).
+export type DrumBreakMaterial = MaterialBase<'drumBreak'> & {
+  drums: Drums;
+  pickup: { into: Chord; key: Key; shift: number };
+};
+// The last chord, alone in its bar.
+export type FinaleMaterial = MaterialBase<'finale'> & { bars: Bar[]; ending: FinaleStyle };
+
+export type MaterialOf<T extends SectionType> = T extends keyof PlayedFields
+  ? Played<T> & PlayedFields[T]
+  : T extends 'lift'
+    ? LiftMaterial
+    : T extends 'drumBreak'
+      ? DrumBreakMaterial
+      : FinaleMaterial;
+export type Material = MaterialOf<SectionType>;
+export type Materials = { [T in SectionType]?: MaterialOf<T> };
 // How the last chord rings out: voices stacking up it one by one, band
 // hits, a slide down from a semitone above, or a run up it.
 export type FinaleStyle = 'cascade' | 'hits' | 'slide' | 'run';
@@ -212,7 +239,7 @@ export interface Lift {
   key: Key;
   bars: Bar[];
   style: LiftStyle;
-  bass?: Bass;
+  bass: Bass;
 }
 // How a lift is played: a rising horn line, band hits, the drums
 // dropping out, a run up into the chorus, or the drums alone.
@@ -329,4 +356,3 @@ export interface TitleParts {
   join: 'brackets' | 'dash' | 'space';
   romanised: boolean;
 }
-

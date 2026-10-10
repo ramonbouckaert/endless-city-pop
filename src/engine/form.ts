@@ -147,7 +147,6 @@ export class FormPlanner {
   private ending(): Section[] {
     const { rng } = this;
     const { lift } = FORM;
-    const turnarounds = Object.entries(this.turnarounds).map(([name, t]) => [name, t.weight] as const);
     const s: Section[] = [];
     let shift = 0;
     const finals = rng.weighted(FORM.finalChoruses);
@@ -155,7 +154,7 @@ export class FormPlanner {
       const step = rng.weighted(lift.steps);
       if (shift + step <= lift.maxShift && rng.chance(i ? lift.again : lift.first)) {
         shift += step;
-        const turnaround = rng.weighted(turnarounds);
+        const turnaround = rng.weightedKey(this.turnarounds);
         const bars = this.turnarounds[turnaround].bars.length;
         s.push(new Section('lift', bars, { liftTo: shift, turnaround }));
       }

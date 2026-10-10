@@ -19,8 +19,7 @@ npm install
 npm run dev        # the app, at http://localhost:5173
 npm test           # unit tests, then queries 12 songs' patterns through Strudel
 npm run song -- mySeed   # print a song's outline
-npm run song -- mySeed dorian   # ... in a given mode
-npm run midi -- mySeed minor    # write mySeed.mid
+npm run midi -- mySeed   # write mySeed.mid
 ```
 
 ## How a song is made
@@ -31,7 +30,7 @@ seed ─▶ mode, key ─▶ form ─▶ harmony ─▶ melody, bass ─▶ Stru
 
 ### Modes
 
-A seed picks a mode (`npm run song -- mySeed minor` sets one), and the mode's
+A seed picks a mode, and the mode's
 **tonality** (`TONALITIES` in `src/engine/constants.ts`) supplies its
 progressions, tonic chord, cadence, bridge keys, key-change turnarounds
 and final chord:
@@ -128,7 +127,7 @@ over, and later key changes keep the opening key signature.
 
 `scripts/checker.ts` queries every bar of a song's pattern and reports
 mini-notation errors, unknown sound names and notes out of range. `npm run check:songs
--- 25` sweeps 25 seeds (`-- 25 minor` sweeps them in one mode). `npm run smoke` (with `npm run preview`
+-- 25` sweeps 25 seeds. `npm run smoke` (with `npm run preview`
 running) loads the built app in Chromium and presses Play.
 
 ## Licence

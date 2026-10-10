@@ -17,10 +17,23 @@ import {
   SHARP_NAMES,
   SYMBOL_SCALES,
 } from './constants';
-import type { ChordClass, Mode, Range } from './types';
+import type { Bar, ChordClass, Mode } from './types';
+
+// E1: bass roots sit from here to Eb2, and no bass note goes below.
+export const BASS_LOW = 28;
 
 export const mod12 = (n: number): number => ((n % 12) + 12) % 12;
 export const pcName = (pc: number, flats = true): string => (flats ? FLAT_NAMES : SHARP_NAMES)[mod12(pc)];
+
+/** One mini-notation item per bar: a chord's token, or two sharing a bar in brackets. */
+export const barTokens = (bars: Bar[], token: (c: Chord) => string): string[] =>
+  bars.map((bar) => (bar.length === 1 ? token(bar[0]) : `[${bar.map(token).join(' ')}]`));
+
+/** Items from a flat list, regrouped bar by bar like `like` (extra items are left over). */
+export function reshape<T>(flat: readonly T[], like: readonly (readonly unknown[])[]): T[][] {
+  const starts = like.map((_, b) => like.slice(0, b).reduce((n, bar) => n + bar.length, 0));
+  return like.map((bar, b) => flat.slice(starts[b], starts[b] + bar.length));
+}
 
 /** A scale as semitone steps, counted in (possibly negative) degrees. */
 export class Scale {
@@ -236,7 +249,7 @@ export class Chord {
   /** The root's MIDI note in a bass's low range, E1 to Eb2. */
   get bassMidi(): number {
     const m = 24 + this.root;
-    return m < BASS.low ? m + 12 : m;
+    return m < BASS_LOW ? m + 12 : m;
   }
 
   /** The chord-scale from the bass root, e.g. "D2:dorian". */
@@ -280,16 +293,6 @@ export class Roman {
     return mod12(key.tonic + this.offset);
   }
 }
-
-export const BASS = {
-  low: 28, // E1: roots sit from here to Eb2, and nothing goes below
-  variety: [0.05, 0.3] as Range,
-  densityBoost: 1.3,
-  fill: { density: 0.35, sync: 0.3 },
-  approachSame: [7, 10, -2],
-  approachChromatic: [-1, 1, -1],
-  approachDiatonic: [-2, 2, 7, -5],
-};
 
 /** A progression template, such as `I vi [ii7 V7] IV`: one token per bar, with brackets around two chords sharing a bar. */
 export class Template {

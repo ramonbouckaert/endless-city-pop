@@ -4,11 +4,9 @@
 // cadences, where its bridges go and how it lifts.
 
 import { PALETTE, TONALITIES } from './constants';
-import { Chord, Key, Roman, Template } from './music';
+import { Chord, Key, reshape, Roman, Template } from './music';
 import type { Rng } from './random';
 import type { Bar, ChordSpec, PaletteName, Tonality, Weighted } from './types';
-
-export { Template };
 
 const TONIC_CHORDS: Readonly<Record<string, string>> = { maj: 'Imaj7', min: 'i7', dom: 'I7' };
 
@@ -69,34 +67,34 @@ export class Harmonizer {
       const minorV = this.key.minor && rn.offset === 7;
       let palette: PaletteName;
       if (rn.offset === 0 && cls === tonic && tonicPalette) palette = tonicPalette;
-      else if (cls === 'dom' && ((down5 && (next.cls === 'min' || next.cls === 'hdim')) || minorV)) palette = 'domToMinor';
+      else if (cls === 'dom' && ((down5 && (next.cls === 'min' || next.cls === 'hdim')) || minorV))
+        palette = 'domToMinor';
       else if (cls === 'sus' && minorV) palette = 'susToMinor';
-      else if (cls === 'maj' && this.key.modeAt(root) !== 'major') palette = 'majLydian'; // major chords take #11 unless they are the key's ionian chord
+      else if (cls === 'maj' && this.key.modeAt(root) !== 'major')
+        palette = 'majLydian'; // major chords take #11 unless they are the key's ionian chord
       else palette = cls;
       return new Chord(root, this.rng.weighted(PALETTE[palette]));
     });
-    let i = 0;
-    return this.scaled(bars.map((bar) => bar.map(() => chords[i++])));
+    return this.scaled(reshape(chords, bars));
   }
 
   /** Tritone subs, related ii chords and secondary dominants. */
   reharmonize(bars: Bar[], amount: number): Bar[] {
-    const out = bars.map((bar) => [...bar]);
-    out.forEach((bar, b) => {
-      const target = out[(b + 1) % out.length][0];
-      const last = bar.at(-1)!;
-      if (
-        last.dominant &&
-        last.fallsFifthTo(target) &&
-        !this.isTonic(last) &&
-        this.rng.chance(amount * REHARM.tritone)
-      ) {
-        bar[bar.length - 1] = new Chord(last.root + 6, '13#11');
-      } else if (bar.length === 1) {
-        out[b] = this.substitute(bar[0], target, amount) ?? bar;
-      }
-    });
-    return this.scaled(out);
+    return this.scaled(
+      bars.map((bar, b) => {
+        const target = bars[(b + 1) % bars.length][0];
+        const last = bar.at(-1)!;
+        if (
+          last.dominant &&
+          last.fallsFifthTo(target) &&
+          !this.isTonic(last) &&
+          this.rng.chance(amount * REHARM.tritone)
+        ) {
+          return bar.with(-1, new Chord(last.root + 6, '13#11'));
+        }
+        return (bar.length === 1 && this.substitute(bar[0], target, amount)) || bar;
+      }),
+    );
   }
 
   // A whole-bar chord split in two, or nothing.
@@ -142,9 +140,7 @@ export class Harmonizer {
       }),
     );
     const flat = [...bars.flat(), new Chord(key.tonic, TONALITIES[key.mode].finale[0][0])];
-    const scaled = Chord.fitScales(flat, key);
-    let i = 0;
-    return bars.map((bar) => bar.map(() => scaled[i++]));
+    return reshape(Chord.fitScales(flat, key), bars);
   }
 
   /**
@@ -157,32 +153,33 @@ export class Harmonizer {
   solo(bars: number, reharm = 0): Bar[] {
     const { solo, templates, tonic } = this.tonality;
     const home = this.key;
-    const out: Bar[] = [];
-    const keys: Key[] = [];
-    const add = (chords: Bar[], key: Key) => {
-      out.push(...chords);
-      keys.push(...chords.map(() => key));
-    };
-    const pairs = (n: number) => {
+    // Bars, each with the key its chord-scales come from.
+    type Keyed = { bars: Bar[]; key: Key };
+    const pairs = (n: number): Keyed[] => {
       const step = this.rng.weighted(solo.steps ?? SOLO_CHANGES.steps);
       const start = home.tonic + this.rng.pick(SOLO_CHANGES.starts);
-      for (let p = 0; p < n; p++) {
+      return Array.from({ length: n }, (_, p) => {
         const key = home.transpose(start - home.tonic + p * step);
-        add(this.into(solo.pair, key), key);
-      }
+        return { bars: this.into(solo.pair, key), key };
+      });
     };
-    for (let eight = 0; eight < bars / 8; eight++) {
+    const eight = (): Keyed[] => {
       const shape = this.rng.weighted(solo.shapes);
-      if (shape === 'cycle') pairs(3);
-      else if (shape === 'home') {
-        add(this.realize(new Template(TONIC_CHORDS[tonic]).fit(2)), home);
-        pairs(2);
-      } else add(this.realize(new Template(this.rng.pick(templates.vamp)).fit(6)), home);
-      add(this.approach(), home);
-    }
+      let lead: Keyed[];
+      if (shape === 'cycle') lead = pairs(3);
+      else if (shape === 'home')
+        lead = [{ bars: this.realize(new Template(TONIC_CHORDS[tonic]).fit(2)), key: home }, ...pairs(2)];
+      else lead = [{ bars: this.realize(new Template(this.rng.pick(templates.vamp)).fit(6)), key: home }];
+      return [...lead, { bars: this.approach(), key: home }];
+    };
+    const keyed = Array.from({ length: Math.ceil(bars / 8) }, eight).flat();
+    const out = keyed.flatMap((k) => k.bars);
+    const keys = keyed.flatMap((k) => k.bars.map(() => k.key));
     const changes = reharm ? this.reharmonize(out, reharm * this.tonality.reharm) : out;
     return changes.map((bar, b) =>
-      bar.map((chord, i) => chord.withScale(chord.fitScale(keys[b], bar[i + 1] ?? changes[(b + 1) % changes.length][0]))),
+      bar.map((chord, i) =>
+        chord.withScale(chord.fitScale(keys[b], bar[i + 1] ?? changes[(b + 1) % changes.length][0])),
+      ),
     );
   }
 
@@ -215,9 +212,6 @@ export class Harmonizer {
 
   // The bars, with chord-scales fitted in this key.
   private scaled(bars: Bar[]): Bar[] {
-    const flat = bars.flat();
-    const scaled = Chord.fitScales(flat, this.key);
-    let i = 0;
-    return bars.map((bar) => bar.map(() => scaled[i++]));
+    return reshape(Chord.fitScales(bars.flat(), this.key), bars);
   }
 }
