@@ -1,4 +1,4 @@
-import { mod12 } from './pitch';
+import { PitchClass } from './pitch';
 import { NUMERALS, type ChordClass } from './tables';
 import type { Key } from './key';
 
@@ -20,7 +20,7 @@ export class Roman {
     if (acc === 'b') accOffset = -1;
     else if (acc === '#') accOffset = 1;
     const offset = NUMERALS[numeral.toLowerCase()] + accOffset;
-    return new Roman(mod12(offset), Roman.family(suffix, upper), text);
+    return new Roman(PitchClass.of(offset), Roman.family(suffix, upper), text);
   }
 
   private static family(suffix: string, upper: boolean): ChordClass {
@@ -34,7 +34,14 @@ export class Roman {
   }
 
   root(key: Key): number {
-    return mod12(key.tonic + this.offset);
+    return PitchClass.of(key.tonic + this.offset);
+  }
+
+  /** A chord spec's numeral, as semitones above the tonic, and its symbols to pick from. */
+  static parseSpec(spec: ChordSpec): { offset: number; symbols: string[] } {
+    const [numeral, symbols] = spec.split(':');
+    if (!symbols) throw new Error(`Not a chord spec: ${spec}`);
+    return { offset: Roman.parse(numeral).offset, symbols: symbols.split('|') };
   }
 }
 
@@ -66,10 +73,3 @@ export class Template {
 
 /** A chord as "numeral:symbol", with alternative symbols split by "|": "V:7alt|13b9". */
 export type ChordSpec = string;
-
-/** A chord spec's numeral, as semitones above the tonic, and its symbols to pick from. */
-export function parseChordSpec(spec: ChordSpec): { offset: number; symbols: string[] } {
-  const [numeral, symbols] = spec.split(':');
-  if (!symbols) throw new Error(`Not a chord spec: ${spec}`);
-  return { offset: Roman.parse(numeral).offset, symbols: symbols.split('|') };
-}

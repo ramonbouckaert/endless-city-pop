@@ -18,7 +18,7 @@ import {
   type PhraseFormDef,
   type ShapeName,
 } from '../../style';
-import { chordAt, type Bar, type Key } from '../../theory';
+import { Chord, type Bar, type Key } from '../../theory';
 import { Line, type Note } from './line';
 
 export interface MelodyNote extends Note {
@@ -72,7 +72,7 @@ export class AnswerWriter {
         return rng.pick(fitting).reduce<MelodyNote[]>((notes, [o, len], i) => {
           const prev = notes.at(-1)?.semis ?? first;
           const target = prev + (i ? rng.pick(ANSWER.steps) : 0);
-          const semis = chordAt(bars[b], at + o).snap(target, key, { prev, dir: 1 });
+          const semis = Chord.at(bars[b], at + o).snap(target, key, { prev, dir: 1 });
           return [...notes, { start: at + o, len, semis }];
         }, []);
       }),
@@ -163,7 +163,7 @@ export class MelodyWriter {
         : drifted;
     const notes = motif.notes.reduce<MelodyNote[]>((line, n, i) => {
       const prev = line.at(-1)?.semis ?? at.prevSemis;
-      const chord = chordAt(bar, n.start);
+      const chord = Chord.at(bar, n.start);
       const last = i === motif.notes.length - 1;
       const deg = motif.startDeg + climb + lift + drift + n.offset;
       let semis = scale.semis(foldByThirds(deg, range.lo, range.hi + climb));

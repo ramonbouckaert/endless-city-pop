@@ -14,7 +14,7 @@ import {
   type PaletteName,
   type Tonality,
 } from '../../style';
-import { Chord, Key, parseChordSpec, reshape, Template, type Bar, type ChordSpec, type Roman } from '../../theory';
+import { Chord, Key, Roman, Template, type Bar, type ChordSpec } from '../../theory';
 
 /** Writes harmony in a key, drawing on one random stream. */
 export class Harmonizer {
@@ -60,7 +60,7 @@ export class Harmonizer {
       else palette = cls;
       return new Chord(root, this.rng.weightedKey(PALETTE[palette]));
     });
-    return this.scaled(reshape(chords, bars));
+    return this.scaled(Chord.inBars(chords, bars));
   }
 
   /** Tritone subs, related ii chords and secondary dominants. */
@@ -117,12 +117,12 @@ export class Harmonizer {
   into(specs: readonly (readonly ChordSpec[])[], key = this.key): Bar[] {
     const bars = specs.map((bar) =>
       bar.map((chord) => {
-        const { offset, symbols } = parseChordSpec(chord);
+        const { offset, symbols } = Roman.parseSpec(chord);
         return new Chord(key.tonic + offset, this.rng.pick(symbols));
       }),
     );
     const flat = [...bars.flat(), new Chord(key.tonic, tonalityOf(key.mode).finaleSymbol)];
-    return reshape(Chord.fitScales(flat, key), bars);
+    return Chord.inBars(Chord.fitScales(flat, key), bars);
   }
 
   /** add9 chords planing down in whole steps from bIII or bVI, then a sus dominant. */
@@ -154,7 +154,7 @@ export class Harmonizer {
 
   // The bars, with chord-scales fitted in this key.
   private scaled(bars: Bar[]): Bar[] {
-    return reshape(Chord.fitScales(bars.flat(), this.key), bars);
+    return Chord.inBars(Chord.fitScales(bars.flat(), this.key), bars);
   }
 }
 

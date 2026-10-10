@@ -6,7 +6,7 @@
 import { songToMidi } from '../src/midi/from-score';
 import { ScoreArranger, Song } from '../src/engine';
 import { PERCUSSION, programName } from '../src/lib/general-midi';
-import { BASS_LOW } from '../src/theory';
+import { Chord } from '../src/theory';
 
 const count = Number(process.argv[2] ?? 100);
 const DRUMS = new Set<number>(Object.values(PERCUSSION));
@@ -20,7 +20,7 @@ function problems(song: Song): string[] {
       !(Number.isFinite(n.dur) && n.dur > 0) && `${where}: bad length ${n.dur}`,
       (!Number.isInteger(n.note) || n.note < 0 || n.note > 127) && `${where}: note ${n.note} out of range`,
       n.program === 'drums' && !DRUMS.has(n.note) && `${where}: ${n.note} isn't one of the band's drums`,
-      n.path === 'bass' && n.note < BASS_LOW && `${where}: bass note ${n.note} below ${BASS_LOW}`,
+      n.path === 'bass' && n.note < Chord.BASS_LOW && `${where}: bass note ${n.note} below ${Chord.BASS_LOW}`,
       !(Number.isFinite(n.gain * n.velocity * n.postgain) && n.gain > 0) && `${where}: bad level`,
     ].filter((p): p is string => !!p);
   });

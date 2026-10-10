@@ -4,7 +4,7 @@
 import { PERCUSSION, type Percussion } from '../../lib/general-midi';
 import type { Rng } from '../../lib/random';
 import { COMP, FIGURES, MIX, RHYTHMS, type Figure, type Level, type MixName } from '../../style';
-import { BASS_LOW, voice, voicingNote, type Chord } from '../../theory';
+import { Chord, Voicing } from '../../theory';
 import type { Instruments, SoundPath } from '../song';
 import { Part, scoreNote, spans, timed, type Changes, type NoteSpec, type Span } from './score';
 
@@ -24,7 +24,8 @@ interface ChordHit extends Span {
 }
 
 // A pitch raised by octaves to the bass's lowest note, if it is below.
-const bassRange = (note: number) => (note < BASS_LOW ? note + 12 * Math.ceil((BASS_LOW - note) / 12) : note);
+const bassRange = (note: number) =>
+  note < Chord.BASS_LOW ? note + 12 * Math.ceil((Chord.BASS_LOW - note) / 12) : note;
 
 export class ScoreBand {
   /** `rng`: for the keyboard parts' varying velocities. */
@@ -84,7 +85,8 @@ export class ScoreBand {
     const level: Level = MIX[mix];
     const { anchor } = level;
     const specs = hits.flatMap(({ time, dur, chord, n }) => {
-      const notes = n === undefined ? voice(chord, anchor) : [voicingNote(chord, n, anchor)];
+      const voicing = new Voicing(chord, anchor);
+      const notes = n === undefined ? voicing.notes : [voicing.note(n)];
       return notes.map((note) => ({ time, dur, note }));
     });
     return this.play(part, specs, level);

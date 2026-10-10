@@ -2,7 +2,7 @@
 // instrument after a conductor track of tempo, meter, key and section
 // markers. Plain bytes, no dependencies.
 
-import { mod12, type Key } from '../theory';
+import { PitchClass, type Key } from '../theory';
 
 export const PPQ = 480; // ticks per quarter note
 export const TICKS_PER_BAR = PPQ * 4;
@@ -57,7 +57,7 @@ export interface MidiSong {
 
 /** A key signature: sharps (+) or flats (-) of its relative major, and whether it is minor. */
 export function keySignature(key: Key): { sf: number; minor: boolean } {
-  const pos = mod12(key.majorTonic * 7);
+  const pos = PitchClass.of(key.majorTonic * 7);
   return { sf: key.usesFlats && pos > 0 ? pos - 12 : pos, minor: key.mode === 'minor' };
 }
 

@@ -15,7 +15,7 @@ import {
   type BassFeelDef,
   type BassToken,
 } from '../../style';
-import { BASS_LOW, type Bar, type Chord, type Degree, type Key } from '../../theory';
+import { Chord, type Bar, type Degree, type Key } from '../../theory';
 import { Line, type Note } from './line';
 
 /** A note in the chord-scale of the chord it sounds over (the bar's last, for an approach note). */
@@ -148,7 +148,7 @@ export class BassWriter {
     const { rng } = this;
     const approach = rng.chance(BASS.chromatic) ? BASS.approachChromatic : BASS.approachDiatonic;
     let pitch = target === root ? root + rng.pick(BASS.approachSame) : target + rng.weighted(approach);
-    while (pitch < BASS_LOW) pitch += 12;
+    while (pitch < Chord.BASS_LOW) pitch += 12;
     return cur.chordScale.degree(pitch - root, this.key.usesFlats);
   }
 

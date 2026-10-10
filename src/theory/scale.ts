@@ -1,4 +1,4 @@
-import { mod12 } from './pitch';
+import { PitchClass } from './pitch';
 import { MODES } from './tables';
 
 /** A scale degree, raised (alter > 0) or lowered (alter < 0) by semitones: 4# is { step: 4, alter: 1 }. */
@@ -40,6 +40,6 @@ export class Scale {
   }
 
   has(semis: number): boolean {
-    return this.steps.includes(mod12(semis));
+    return this.steps.includes(PitchClass.of(semis));
   }
 }

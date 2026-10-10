@@ -3,7 +3,7 @@
 
 import type { Rng } from '../../lib/random';
 import { SLIDE_SECONDS, SOLO } from '../../style';
-import { chordAt, Scale, type Bar, type Chord } from '../../theory';
+import { Chord, Scale, type Bar } from '../../theory';
 import { Line, type Note } from './line';
 import { onChord, type Changes, type NoteSpec } from '../score';
 
@@ -60,7 +60,7 @@ export class SoloWriter {
             if (ch !== 'x') return at;
             const r = this.advance(rhythm, s, at.deg, at.dir);
             const graced = (s % 4 === 0 || rhythm[s - 1] !== 'x') && rng.chance(SOLO.grace.chance);
-            const note = graced ? { ...r.note, grace: this.grace(chordAt(bar, s), r.deg, at.deg) } : r.note;
+            const note = graced ? { ...r.note, grace: this.grace(Chord.at(bar, s), r.deg, at.deg) } : r.note;
             return { deg: r.deg, dir: r.dir, notes: [...at.notes, note] };
           },
           { deg, dir, notes: [] as SoloNote[] },

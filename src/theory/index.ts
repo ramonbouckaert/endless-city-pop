@@ -1,10 +1,11 @@
-// Music theory as values: scales, keys, chords and roman numerals. No
-// style, no randomness: style/ and engine/ build on it.
+// Music theory as values: pitch classes, scales, keys, chords, voicings
+// and roman numerals. No style, no randomness: style/ and engine/ build
+// on it.
 
-export { Chord, BASS_LOW, chordAt, type Bar } from './chord';
+export { Chord, type Bar } from './chord';
 export { Key } from './key';
-export { mod12, reshape } from './pitch';
-export { parseChordSpec, Roman, Template, type ChordSpec } from './roman';
+export { PitchClass } from './pitch';
+export { Roman, Template, type ChordSpec } from './roman';
 export { Scale, type Degree } from './scale';
 export { CHORDS, MODES, type ChordClass, type ChordDef, type Mode } from './tables';
-export { voice, voicingNote } from './voicing';
+export { Voicing } from './voicing';

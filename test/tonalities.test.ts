@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/lib/random';
 import { Harmonizer } from '../src/engine';
 import { PALETTE, PRE_FLAVOURS, TONALITIES } from '../src/style';
-import { CHORDS, Key, MODES, parseChordSpec, Template, type Mode } from '../src/theory';
+import { CHORDS, Key, MODES, Roman, Template, type Mode } from '../src/theory';
 
 describe('tonalities', () => {
   const modes = Object.keys(TONALITIES) as Mode[];
@@ -16,7 +16,7 @@ describe('tonalities', () => {
       expect(Object.keys(t.pre).sort()).toEqual(Object.keys(PRE_FLAVOURS).sort());
       const specs = [...t.approach, ...Object.values(t.turnarounds).flatMap((x) => x.bars)].flat();
       for (const spec of specs) {
-        for (const symbol of parseChordSpec(spec).symbols) expect(CHORDS).toHaveProperty([symbol]);
+        for (const symbol of Roman.parseSpec(spec).symbols) expect(CHORDS).toHaveProperty([symbol]);
       }
       for (const [symbol, scale] of t.finale) {
         expect(CHORDS[symbol].cls).toBe(t.tonic);

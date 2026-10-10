@@ -1,12 +1,15 @@
 import type { Key } from './key';
-import { mod12 } from './pitch';
+import { PitchClass } from './pitch';
 import { Scale } from './scale';
 import { CHORDS, DOM_TO_MINOR_SCALE, FAMILY_SCALES, SYMBOL_SCALES, type ChordClass } from './tables';
 
-// E1: bass roots sit from here to Eb2, and no bass note goes below.
-export const BASS_LOW = 28;
+/** The chords of one bar: one, or two splitting it. */
+export type Bar = readonly Chord[];
 
 export class Chord {
+  /** E1: bass roots sit from here to Eb2, and no bass note goes below. */
+  static readonly BASS_LOW = 28;
+
   readonly root: number;
   readonly cls: ChordClass;
   readonly tones: readonly number[];
@@ -19,7 +22,7 @@ export class Chord {
   ) {
     const def = CHORDS[symbol];
     if (!def) throw new Error(`Unknown chord symbol: ${symbol}`);
-    this.root = mod12(root);
+    this.root = PitchClass.of(root);
     this.cls = def.cls;
     this.tones = def.tones;
     if (scale) this.scale = scale;
@@ -39,8 +42,19 @@ export class Chord {
     return chords.map((c, i) => c.withScale(c.fitScale(key, chords[(i + 1) % chords.length])));
   }
 
+  /** Chords from a flat list, regrouped bar by bar like `like` (extra chords are left over). */
+  static inBars(chords: readonly Chord[], like: readonly (readonly unknown[])[]): Bar[] {
+    const starts = like.map((_, b) => like.slice(0, b).reduce((n, bar) => n + bar.length, 0));
+    return like.map((bar, b) => chords.slice(starts[b], starts[b] + bar.length));
+  }
+
+  /** The chord sounding at a sixteenth of a bar. */
+  static at(bar: Bar, step: number): Chord {
+    return bar[Math.min(bar.length - 1, Math.floor((step * bar.length) / 16))];
+  }
+
   get pcs(): number[] {
-    return this.tones.map((t) => mod12(this.root + t));
+    return this.tones.map((t) => PitchClass.of(this.root + t));
   }
 
   get minorish(): boolean {
@@ -57,12 +71,12 @@ export class Chord {
   }
 
   fallsFifthTo(other: Chord): boolean {
-    return mod12(this.root - other.root) === 7;
+    return PitchClass.of(this.root - other.root) === 7;
   }
 
   /** A dominant into a minor chord, or the V of a minor key wherever it goes. */
   resolvesToMinor(key: Key, next: Chord): boolean {
-    return (this.fallsFifthTo(next) && next.minorish) || (key.minor && mod12(this.root - key.tonic) === 7);
+    return (this.fallsFifthTo(next) && next.minorish) || (key.minor && PitchClass.of(this.root - key.tonic) === 7);
   }
 
   // Does a scale hold every chord tone? (A 13 has no place in phrygian dominant.)
@@ -101,10 +115,10 @@ export class Chord {
 
   // Chord tones within an octave of `semis`, nearest first.
   private tonesNear(semis: number, key: Key, diatonic: boolean): number[] {
-    const base = semis - mod12(semis);
+    const base = semis - PitchClass.of(semis);
     const out = this.pcs
       .filter((pc) => !diatonic || key.has(pc))
-      .flatMap((pc) => [-12, 0, 12].map((octave) => base + mod12(pc - key.tonic) + octave));
+      .flatMap((pc) => [-12, 0, 12].map((octave) => base + PitchClass.of(pc - key.tonic) + octave));
     if (!out.length) return [semis];
     return [...new Set(out)].sort((a, b) => Math.abs(a - semis) - Math.abs(b - semis) || a - b);
   }
@@ -112,13 +126,6 @@ export class Chord {
   /** The root's MIDI note in a bass's low range, E1 to Eb2. */
   get bassMidi(): number {
     const m = 24 + this.root;
-    return m < BASS_LOW ? m + 12 : m;
+    return m < Chord.BASS_LOW ? m + 12 : m;
   }
 }
-
-/** The chords of one bar: one, or two splitting it. */
-export type Bar = readonly Chord[];
-
-/** The chord sounding at a sixteenth of a bar. */
-export const chordAt = (bar: Bar, step: number): Chord =>
-  bar[Math.min(bar.length - 1, Math.floor((step * bar.length) / 16))];

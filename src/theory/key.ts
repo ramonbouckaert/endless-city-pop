@@ -1,4 +1,4 @@
-import { mod12, pcName } from './pitch';
+import { PitchClass } from './pitch';
 import { Scale } from './scale';
 import {
   CHURCH_MODES,
@@ -18,7 +18,7 @@ export class Key {
     tonic: number,
     readonly mode: Mode = 'major',
   ) {
-    this.tonic = mod12(tonic);
+    this.tonic = PitchClass.of(tonic);
   }
 
   get scale(): Scale {
@@ -31,7 +31,7 @@ export class Key {
   }
 
   get tonicName(): string {
-    return pcName(this.tonic, this.usesFlats);
+    return PitchClass.spell(this.tonic, this.usesFlats);
   }
 
   get name(): string {
@@ -54,7 +54,7 @@ export class Key {
 
   /** The mode a diatonic root takes in this key (D: dorian in C major), or undefined off the key. */
   modeAt(pc: number): string | undefined {
-    return CHURCH_MODES[MODES.major.indexOf(mod12(pc - this.majorTonic))];
+    return CHURCH_MODES[MODES.major.indexOf(PitchClass.of(pc - this.majorTonic))];
   }
 
   /**
@@ -63,12 +63,12 @@ export class Key {
    * Ab, Bb and F#.
    */
   spell(pc: number): string {
-    const letter = (LETTERS.indexOf(this.tonicName[0]) + DEGREE_OF_OFFSET[mod12(pc - this.tonic)]) % 7;
-    let acc = mod12(pc - LETTER_PCS[letter]);
+    const letter = (LETTERS.indexOf(this.tonicName[0]) + DEGREE_OF_OFFSET[PitchClass.of(pc - this.tonic)]) % 7;
+    let acc = PitchClass.of(pc - LETTER_PCS[letter]);
     if (acc > 6) acc -= 12;
     const name = LETTERS[letter] + (acc > 0 ? '#'.repeat(acc) : 'b'.repeat(-acc));
     // Avoid double accidentals and the rarely-seen Cb, Fb, E#, B#.
-    return Math.abs(acc) > 1 || RARE_SPELLINGS.includes(name) ? pcName(pc, true) : name;
+    return Math.abs(acc) > 1 || RARE_SPELLINGS.includes(name) ? PitchClass.spell(pc, true) : name;
   }
 
   /** Steps round the circle of fifths to another key. */
@@ -79,12 +79,12 @@ export class Key {
 
   // C = 0, G = 1, F = -1 ...; other modes at their relative major.
   private get fifthsPosition(): number {
-    const pos = mod12(this.majorTonic * 7);
+    const pos = PitchClass.of(this.majorTonic * 7);
     return pos > 6 ? pos - 12 : pos;
   }
 
   /** The tonic of the major key with the same notes: C for A minor, D dorian or G mixolydian. */
   get majorTonic(): number {
-    return mod12(this.tonic - MODES.major[CHURCH_MODES.indexOf(this.mode)]);
+    return PitchClass.of(this.tonic - MODES.major[CHURCH_MODES.indexOf(this.mode)]);
   }
 }

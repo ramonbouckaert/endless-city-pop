@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { songToMidi } from '../src/midi/from-score';
 import { ScoreArranger, Song, Verse } from '../src/engine';
 import { PERCUSSION } from '../src/lib/general-midi';
-import { BASS_LOW, Chord, voice, voicingNote } from '../src/theory';
+import { Chord, Voicing } from '../src/theory';
 import { defined } from './helpers';
 
 const songs = Array.from({ length: 20 }, (_, i) => Song.generate(`score${i}`));
@@ -60,7 +60,7 @@ describe('score', () => {
     for (const song of songs) {
       const bass = scoreOf(song).notes.filter((n) => n.path === 'bass');
       expect(bass.length).toBeGreaterThan(0);
-      for (const n of bass) expect(n.note).toBeGreaterThanOrEqual(BASS_LOW);
+      for (const n of bass) expect(n.note).toBeGreaterThanOrEqual(Chord.BASS_LOW);
     }
   });
 
@@ -79,7 +79,7 @@ describe('voicing', () => {
   it('keeps the top note at or within an octave below the anchor', () => {
     for (const chord of chords) {
       for (const anchor of [69, 72, 79, 86]) {
-        const notes = voice(chord, anchor);
+        const notes = new Voicing(chord, anchor).notes;
         const top = defined(notes.at(-1), 'a top note');
         expect(top).toBeLessThanOrEqual(anchor);
         expect(top).toBeGreaterThan(anchor - 12);
@@ -91,7 +91,7 @@ describe('voicing', () => {
 
   it("plays a chord's third and seventh, and leaves the root to the bass in a big chord", () => {
     for (const chord of chords) {
-      const pcs = voice(chord).map((n) => (n - chord.root + 120) % 12);
+      const pcs = new Voicing(chord).notes.map((n) => (n - chord.root + 120) % 12);
       for (const t of chord.tones.map((t) => t % 12)) {
         if ([3, 4, 10, 11].includes(t)) expect(pcs).toContain(t);
       }
@@ -101,9 +101,9 @@ describe('voicing', () => {
 
   it('counts past the top of a voicing an octave up', () => {
     const chord = new Chord(2, 'm9');
-    const notes = voice(chord);
-    expect(voicingNote(chord, 0)).toBe(notes[0]);
-    expect(voicingNote(chord, notes.length)).toBe(notes[0] + 12);
-    expect(voicingNote(chord, -1)).toBe(defined(notes.at(-1), 'a top note') - 12);
+    const notes = new Voicing(chord).notes;
+    expect(new Voicing(chord).note(0)).toBe(notes[0]);
+    expect(new Voicing(chord).note(notes.length)).toBe(notes[0] + 12);
+    expect(new Voicing(chord).note(-1)).toBe(defined(notes.at(-1), 'a top note') - 12);
   });
 });

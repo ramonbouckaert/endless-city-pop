@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { romanise } from '../src/lib/romaji';
-import { Chord, Key, MODES, parseChordSpec, Roman, Scale } from '../src/theory';
+import { Chord, Key, MODES, Roman, Scale } from '../src/theory';
 
 describe('music', () => {
   it('round-trips every semitone through degrees', () => {
@@ -37,8 +37,8 @@ describe('music', () => {
   });
 
   it('parses chord specs', () => {
-    expect(parseChordSpec('bVI:^7#11|^9#11')).toEqual({ offset: 8, symbols: ['^7#11', '^9#11'] });
-    expect(() => parseChordSpec('V')).toThrow();
+    expect(Roman.parseSpec('bVI:^7#11|^9#11')).toEqual({ offset: 8, symbols: ['^7#11', '^9#11'] });
+    expect(() => Roman.parseSpec('V')).toThrow();
   });
 
   it('romanises katakana in Hepburn, without diacritics or apostrophes', () => {
