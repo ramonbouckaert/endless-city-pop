@@ -343,8 +343,8 @@ class SectionArranger {
     };
   }
 
-  // The band vamps while two soloists (the song's, if it had solos)
-  // trade two-bar lines.
+  // A pared-back vamp, soft keys over light drums, while two soloists
+  // (the song's, if it had solos) trade two-bar lines.
   private trade(): ReturnType<SectionArranger['parts']> {
     const { band, C, len, song } = this;
     const count = band.sounds.soloists.length;
@@ -355,11 +355,10 @@ class SectionArranger {
     const turns = (mine: number) =>
       Mini.perBar(Array.from({ length: len }, (_, b) => (Math.floor(b / 2) % 2 === mine ? '1' : '0')));
     return {
-      drums: this.drums(),
+      drums: this.drums().map((p) => p.postgain(0.7)),
       pitched: [
-        this.B,
-        band.keys(C).gain(0.3),
-        band.clav(C),
+        this.B.gain(0.65),
+        band.softKeys(C).gain(0.24),
         this.soloist(first, line.mask(turns(0))).pan(0.4),
         this.soloist(second, line.mask(turns(1))).pan(0.62),
       ],

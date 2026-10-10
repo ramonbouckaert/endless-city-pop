@@ -246,6 +246,12 @@ export const STYLE = {
     halfTime: ['halfTime', 'pedal', 'funk', 'bossa'],
     introRide: ['pedal', 'halfTime', 'funk'],
   } as Partial<Record<DrumFeel, BassFeel[]>>,
+  // The trade outro's backing, pared back under the soloists: ride or
+  // half-time drums and a bass to match.
+  tradeOutro: {
+    bass: ['halfTime', 'pedal', 'bossa'],
+    drums: { feels: ['introRide', 'halfTime', 'bossa'], crash: 0, fill: 1 },
+  } as { bass: BassFeel[]; drums: DrumPlan },
   // Intro arrangements, with the bass feels each may take and their drums.
   introTextures: {
     pads: { bass: ['pedal', 'halfTime'], drums: { feels: ['introRide'], crash: 0, fill: 0 } },

@@ -329,8 +329,8 @@ function buildRhythm(rng: Rng, m: Materials, texture: IntroTexture): Materials {
       plan = intro.drums;
       feels = intro.bass;
     } else if (mat.outro === 'trade') {
-      plan = STYLE.drums.vamp!;
-      feels = STYLE.bassFeels.vamp!;
+      plan = STYLE.tradeOutro.drums;
+      feels = STYLE.tradeOutro.bass;
     } else if (mat.flavour) {
       plan = PRE_FLAVOURS[mat.flavour].drums;
       feels = PRE_FLAVOURS[mat.flavour].bass;
