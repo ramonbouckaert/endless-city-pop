@@ -24,7 +24,7 @@ const OUTPUT = 'src/app/soundfont/GeneralUser-GS-city-pop.sf3';
 const args = process.argv.slice(2);
 const at = args.indexOf('--quality');
 // Vorbis quality, 0 (smallest) to 10: 4 is about 4 MB, and no quieter than 2% on any sound.
-const quality = at >= 0 ? Number(args.splice(at, 2)[1]) : 4;
+const quality = at >= 0 ? Number(args.splice(at, 2)[1]) : 1;
 const input = args[0] ?? CACHED;
 
 SpessaLog.warnEnabled = false;
