@@ -2,8 +2,8 @@
 // each repeat changes. The odds are in style/form.ts.
 
 import type { Rng } from '../lib/random';
-import { FORM, MAX_SHIFT, type Turnaround } from '../style';
-import { Section } from './section';
+import { FORM, MAX_SHIFT, OUTRO_STYLES, type Turnaround } from '../style';
+import { section, type Section } from './section';
 
 export class FormPlanner {
   private readonly preBars: number;
@@ -27,8 +27,8 @@ export class FormPlanner {
 
   private opening(): Section[] {
     const { rng } = this;
-    const s = [new Section('intro', rng.pick(FORM.introBars))];
-    if (rng.chance(FORM.vamp.chance)) s.push(new Section('vamp', rng.pick(FORM.vamp.bars)));
+    const s: Section[] = [section('intro', rng.pick(FORM.introBars))];
+    if (rng.chance(FORM.vamp.chance)) s.push(section('vamp', rng.pick(FORM.vamp.bars), { returning: false }));
     return s;
   }
 
@@ -41,7 +41,7 @@ export class FormPlanner {
     const spots = body.flatMap((s, i) => (FORM.vamp.after.includes(s.type) ? [i + 1] : []));
     if (!spots.length) return body;
     const at = rng.pick(spots);
-    return [...body.slice(0, at), new Section('vamp', bars, { second: true }), ...body.slice(at)];
+    return [...body.slice(0, at), section('vamp', bars, { returning: true }), ...body.slice(at)];
   }
 
   // Verse / pre-chorus / chorus rounds.
@@ -49,11 +49,11 @@ export class FormPlanner {
     const { rng } = this;
     const riffChance = rng.pick(FORM.riffChance);
     return Array.from({ length: rng.weighted(FORM.rounds) }, (_, r) => {
-      const later = r ? { second: true } : {};
-      const round = [new Section('verse', rng.pick(FORM.verseBars), later)];
-      if (this.preBars) round.push(new Section('pre', this.preBars, later));
-      round.push(new Section('chorus', this.chorusBars, r ? { answer: true } : {}));
-      if (rng.chance(riffChance)) round.push(new Section('riff', 4));
+      const later = r > 0;
+      const round: Section[] = [section('verse', rng.pick(FORM.verseBars), { later })];
+      if (this.preBars) round.push(section('pre', this.preBars, { later }));
+      round.push(section('chorus', this.chorusBars, { answer: later, big: false }));
+      if (rng.chance(riffChance)) round.push(section('riff', 4));
       return round;
     }).flat();
   }
@@ -64,30 +64,23 @@ export class FormPlanner {
   private middle(): Section[] {
     const { rng } = this;
     const parts: Section[][] = [];
-    if (rng.chance(FORM.bridgeChance)) parts.push([new Section('bridge', 8)]);
+    if (rng.chance(FORM.bridgeChance)) parts.push([section('bridge', 8)]);
     const soloCount = rng.weighted(FORM.soloCount);
     if (soloCount) {
       const soloists = rng.shuffle(FORM.soloists);
       parts.push(
-        Array.from(
-          { length: soloCount },
-          (_, i) =>
-            new Section(
-              'solo',
-              rng.pick(FORM.soloBars),
-              { soloist: soloists[i], ...(i ? { second: true } : {}) },
-              `solo:${i}`,
-            ),
+        Array.from({ length: soloCount }, (_, i) =>
+          section('solo', rng.pick(FORM.soloBars), { soloist: soloists[i], part: `solo:${i}` }),
         ),
       );
     }
     const body = rng.shuffle(parts).flat();
     if (rng.chance(FORM.breakdown.chance)) {
-      body.push(new Section('breakdown', rng.pick(FORM.breakdown.bars)));
+      body.push(section('breakdown', rng.pick(FORM.breakdown.bars)));
     }
     if (rng.chance(FORM.drumBreakChance)) {
       const spots = body.flatMap((x, i) => (x.type === 'solo' ? [i] : []));
-      body.splice(rng.pick([...spots, body.length]), 0, new Section('drumBreak', 2));
+      body.splice(rng.pick([...spots, body.length]), 0, section('drumBreak', 2));
     }
     return body;
   }
@@ -107,16 +100,16 @@ export class FormPlanner {
         shift += step;
         const turnaround = rng.weightedKey(this.turnarounds);
         const bars = this.turnarounds[turnaround].bars.length;
-        s.push(new Section('lift', bars, { liftTo: shift, turnaround }, `lift:${lifts++}`));
+        s.push(section('lift', bars, { liftTo: shift, turnaround, part: `lift:${lifts++}` }));
       }
       const big = i === finals - 1;
-      s.push(new Section('chorus', this.chorusBars, { answer: true, big, shift }));
+      s.push(section('chorus', this.chorusBars, { answer: true, big, shift }));
     }
-    if (rng.chance(FORM.outro.chance)) {
-      const outro = rng.weighted(FORM.outro.styles);
-      s.push(new Section('outro', FORM.outro.bars[outro], { shift, outro }));
+    if (rng.chance(FORM.outroChance)) {
+      const variant = rng.weightedKey(OUTRO_STYLES);
+      s.push(section('outro', OUTRO_STYLES[variant].bars, { variant, shift }));
     }
-    s.push(new Section('finale', 2, { shift }));
+    s.push(section('finale', 2, { shift }));
     return s;
   }
 }

@@ -1,6 +1,7 @@
 // The page: wires the session, player and UI pieces to the DOM.
 
 import type { Song } from '../model';
+import type { Arrangement } from '../render';
 import { autoplaySwitch } from './autoplay';
 import { createDebugPanel, type DebugPanel } from './debug-panel';
 import { fitSections, showForm, showPlayhead } from './form-strip';
@@ -23,13 +24,13 @@ function showError(text: string) {
   errorEl.hidden = !text;
 }
 
-function showSong(song: Song) {
+function showSong(song: Song, arrangement: Arrangement) {
   showTitle(titleEl, song.titleParts);
   $('meta').textContent = `${song.key.name} · ${song.bpm} BPM`;
   $('length').textContent = clock(seconds(song.bars, song.bpm));
   positionEl.textContent = clock(0);
   showForm(formEl, song);
-  debug?.showSong(song);
+  debug?.showSong(song, arrangement.uses);
 }
 
 const player = createPlayer({

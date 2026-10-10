@@ -34,9 +34,9 @@ Scripts (`scripts/*.ts`) cannot be run with `ts-node` or `tsx` directly — `scr
 src/
   lib/      generic helpers: seeded Rng (+ Weighted/Range types), 16-step drum bars, katakana romaji
   theory/   music theory as values: Scale, Key, Chord, Roman, Template, parseChordSpec + their tables
-  style/    the city-pop style as data: tonalities/ (one file per mode), form odds, section rhythms,
+  style/    the city-pop style as data: tonalities/ (one file per mode), form odds, section variants, section rhythms,
             drum recipes, bass feels, melody cells, harmony palette, instruments, title words
-  model/    generators: form, harmony, melody, bass, drums, groove, materials, orchestration, title, Song
+  model/    generators: form, harmony, melody, bass, drums, groove, sections/ (one writer per type), orchestration, title, Song
   render/   Strudel only: notation.ts (mini-notation strings), band.ts, drums.ts, sections/, arranger.ts
   midi/     writer.ts (Standard MIDI File bytes), from-pattern.ts (reads a Strudel pattern back out)
   app/      the browser page: main.ts wires session.ts, player.ts, form-strip, title-marquee, autoplay,
@@ -57,11 +57,12 @@ seed → mode, key → form (Section[]) → materials per part → instruments �
      → Arranger: per section, its type's recipe over its material → Strudel pattern
 ```
 
-- `FormPlanner` (`model/form.ts`) builds the sections. Each `Section` has a `part` id: sections that share it play the same material (every chorus is part `chorus`); solos and lifts get one part each (`solo:0`, `solo:1`, `lift:0`, ...).
-- `writeMaterials` (`model/materials.ts`) writes one material per part, on first use and memoised, through a registry keyed by section type. A part can draw on another (a drum break picks up into the next section's material; a lift avoids the previous lift's style). Shared harmony (chorus bars, hook, vamp bars, intro harmony) is computed lazily once.
+- `FormPlanner` (`model/form.ts`) builds the sections with `section()`. `SectionOf<T>` (`model/section.ts`) gives each section type its own fields (a chorus's `answer`/`big`, a solo's `soloist`, a lift's `liftTo`/`turnaround`, ...). Each `Section` has a `part` id: sections that share it play the same material (every chorus is part `chorus`); solos and lifts get one part each (`solo:0`, `solo:1`, `lift:0`, ...).
+- `writeMaterials` (`model/sections/index.ts`) writes one material per part, on first use and memoised, through `WRITERS`: one writer file per section type in `model/sections/`, mirroring `render/sections/`. Writers get a `WriteContext` (form navigation, `material(sec)` for other parts, shared helpers). A part can draw on another (a drum break picks up into the next section's material; a lift avoids the previous lift's variant). Shared harmony (chorus bars, hook, vamp bars, intro harmony) is computed lazily once, in `SharedHarmony`.
 - `MaterialOf<T>` (`model/material.ts`) gives each section type its own material shape. `song.material(section)`, `song.part(type)` (first part of a type) and `song.parts(type)` look them up.
+- Variants (`style/variants.ts`): every way a section type can be played (intro texture, vamp entry, pre-chorus flavour, solo comp, lift, outro and finale style) is a `Variants` table of weighted entries, some with their own groove. The material stores its pick as `variant`; the recipe switches on it.
 - `pickInstruments` (`model/orchestration.ts`) picks every part's sound and the drum kit. `Sounds` is uniform: every part is a sound name; gains come from `voiceGain`/`level` and the band's own gains in `render/band.ts`.
-- `Arranger` (`render/arranger.ts`) builds a `SectionContext` per section and calls its recipe from `render/sections/` (one file per section type).
+- `Arranger` (`render/arranger.ts`) calls each section's recipe from `render/sections/` (one file per section type) with a `PlayedContext` (chords, scales, bass, drums, lines) for sections the band plays through, or a plain `SectionContext` for a drum break or finale. `Band` notes which parts each section type asks for; the arrangement's `uses` feeds the debug panel, so recipes build only parts they play.
 
 ### Data flow for a mode
 

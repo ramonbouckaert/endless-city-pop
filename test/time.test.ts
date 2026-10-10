@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { clock, playheadAt, seconds, startFor } from '../src/app/time';
-import { Section } from '../src/model';
+import { section } from '../src/model';
 
 describe('time', () => {
   it('counts bars as seconds on a clock', () => {
@@ -10,7 +10,7 @@ describe('time', () => {
   });
 
   it('places the playhead by section', () => {
-    const form = [new Section('intro', 4), new Section('verse', 8), new Section('finale', 2)];
+    const form = [section('intro', 4), section('verse', 8, { later: false }), section('finale', 2)];
     expect(playheadAt(form, -1)).toBeUndefined();
     expect(playheadAt(form, 0)).toEqual({ index: 0, through: 0 });
     expect(playheadAt(form, 6)).toEqual({ index: 1, through: 0.25 });

@@ -1,10 +1,9 @@
-import type { MaterialOf } from '../../model';
-import type { Parts, SectionContext } from './context';
+import type { Parts, PlayedContext } from './context';
 
 // Keys, clavinet and the lead; later verses add rhythm guitar and a pad.
-export function verse(ctx: SectionContext<MaterialOf<'verse'>>): Parts {
+export function verse(ctx: PlayedContext<'verse'>): Parts {
   const { band, C, B } = ctx;
-  const later = ctx.sec.opts.second;
+  const { later } = ctx.sec;
   return {
     drums: ctx.drums(),
     pitched: [

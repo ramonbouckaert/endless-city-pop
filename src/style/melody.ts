@@ -166,11 +166,24 @@ export const HOLD_CELLS: Cells = {
   E: ['x-------'],
 };
 
-export const PRE_MELODIES: Readonly<Record<PreMelody, { sequence: number; cells: Cells }>> = {
-  climb: { sequence: 1, cells: CELLS.pre },
-  question: { sequence: 0, cells: CELLS.pre },
-  hold: { sequence: 1, cells: HOLD_CELLS },
+// A melody without a phrase form loops its motifs into closing ones:
+// its last bars play `end` (all but its first bar, if it is short), the
+// bars before cycle through `loop`.
+export interface LoopPlan {
+  loop: readonly MotifLetter[];
+  end: readonly MotifLetter[];
+}
+
+// Pre-chorus melodies all end on a half cadence into the chorus. Some
+// climb a step with every repeat of their motif (`sequence`).
+export const PRE_MELODIES: Readonly<Record<PreMelody, { sequence: number; cells: Cells; plan: LoopPlan }>> = {
+  climb: { sequence: 1, cells: CELLS.pre, plan: { loop: ['A'], end: ['B', 'C'] } },
+  question: { sequence: 0, cells: CELLS.pre, plan: { loop: ['A', 'B'], end: ['C'] } },
+  hold: { sequence: 1, cells: HOLD_CELLS, plan: { loop: ['A'], end: ['C'] } },
 };
+
+// A riff's call and response, closing on a full cadence.
+export const RIFF_PLAN: LoopPlan = { loop: ['A', 'B'], end: ['D'] };
 
 export const SHAPE_CHOICES: Readonly<Record<MotifLetter, Weighted<ShapeName>>> = {
   A: [

@@ -2,29 +2,30 @@
 // that sits with them.
 
 import type { Rng } from '../lib/random';
-import { BASS_WITH, type GroovePlan } from '../style';
+import { BASS_WITH, type BassFeel, type DrumFeel, type DrumPlan, type GroovePlan } from '../style';
 import type { Bar, Key } from '../theory';
 import { BassWriter, type BassLine } from './bass';
 import { DrumWriter, type Drums } from './drums';
 
-export interface Groove {
-  drums: Drums;
-  /** A bass line for some bars in a key, in a feel that suits the drums. */
-  bass(bars: Bar[], key: Key, rng?: Rng): BassLine;
+/** Drums from a plan: one of its feels, perhaps with a crash and fills. */
+export function writeDrums(plan: DrumPlan, rng: Rng): Drums {
+  const feel = rng.pick(plan.feels);
+  const crash = rng.chance(plan.crash);
+  const fill = rng.chance(plan.fill);
+  return new DrumWriter(feel, rng).write(crash, fill);
 }
 
-export function writeGroove({ drums: plan, bass: feels }: GroovePlan, rng: Rng): Groove {
-  const r = rng.fork('drums');
-  const feel = r.pick(plan.feels);
-  const crash = r.chance(plan.crash);
-  const fill = r.chance(plan.fill);
-  const drums = new DrumWriter(feel, r).write(crash, fill);
-  // A quiet drum feel limits the bass to feels that suit it.
-  const fits = BASS_WITH[feel];
-  const matching = fits ? feels.filter((f) => fits.includes(f)) : feels;
-  const bassFeels = matching.length ? matching : (fits ?? feels);
-  return {
-    drums,
-    bass: (bars, key, bassRng = rng.fork('bass')) => new BassWriter(bassFeels, key, bassRng).write(bars),
-  };
+/** Drums from a plan, and a bass line for `bars` in `key` that suits them. */
+export function writeGroove(plan: GroovePlan, bars: Bar[], key: Key, rng: Rng): { drums: Drums; bass: BassLine } {
+  const drums = writeDrums(plan.drums, rng.fork('drums'));
+  const bass = new BassWriter(bassFeels(plan.bass, drums.feel), key, rng.fork('bass')).write(bars);
+  return { drums, bass };
+}
+
+// A quiet drum feel limits the bass to feels that suit it.
+function bassFeels(feels: readonly BassFeel[], drums: DrumFeel): readonly BassFeel[] {
+  const fits = BASS_WITH[drums];
+  if (!fits) return feels;
+  const matching = feels.filter((f) => fits.includes(f));
+  return matching.length ? matching : fits;
 }

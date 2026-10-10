@@ -13,8 +13,8 @@ const LEAD = 0.2;
 export interface SessionOptions {
   /** Instruments to arrange a song with in place of its own (the debug panel's). */
   instruments?: (song: Song) => Instruments | undefined;
-  /** A new song is ready. */
-  onSong(song: Song): void;
+  /** A new song is ready, arranged. */
+  onSong(song: Song, arrangement: Arrangement): void;
   /** Something went wrong (empty: nothing has). */
   onError(message: string): void;
 }
@@ -47,7 +47,7 @@ export class Session {
       this.options.onError(`Could not generate a song: ${(e as Error).message}`);
       throw e;
     }
-    this.options.onSong(this.song);
+    this.options.onSong(this.song, this.current);
   }
 
   /** The current song arranged again (its instruments changed), live if it is playing. */

@@ -1,57 +1,48 @@
-// The ?debug=true panel: every instrument the band plays, each with a
-// menu of the sounds Strudel has loaded, for auditioning replacements.
-// Each menu starts on the song's own pick; a choice replaces it at once,
-// carries over to new songs, and is remembered in this browser. The
-// panel lists the choices, ready to copy.
+// The ?debug=true panel: every instrument the band plays, with the
+// sections it plays in this song and a menu of the sounds Strudel has
+// loaded, for auditioning replacements. Each menu starts on the song's
+// own pick; a choice replaces it at once, carries over to new songs, and
+// is remembered in this browser. The panel lists the choices, ready to
+// copy.
 
-import type { Instruments, Song, Sounds } from '../model';
+import { soundAt, withSound, type Instruments, type PartPath, type Song, type SoundPath } from '../model';
+import type { Arrangement } from '../render';
 import { BAND, VOICES, type BandPart } from '../style';
 import type { SoundInfo } from './player';
 
 // Each instrument: where it lives in Sounds (a path like "soloists.0"),
-// what it plays, and where a song picks it from if it does (`from`, in
+// and where a song picks it from if it does (`from`, in
 // style/instruments.ts).
-const ROLES: readonly { path: string; label: string; plays: string; from?: string }[] = [
-  { path: 'keys', label: 'Keys', plays: 'Comping in every section, the final chord', from: 'PICKS.keys' },
-  { path: 'clav', label: 'Clavinet', plays: 'Verse, chorus, riff and solo grooves' },
-  { path: 'guitar', label: 'Rhythm guitar', plays: 'Later verses', from: 'PICKS.guitar' },
-  { path: 'bass', label: 'Bass', plays: 'Everywhere', from: 'PICKS.bass' },
-  { path: 'pad', label: 'Pad', plays: 'Verses, pre-chorus, chorus, breakdown', from: 'PICKS.pad' },
-  {
-    path: 'strings',
-    label: 'Strings',
-    plays: 'Intro, pre-chorus, bridge, last chorus, final chord',
-    from: 'PICKS.strings',
-  },
-  { path: 'choir', label: 'Choir', plays: 'Pre-chorus, last chorus, breakdown', from: 'PICKS.choir' },
-  { path: 'lead', label: 'Lead', plays: 'The melody', from: 'VOICES.pool' },
-  { path: 'double', label: 'Melody double', plays: 'The chorus hook, an octave up', from: 'VOICES.pool' },
-  { path: 'answer', label: 'Answer', plays: "Phrases in the gaps of later choruses' hook", from: 'PICKS.answer' },
-  { path: 'bell', label: 'Bell', plays: 'The intro teaser, the bridge melody', from: 'PICKS.bell' },
-  { path: 'stabs', label: 'Horn stabs', plays: 'Riffs, stop-time pre-chorus, last chorus, lifts', from: 'PICKS.stabs' },
-  { path: 'hornDouble', label: 'Horn double', plays: 'Riffs and lifts, under the stabs', from: 'PICKS.hornDouble' },
+const ROLES: readonly { path: SoundPath; label: string; from?: string }[] = [
+  { path: 'keys', label: 'Keys', from: 'PICKS.keys' },
+  { path: 'clav', label: 'Clavinet' },
+  { path: 'guitar', label: 'Rhythm guitar', from: 'PICKS.guitar' },
+  { path: 'bass', label: 'Bass', from: 'PICKS.bass' },
+  { path: 'pad', label: 'Pad', from: 'PICKS.pad' },
+  { path: 'strings', label: 'Strings', from: 'PICKS.strings' },
+  { path: 'choir', label: 'Choir', from: 'PICKS.choir' },
+  { path: 'lead', label: 'Lead', from: 'VOICES.pool' },
+  { path: 'double', label: 'Melody double', from: 'VOICES.pool' },
+  { path: 'answer', label: 'Answer', from: 'PICKS.answer' },
+  { path: 'bell', label: 'Bell', from: 'PICKS.bell' },
+  { path: 'stabs', label: 'Horn stabs', from: 'PICKS.stabs' },
+  { path: 'hornDouble', label: 'Horn double', from: 'PICKS.hornDouble' },
   ...Array.from({ length: VOICES.soloists }, (_, i) => ({
-    path: `soloists.${i}`,
+    path: `soloists.${i}` as const,
     label: `Soloist ${i + 1}`,
-    plays: 'Solos, and a note of the final chord',
     from: 'VOICES.pool',
   })),
 ];
-const KIT = 'kit';
+const KIT = 'kit' satisfies PartPath;
 const STORAGE = 'endless-city-pop.debug';
 
-type Choices = Record<string, string>; // path (or KIT) -> sound (or bank, or 'default')
+type Choices = Partial<Record<PartPath, string>>; // part -> sound (or bank, or 'default' for the kit)
 
-const get = (sounds: Sounds, path: string): string => path.split('.').reduce<any>((x, k) => x[k], sounds) as string;
-
-// A copy of `x` with the value at a path (keys or array indexes) replaced.
-function withPath<T>(x: T, [key, ...rest]: string[], value: unknown): T {
-  const next = rest.length ? withPath((x as any)[key], rest, value) : value;
-  return Array.isArray(x) ? (x.with(Number(key), next) as T) : { ...x, [key]: next };
-}
+// Is a path one of the panel's rows?
+const isRow = (path: string): path is PartPath => path === KIT || ROLES.some((r) => r.path === path);
 
 // Choices with one changed (empty: back to the song's pick).
-function withChoice(choices: Choices, path: string, value: string): Choices {
+function withChoice(choices: Choices, path: PartPath, value: string): Choices {
   const { [path]: _, ...rest } = choices;
   return value ? { ...rest, [path]: value } : rest;
 }
@@ -59,10 +50,8 @@ function withChoice(choices: Choices, path: string, value: string): Choices {
 // Choices remembered from before, for rows that still exist.
 function load(): Choices {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE) ?? '{}') as Choices;
-    return Object.fromEntries(
-      Object.entries(saved).filter(([path]) => path === KIT || ROLES.some((r) => r.path === path)),
-    );
+    const saved = JSON.parse(localStorage.getItem(STORAGE) ?? '{}') as Record<string, string>;
+    return Object.fromEntries(Object.entries(saved).filter(([path]) => isRow(path)));
   } catch {
     return {};
   }
@@ -90,8 +79,8 @@ function el<K extends keyof HTMLElementTagNameMap>(
 export interface DebugPanel {
   /** The instruments to arrange a song with: its own, with the panel's choices. */
   instruments(song: Song): Instruments;
-  /** Show a new song's own picks, and which soloists it has. */
-  showSong(song: Song): void;
+  /** Show a new song's own picks, and where each part plays in its arrangement. */
+  showSong(song: Song, uses: Arrangement['uses']): void;
 }
 
 /** Fills `root` with the panel. `onChange` runs whenever a choice changes. */
@@ -104,15 +93,15 @@ export function createDebugPanel(root: HTMLElement, sounds: Promise<SoundInfo[]>
   const note = el('p', { className: 'debug-note', textContent: "Loading Strudel's sounds…" });
 
   // What the song plays in a row without a choice.
-  const songsPick = (path: string) => {
+  const songsPick = (path: PartPath) => {
     if (!song) return '…';
     if (path === KIT) return song.instruments.kit ?? 'default samples';
-    return get(song.instruments.sounds, path);
+    return soundAt(song.instruments.sounds, path);
   };
 
   // A row's menu: the song's own pick, then each sound type in a group
   // (the choice kept even if it isn't in them).
-  function fill(path: string, select: HTMLSelectElement) {
+  function fill(path: PartPath, select: HTMLSelectElement) {
     const value = choices[path] ?? '';
     select.replaceChildren(new Option(`Song's pick (${songsPick(path)})`, ''));
     const options = path === KIT ? ([['Drum machines', banks]] as [string, string[]][]) : groups;
@@ -125,17 +114,17 @@ export function createDebugPanel(root: HTMLElement, sounds: Promise<SoundInfo[]>
     select.value = value;
   }
 
-  function choose(path: string, value: string) {
+  function choose(path: PartPath, value: string) {
     choices = withChoice(choices, path, value);
     save(choices);
     refresh();
     onChange();
   }
 
-  function row(path: string, label: string, playsText: string) {
+  function row(path: PartPath, label: string) {
     const select = el('select', { title: label });
     select.addEventListener('change', () => choose(path, select.value));
-    const where = el('span', { className: 'debug-plays', textContent: playsText });
+    const where = el('span', { className: 'debug-plays', textContent: '…' });
     fill(path, select);
     const node = el(
       'div',
@@ -147,10 +136,7 @@ export function createDebugPanel(root: HTMLElement, sounds: Promise<SoundInfo[]>
     return { path, select, where, node };
   }
 
-  const rows = [
-    ...ROLES.map((r) => row(r.path, r.label, r.from ? `${r.plays} (random each song)` : r.plays)),
-    row(KIT, 'Drum kit', 'Every drum part'),
-  ];
+  const rows = [...ROLES.map((r) => row(r.path, r.label)), row(KIT, 'Drum kit')];
   const selects = new Map(rows.map((r) => [r.path, r.select]));
   const plays = new Map(rows.map((r) => [r.path, r.where]));
   const fillAll = () => selects.forEach((select, path) => fill(path, select));
@@ -158,8 +144,10 @@ export function createDebugPanel(root: HTMLElement, sounds: Promise<SoundInfo[]>
   // Marks the chosen rows and lists the choices, each with what it
   // replaces: a BAND default, or a random pick.
   function refresh() {
-    for (const [path, select] of selects) select.closest('.debug-row')!.classList.toggle('changed', path in choices);
-    const lines = Object.entries(choices).map(([path, value]) => {
+    for (const { path, node } of rows) node.classList.toggle('changed', path in choices);
+    const lines = rows.flatMap(({ path }) => {
+      const value = choices[path];
+      if (value === undefined) return [];
       if (path === KIT)
         return `drum kit: ${value === 'default' ? 'default samples' : value} (instead of the song's pick)`;
       const role = ROLES.find((r) => r.path === path);
@@ -223,22 +211,22 @@ export function createDebugPanel(root: HTMLElement, sounds: Promise<SoundInfo[]>
 
   return {
     instruments(of) {
-      const sounds = Object.entries(choices).reduce(
-        (acc, [path, value]) => (path === KIT ? acc : withPath(acc, path.split('.'), value)),
-        of.instruments.sounds,
-      );
-      const kit = choices[KIT];
-      if (kit === undefined) return { sounds, kit: of.instruments.kit };
-      return { sounds, kit: kit === 'default' ? null : kit };
+      let { sounds, kit } = of.instruments;
+      for (const { path } of ROLES) {
+        const sound = choices[path];
+        if (sound !== undefined) sounds = withSound(sounds, path, sound);
+      }
+      const bank = choices[KIT];
+      if (bank !== undefined) kit = bank === 'default' ? null : bank;
+      return { sounds, kit };
     },
-    showSong(next) {
+    showSong(next, uses) {
       song = next;
       fillAll();
-      // Which soloists this song has.
-      const soloists = new Set(song.soloists);
-      for (let i = 0; i < VOICES.soloists; i++) {
-        plays.get(`soloists.${i}`)!.textContent =
-          `Solos (${soloists.has(i) ? 'in this song' : 'not this song'}), and a note of the final chord (random each song)`;
+      for (const [path, where] of plays) {
+        const types = [...(uses.get(path) ?? [])].map((t) => (t === 'drumBreak' ? 'drum break' : t));
+        const random = path === KIT || ROLES.find((r) => r.path === path)?.from ? ' (random each song)' : '';
+        where.textContent = (types.length ? `Plays in ${types.join(', ')}` : 'Not in this song') + random;
       }
     },
   };

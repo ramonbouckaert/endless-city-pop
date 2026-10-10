@@ -6,22 +6,31 @@ import { SONG, TONALITIES, type SectionType } from '../style';
 import { Key } from '../theory';
 import { FormPlanner } from './form';
 import { materialOf, type Material, type MaterialOf } from './material';
-import { writeMaterials } from './materials';
 import { pickInstruments, type Instruments } from './orchestration';
-import type { Section } from './section';
+import { describeSection, soloistsOf, type Section } from './section';
+import { writeMaterials } from './sections';
 import { formatTitle, writeTitle, type TitleParts } from './title';
 
+export interface SongData {
+  seed: string;
+  titleParts: TitleParts;
+  key: Key;
+  bpm: number;
+  swing: number;
+  instruments: Instruments;
+  form: readonly Section[];
+  /** Each part's material, by part id. */
+  materials: Readonly<Record<string, Material>>;
+}
+
+// A song has its data's fields (merged in from this interface), and the
+// views below on them.
+export interface Song extends Readonly<SongData> {}
+
 export class Song {
-  constructor(
-    readonly seed: string,
-    readonly titleParts: TitleParts,
-    readonly key: Key,
-    readonly bpm: number,
-    readonly swing: number,
-    readonly instruments: Instruments,
-    readonly form: readonly Section[],
-    readonly materials: Readonly<Record<string, Material>>,
-  ) {}
+  constructor(data: SongData) {
+    Object.assign(this, data);
+  }
 
   /** A song from a seed, which picks everything else: mode, key, tempo, form and sounds. */
   static generate(seed?: string | number): Song {
@@ -30,12 +39,17 @@ export class Song {
     const mode = rng.fork('mode').weightedKey(TONALITIES);
     const tonality = TONALITIES[mode];
     const key = new Key(rng.pick(tonality.tonics), mode);
-    const bpm = rng.int(...SONG.tempo);
-    const swing = Math.round(rng.range(SONG.swing) * 100) / 100;
     const form = new FormPlanner(rng.fork('form'), tonality.turnarounds).plan();
-    const materials = writeMaterials(key, form, rng.fork('materials'));
-    const instruments = pickInstruments(rng.fork('instruments'));
-    return new Song(s, writeTitle(rng.fork('title')), key, bpm, swing, instruments, form, materials);
+    return new Song({
+      seed: s,
+      key,
+      bpm: rng.int(...SONG.tempo),
+      swing: Math.round(rng.range(SONG.swing) * 100) / 100,
+      form,
+      materials: writeMaterials(key, form, rng.fork('materials')),
+      instruments: pickInstruments(rng.fork('instruments')),
+      titleParts: writeTitle(rng.fork('title')),
+    });
   }
 
   /** The title on one line: "真夜中のドライブ (Midnight Drive)". */
@@ -49,14 +63,12 @@ export class Song {
 
   /** The soloists the form's solos go to, in order, as indexes into the sounds' soloists. */
   get soloists(): number[] {
-    return this.form.flatMap((s) => (s.opts.soloist === undefined ? [] : [s.opts.soloist]));
+    return soloistsOf(this.form);
   }
 
   /** The material a section plays. */
-  material(sec: Section): Material {
-    const mat = this.materials[sec.part];
-    if (!mat) throw new Error(`No material for ${sec.part}`);
-    return mat;
+  material<S extends Section>(sec: S): MaterialOf<S['type']> {
+    return materialOf<S['type']>(sec.type, this.materials[sec.part]);
   }
 
   /** The material of each part of a type, in form order. */
@@ -72,15 +84,17 @@ export class Song {
 
   /** An outline, for debugging and scripts/generate.ts. */
   describe() {
+    const intro = this.part('intro');
     return {
       key: this.key.name,
       bpm: this.bpm,
       bars: this.bars,
-      sections: this.form.map((s) => s.describe()),
-      intro: `${this.part('intro')?.harmony} ${this.part('intro')?.texture}`,
-      pre: this.part('pre')?.flavour,
-      finale: this.part('finale')?.ending,
-      lifts: this.parts('lift').map((l) => l.style),
+      sections: this.form.map(describeSection),
+      intro: `${intro?.harmony} ${intro?.variant}`,
+      pre: this.part('pre')?.variant,
+      solos: this.parts('solo').map((s) => s.variant),
+      lifts: this.parts('lift').map((l) => l.variant),
+      finale: this.part('finale')?.variant,
       phrases: Object.fromEntries(
         (['verse', 'chorus', 'bridge'] as const).flatMap((t) => {
           const form = this.part(t)?.melody.form;

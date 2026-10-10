@@ -68,12 +68,18 @@ export class Rng {
     const total = entries.reduce((sum, [, w]) => sum + w, 0);
     let r = this.next() * total;
     for (const [item, w] of entries) if ((r -= w) < 0) return item;
-    return entries.at(-1)![0];
+    const last = entries.at(-1);
+    if (!last) throw new Error('Nothing to choose from');
+    return last[0];
   }
 
-  /** A key of a record, weighted by its entry's `weight`. */
-  weightedKey<K extends string>(entries: Readonly<Record<K, { weight: number }>>): K {
-    return this.weighted(Object.entries<{ weight: number }>(entries).map(([k, v]) => [k as K, v.weight] as const));
+  /** A key of a record, weighted by its entry's `weight`, other than `except`. */
+  weightedKey<K extends string>(entries: Readonly<Record<K, { weight: number }>>, except?: K): K {
+    return this.weighted(
+      Object.entries<{ weight: number }>(entries).flatMap(([k, v]) =>
+        k === except ? [] : [[k as K, v.weight] as const],
+      ),
+    );
   }
 
   shuffle<T>(items: readonly T[]): T[] {

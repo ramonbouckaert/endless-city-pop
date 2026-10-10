@@ -1,12 +1,11 @@
-import type { MaterialOf } from '../../model';
 import { COMP } from '../figures';
-import type { Parts, SectionContext } from './context';
+import type { Parts, PlayedContext } from './context';
 
 // The hook, doubled an octave up if it fits; later choruses add the
 // answer, and the last one stabs, strings and choir.
-export function chorus(ctx: SectionContext<MaterialOf<'chorus'>>): Parts {
+export function chorus(ctx: PlayedContext<'chorus'>): Parts {
   const { band, C, B, mat } = ctx;
-  const { answer, big } = ctx.sec.opts;
+  const { answer, big } = ctx.sec;
   return {
     drums: ctx.drums(),
     pitched: [

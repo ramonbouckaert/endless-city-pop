@@ -27,6 +27,25 @@ export interface Instruments {
   kit: string | null;
 }
 
+/** Where a sound is in Sounds: a part ("keys", "lead"), or one soloist ("soloists.1"). */
+export type SoundPath = Exclude<keyof Sounds, 'soloists'> | `soloists.${number}`;
+/** A part of the band: where its sound is, or "kit" for the drums. */
+export type PartPath = SoundPath | 'kit';
+
+const isSoloist = (path: SoundPath): path is `soloists.${number}` => path.startsWith('soloists.');
+const soloistIndex = (path: `soloists.${number}`): number => Number(path.slice('soloists.'.length));
+
+/** The sound at a path. */
+export function soundAt(sounds: Sounds, path: SoundPath): string {
+  return isSoloist(path) ? sounds.soloists[soloistIndex(path)] : sounds[path];
+}
+
+/** Sounds with the one at a path replaced. */
+export function withSound(sounds: Sounds, path: SoundPath, sound: string): Sounds {
+  if (isSoloist(path)) return { ...sounds, soloists: sounds.soloists.with(soloistIndex(path), sound) };
+  return { ...sounds, [path]: sound };
+}
+
 /** A melody voice's gain: its part's, at the sound's level. */
 export const voiceGain = (sound: string, role: VoiceRole): number =>
   Math.round(VOICES.gains[role] * level(sound) * 1000) / 1000;

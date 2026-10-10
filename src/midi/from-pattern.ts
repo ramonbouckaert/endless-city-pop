@@ -4,7 +4,7 @@
 // this loads Strudel; writer.ts writes the bytes.
 
 import { noteToMidi, type Fraction, type Hap, type Pattern } from '@strudel/core';
-import { sectionStarts, type Song } from '../model';
+import { describeSection, sectionStarts, type Song } from '../model';
 import { GM_PROGRAMS } from '../style';
 import { DRUM_CHANNEL, PPQ, TICKS_PER_BAR, writeMidi, type MidiNote, type MidiTrack } from './writer';
 
@@ -82,6 +82,6 @@ export function songToMidi(song: Song, pattern: Pattern): Uint8Array {
     .flat()
     .flatMap((hap) => noteFromHap(hap, ticksPerSecond) ?? []);
   const starts = sectionStarts(song.form);
-  const markers = song.form.map((s, i) => ({ tick: starts[i] * TICKS_PER_BAR, text: s.describe() }));
+  const markers = song.form.map((s, i) => ({ tick: starts[i] * TICKS_PER_BAR, text: describeSection(s) }));
   return writeMidi({ title: song.title, bpm: song.bpm, key: song.key, markers, tracks: tracksFor(notes) });
 }

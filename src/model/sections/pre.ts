@@ -1,0 +1,24 @@
+import type { Rng } from '../../lib/random';
+import { PRE_FLAVOURS, TONALITIES } from '../../style';
+import { Template } from '../../theory';
+import { Harmonizer } from '../harmony';
+import type { MaterialOf } from '../material';
+import type { SectionOf } from '../section';
+import type { WriteContext } from './context';
+
+// One of the flavour's progressions, fitted to end on its cadence into
+// the chorus (one as long as the section, if there is one).
+export function pre(sec: SectionOf<'pre'>, ctx: WriteContext, rng: Rng): MaterialOf<'pre'> {
+  const { key } = ctx;
+  const variant = rng.weightedKey(PRE_FLAVOURS);
+  const { groove, melody } = PRE_FLAVOURS[variant];
+  const options = TONALITIES[key.mode].pre[variant];
+  const fitting = options.filter((t) => new Template(t).length === sec.bars);
+  const template = rng.pick(fitting.length ? fitting : options);
+  const bars = new Harmonizer(key, rng.fork('harmony')).progression(template, sec.bars, { ending: true });
+  return {
+    ...ctx.band('pre', key, bars, groove, rng),
+    variant,
+    melody: ctx.melody('pre', key, bars, rng, melody),
+  };
+}

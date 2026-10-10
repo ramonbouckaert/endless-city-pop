@@ -1,21 +1,23 @@
 import { chord, s, saw, type Pattern } from '@strudel/core';
-import type { MaterialOf } from '../../model';
 import { Chord } from '../../theory';
+import type { Voice } from '../band';
 import { FIGURES } from '../figures';
 import { bassScale } from '../notation';
 import type { Parts, SectionContext } from './context';
 
 // The last chord, rung out in the finale's style.
-export function finale(ctx: SectionContext<MaterialOf<'finale'>>): Parts {
+export function finale(ctx: SectionContext<'finale'>): Parts {
   const { band, mat } = ctx;
   const { chord: fin, key } = mat;
   const name = fin.name(key);
   const keys = (c: Pattern) => band.chords('keys', c, 0.4).room(0.5);
-  const root = band.bass('0', bassScale(fin, key));
+  const root = () => band.bass('0', bassScale(fin, key));
   // The ride swelling under the held chord, after a kick and crash.
-  const ride = band.drum(s('rd*16').gain(0.09).velocity(saw.slow(2).range(0.3, 1)));
-  const ring = [band.drum(s('[bd,cr]').slow(2).gain(0.55)), ride];
-  switch (mat.ending) {
+  const ride = () => band.drum(s('rd*16').gain(0.09).velocity(saw.slow(2).range(0.3, 1)));
+  const ring = () => [band.drum(s('[bd,cr]').slow(2).gain(0.55)), ride()];
+  // A line up the chord, from its root two octaves up, held.
+  const line = (degrees: string) => band.line(degrees, bassScale(fin, key, 2)).slow(2);
+  switch (mat.variant) {
     case 'hits': {
       // The band hits the chord with the drums, then one last stab rings
       // out over the strings.
@@ -25,7 +27,7 @@ export function finale(ctx: SectionContext<MaterialOf<'finale'>>): Parts {
         pitched: [
           keys(chord(name).struct(hits)).clip(0.4),
           band.stabs(chord(name), hits),
-          root.struct(hits).clip(0.4),
+          root().struct(hits).clip(0.4),
           band.strings(chord(name)).mask('<0 1>'),
         ],
       };
@@ -38,37 +40,35 @@ export function finale(ctx: SectionContext<MaterialOf<'finale'>>): Parts {
       const chords = chord(both(above.name(key), name)).slow(2);
       const scales = both(bassScale(above, key), bassScale(fin, key));
       return {
-        drums: [band.drum(s('[~@3 [bd,cr]@13]').slow(2).gain(0.55)), ride],
+        drums: [band.drum(s('[~@3 [bd,cr]@13]').slow(2).gain(0.55)), ride()],
         pitched: [keys(chords), band.strings(chords), band.bass('[0@3 0@13]', scales).slow(2)],
       };
     }
-    case 'run':
+    case 'run': {
       // A run up the chord on the keys, landing on it held.
+      const run: Voice = { path: 'keys', sound: band.sounds.keys, gain: 0.32 };
       return {
-        drums: ring,
+        drums: ring(),
         pitched: [
-          band
-            .voiced(band.line(FIGURES.finaleRun, bassScale(fin, key, 2)).slow(2), band.sounds.keys)
-            .gain(0.32)
-            .room(0.5),
+          band.voice(run, line(FIGURES.finaleRun)).room(0.5),
           keys(chord(`[~ ${name}@3]`)).slow(2),
           band.strings(chord(name)).slow(2),
-          root.slow(2),
+          root().slow(2),
         ],
       };
+    }
     case 'cascade': {
       // The band holds the chord as the voices stack up it.
       const voices = band.finaleVoices();
       const enters = FIGURES.finaleDegrees.map((d, i) => {
-        const [sound, gain] = voices[i % voices.length];
+        const voice = voices[i % voices.length];
         return band
-          .voiced(band.line(`[${'~ '.repeat(i + 1)}${d}@${7 - i}]`, bassScale(fin, key, 2)).slow(2), sound)
-          .gain(gain * 0.75)
+          .voice({ ...voice, gain: voice.gain * 0.75 }, line(`[${'~ '.repeat(i + 1)}${d}@${7 - i}]`))
           .room(0.5);
       });
       return {
-        drums: ring,
-        pitched: [keys(chord(name)).slow(2), band.strings(chord(name)).slow(2), root.slow(2), ...enters],
+        drums: ring(),
+        pitched: [keys(chord(name)).slow(2), band.strings(chord(name)).slow(2), root().slow(2), ...enters],
       };
     }
   }

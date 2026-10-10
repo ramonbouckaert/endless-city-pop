@@ -21,10 +21,6 @@ export type SectionType =
   | 'outro'
   | 'finale';
 
-// How the song winds down before the finale: the intro's chords again,
-// quietly, or the band vamping while two soloists trade lines.
-export type OutroStyle = 'reprise' | 'trade';
-
 export const FORM = {
   preBars: [0, 2, 4, 4, 6, 8], // 0: no pre-chorus
   chorusTag: 0.45,
@@ -67,15 +63,7 @@ export const FORM = {
     [2, 4],
     [3, 1],
   ] as Weighted<number>,
-  outro: {
-    chance: 0.75,
-    styles: [
-      ['reprise', 1],
-      ['trade', 1],
-    ] as Weighted<OutroStyle>,
-    // Trading twos: each soloist gets two turns.
-    bars: { reprise: 4, trade: 8 } as Readonly<Record<OutroStyle, number>>,
-  },
+  outroChance: 0.75, // its style and length are in variants.ts
 };
 
 // The furthest the last choruses lift the key, in semitones. Instruments

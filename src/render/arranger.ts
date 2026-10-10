@@ -4,15 +4,18 @@
 
 import './strudel-setup';
 import { arrange, silence, stack, type Pattern } from '@strudel/core';
-import type { Instruments, Song } from '../model';
+import type { Instruments, PartPath, Song } from '../model';
+import type { SectionType } from '../style';
 import { Band } from './band';
 import { TAIL_SECONDS } from './figures';
-import { SectionContext, sectionParts } from './sections';
+import { sectionParts } from './sections';
 
 export interface Arrangement {
   pattern: Pattern;
   cps: number; // cycles per second: a cycle is a bar
   cycles: number; // how long it lasts before it loops: the song's bars and TAIL_SECONDS of silence
+  /** The section types each part of the band plays in, by its path in Sounds ("keys", "soloists.1", "kit"). */
+  uses: ReadonlyMap<PartPath, ReadonlySet<SectionType>>;
 }
 
 export class Arranger {
@@ -31,8 +34,8 @@ export class Arranger {
     const cps = song.bpm / 4 / 60;
     const sections = song.form.map((sec, index): [number, Pattern] => {
       const repeat = song.form.slice(0, index).filter((x) => x.part === sec.part).length;
-      const ctx = new SectionContext(song, sec, song.material(sec), this.band, repeat);
-      const { drums, pitched } = sectionParts(ctx);
+      this.band.playing(sec.type);
+      const { drums, pitched } = sectionParts(song, sec, this.band, repeat);
       const tonal = pitched.filter((p): p is Pattern => !!p);
       const tonalPart = sec.shift ? [stack(...tonal).transpose(sec.shift)] : tonal;
       return [sec.bars, stack(...drums, ...tonalPart).swingBy(song.swing, 8)];
@@ -40,6 +43,11 @@ export class Arranger {
     // The tail is a fraction of a bar. Coming last, it shifts no bar line
     // but the loop's own: the next time round starts a second later.
     const tail = TAIL_SECONDS * cps;
-    return { pattern: arrange(...sections, [tail, silence]), cps, cycles: song.bars + tail };
+    return {
+      pattern: arrange(...sections, [tail, silence]),
+      cps,
+      cycles: song.bars + tail,
+      uses: this.band.uses,
+    };
   }
 }

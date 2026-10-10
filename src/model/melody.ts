@@ -14,9 +14,11 @@ import {
   MELODY_RANGES,
   PHRASE_FORMS,
   PRE_MELODIES,
+  RIFF_PLAN,
   SHAPE_CHOICES,
   SOLO,
   type Cells,
+  type LoopPlan,
   type MelodyKind,
   type MotifLetter,
   type PhraseForm,
@@ -231,33 +233,8 @@ export class MelodyWriter {
 
   /** Which motif plays in each of `n` bars. C: half cadence, D: full cadence, E: tag, F: fragment. */
   private plan(n: number): MotifLetter[] {
-    const { kind, style } = this;
-    const each = (f: (i: number) => MotifLetter) => Array.from({ length: n }, (_, i) => f(i));
-    if (kind === 'pre') {
-      // All end on a half cadence into the chorus.
-      if (style === 'question')
-        return each((i) => {
-          if (i === n - 1) return 'C';
-          return i % 2 ? 'B' : 'A';
-        });
-      if (style === 'hold') return each((i) => (i === n - 1 ? 'C' : 'A'));
-      return each((i) => {
-        if (i === n - 1) return 'C';
-        if (i === n - 2 && n >= 3) return 'B';
-        return 'A';
-      });
-    }
-    if (kind === 'riff')
-      return each((i) => {
-        if (i % 2 === 0) return 'A';
-        return i === n - 1 ? 'D' : 'B';
-      });
-    const phrase = this.phrase!.plan;
-    if (n <= 8) return phrase.slice(8 - n);
-    return each((i) => {
-      if (i < 8) return phrase[i];
-      return i === n - 1 ? 'D' : 'E';
-    });
+    if (this.phrase) return phrasePlan(this.phrase.plan, n);
+    return loopPlan(this.kind === 'pre' ? PRE_MELODIES[this.style].plan : RIFF_PLAN, n);
   }
 
   write(bars: Bar[]): Melody {
@@ -322,6 +299,19 @@ export class MelodyWriter {
         : clamp(this.prevDeg - top + rng.pick([0, 1, 2]), range.lo, range.hi);
     return { notes: rhythm.map((n, i) => ({ ...n, offset: offsets[i] })), startDeg };
   }
+}
+
+// A phrase form over `n` bars: its last bars if shorter, else tagged
+// before its full cadence.
+function phrasePlan(plan: readonly MotifLetter[], n: number): MotifLetter[] {
+  if (n <= plan.length) return plan.slice(plan.length - n);
+  return [...plan, ...Array<MotifLetter>(n - plan.length - 1).fill('E'), 'D'];
+}
+
+// A loop over `n` bars, into as much of its end as fits after the first bar.
+function loopPlan({ loop, end }: LoopPlan, n: number): MotifLetter[] {
+  const ending = end.slice(-Math.max(1, Math.min(end.length, n - 1)));
+  return [...Array.from({ length: n - ending.length }, (_, i) => loop[i % loop.length]), ...ending];
 }
 
 // "x-.x" -> notes with lengths: x = note, - = held, . = rest.

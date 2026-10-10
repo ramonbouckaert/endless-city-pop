@@ -12,3 +12,4 @@ export * from './rhythm';
 export * from './song';
 export * from './titles';
 export * from './tonalities';
+export * from './variants';

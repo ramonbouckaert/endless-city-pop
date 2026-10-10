@@ -6,9 +6,37 @@ export { BassLine, type BassNote } from './bass';
 export type { DrumFill, DrumHit, DrumPart, Drums } from './drums';
 export { Harmonizer } from './harmony';
 export { Line, type Note } from './line';
-export { materialOf, type DrumBreakMaterial, type FinaleMaterial, type Material, type MaterialOf } from './material';
+export {
+  isPlayed,
+  materialOf,
+  type DrumBreakMaterial,
+  type FinaleMaterial,
+  type Material,
+  type MaterialOf,
+  type PlayedMaterial,
+  type PlayedType,
+} from './material';
 export { Melody, Solo, type Grace, type MelodyNote, type SoloNote } from './melody';
-export { level, recording, voiceGain, type Instruments, type Sounds } from './orchestration';
-export { Section, sectionStarts, type SectionOpts } from './section';
-export { Song } from './song';
+export {
+  level,
+  recording,
+  soundAt,
+  voiceGain,
+  withSound,
+  type Instruments,
+  type PartPath,
+  type SoundPath,
+  type Sounds,
+} from './orchestration';
+export {
+  describeSection,
+  isSection,
+  section,
+  sectionStarts,
+  soloistsOf,
+  type Section,
+  type SectionFields,
+  type SectionOf,
+} from './section';
+export { Song, type SongData } from './song';
 export { formatTitle, joinAside, type TitleParts } from './title';

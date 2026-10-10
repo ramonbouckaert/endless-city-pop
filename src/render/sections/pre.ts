@@ -1,19 +1,18 @@
 import { saw, stack } from '@strudel/core';
-import type { MaterialOf } from '../../model';
-import type { Parts, SectionContext } from './context';
+import type { Parts, PlayedContext } from './context';
 
 // The pre-chorus, in its flavour's texture. Later rounds add a layer.
-export function pre(ctx: SectionContext<MaterialOf<'pre'>>): Parts {
+export function pre(ctx: PlayedContext<'pre'>): Parts {
   const { band, C, B, len, riser } = ctx;
   const drums = ctx.drums();
   const lead = band.lead(ctx.line(ctx.mat.melody));
-  const later = ctx.sec.opts.second;
-  switch (ctx.mat.flavour) {
+  const { later } = ctx.sec;
+  switch (ctx.mat.variant) {
     case 'pedal':
       // Long notes over a held bass, strings swelling.
       return {
         drums: [...drums, riser],
-        pitched: [B, band.softKeys(C).gain(0.26), ctx.swell(C, 0.14), lead, later && band.choir(C)],
+        pitched: [B, band.softKeys(C).gain(0.26), ctx.swell(0.14), lead, later && band.choir(C)],
       };
     case 'drop':
       // The drums drop out, then come back halfway.
@@ -23,7 +22,7 @@ export function pre(ctx: SectionContext<MaterialOf<'pre'>>): Parts {
       };
     case 'stops': {
       // Stop-time hits under a free lead.
-      const stop = ctx.stopTime(drums, C, B);
+      const stop = ctx.stopTime(drums);
       return { drums: stop.drums, pitched: [...stop.pitched, lead, later && band.strings(C)] };
     }
     case 'borrowed':

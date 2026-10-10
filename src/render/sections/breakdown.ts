@@ -1,9 +1,8 @@
-import type { MaterialOf } from '../../model';
 import { COMP } from '../figures';
-import type { Parts, SectionContext } from './context';
+import type { Parts, PlayedContext } from './context';
 
 // The hook over pads, keys coming in halfway.
-export function breakdown(ctx: SectionContext<MaterialOf<'breakdown'>>): Parts {
+export function breakdown(ctx: PlayedContext<'breakdown'>): Parts {
   const { band, C, B, len } = ctx;
   return {
     drums: ctx.drums(),

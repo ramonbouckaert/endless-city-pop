@@ -1,8 +1,7 @@
-import type { MaterialOf } from '../../model';
-import type { Parts, SectionContext } from './context';
+import type { Parts, PlayedContext } from './context';
 
 // An arpeggio and strings, the lead doubled high on bells.
-export function bridge(ctx: SectionContext<MaterialOf<'bridge'>>): Parts {
+export function bridge(ctx: PlayedContext<'bridge'>): Parts {
   const { band, C, B, mat } = ctx;
   return {
     drums: ctx.drums(),

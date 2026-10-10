@@ -1,13 +1,12 @@
 import { saw, stack } from '@strudel/core';
-import type { MaterialOf } from '../../model';
-import type { Parts, SectionContext } from './context';
+import type { Parts, PlayedContext } from './context';
 
 // The opening vamp's drums come in after two bars, start with kick and
 // hats alone, or play throughout, as the material says; when the vamp
 // comes back, the band is already going.
-export function vamp(ctx: SectionContext<MaterialOf<'vamp'>>): Parts {
+export function vamp(ctx: PlayedContext<'vamp'>): Parts {
   const { band, C, B, len } = ctx;
-  const entry = ctx.sec.opts.second ? 'full' : ctx.mat.entry;
+  const entry = ctx.sec.returning ? 'full' : ctx.mat.variant;
   let drums;
   if (entry === 'late') drums = [stack(...ctx.drums()).mask(ctx.from(2))];
   else if (entry === 'light')

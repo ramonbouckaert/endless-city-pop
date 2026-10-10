@@ -1,7 +1,7 @@
 import type { Weighted } from '../../lib/random';
 import type { ChordClass, ChordSpec, Mode } from '../../theory';
 import type { PaletteName } from '../harmony';
-import type { PreFlavour } from '../song';
+import type { PreFlavour } from '../variants';
 
 // A turnaround's chords relative to the key it leads into, one array per bar.
 export interface Turnaround {
