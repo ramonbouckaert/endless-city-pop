@@ -44,9 +44,11 @@ src/
   score/    the song as timed notes: ScoreArranger, ScoreBand, drums, figures (as data), mix.ts (each part's
             level), sections/ (one recipe per type)
   midi/     writer.ts (Standard MIDI File bytes), from-score.ts (a song's score as MIDI, with its mix)
-  app/      the browser page: main.ts (App) wires session.ts, player.ts (SpessaSynth), soundfont.ts, FormStrip,
-            TitleMarquee, autoplay, midi-download; storage.ts remembers values in this browser; time.ts holds the
-            pure clock helpers
+  app/      the browser page: main.ts (App: every action, from the buttons, form strip, media controls and
+            autoplay, and render()), transport.ts (the song, whether it plays, where it is; play/stop/next/seek),
+            player.ts (SynthPlayer: SpessaSynth), soundfont.ts, media-session.ts (MediaControls.update: lock-screen
+            metadata, position and buttons), FormStrip, TitleMarquee, autoplay, midi-download; storage.ts remembers
+            values in this browser; time.ts holds the pure clock helpers
 src/app/soundfont/  the app's soundfont: GeneralUser GS trimmed and compressed by scripts/build-soundfont.ts
 public/licenses/   the licences of what the app ships (GeneralUser GS, SpessaSynth); vite.config.ts writes
                     licenses/index.html listing them, linked from the footer

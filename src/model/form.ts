@@ -82,14 +82,20 @@ export class Form implements Iterable<Section> {
   }
 
   /**
-   * The section at `pos` bars in, and how far through it; past the end,
-   * the end of the last section; before the start, none.
+   * The section at `pos` bars in, and how far through it: before the
+   * start, the start; past the end, the end of the last section.
    */
-  playhead(pos: number): Playhead | undefined {
-    if (pos < 0 || !this.length) return undefined;
+  playhead(pos: number): Playhead {
+    if (pos <= 0) return { index: 0, through: 0 };
     const index = this.sections.findIndex((s, i) => pos < this.starts[i] + s.bars);
     if (index < 0) return { index: this.length - 1, through: 1 };
     return { index, through: (pos - this.starts[index]) / this.sections[index].bars };
+  }
+
+  /** The bar a playhead stands at: the inverse of playhead(), within the song. */
+  barAt({ index, through }: Playhead): number {
+    const i = Math.min(Math.max(index, 0), this.length - 1);
+    return this.starts[i] + Math.min(Math.max(through, 0), 1) * this.sections[i].bars;
   }
 
   /** Each section in a line: "chorus (+2) 8", "lift (to +2, ii-V) 2". */

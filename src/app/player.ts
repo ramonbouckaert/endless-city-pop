@@ -6,101 +6,138 @@ import { Sequencer, WorkletSynthesizer } from 'spessasynth_lib';
 import { loadSoundfont } from './soundfont';
 
 // iPhones mute Web Audio with the ring/silent switch, as they would a
-// game's sound effects; music played by an <audio> element plays on. So
-// the page asks for media playback: through Safari's Audio Session API
-// (iOS 16.4 on), or on older iPhones and iPads by keeping a silent
-// <audio> loop going while a song plays. Called from Play's tap, as iOS
-// only starts audio in answer to one. `silence` is the loop, on older
-// iPhones and iPads (silentLoop).
-function playThroughSilentMode(silence: HTMLAudioElement | undefined): void {
-  const session = audioSession();
-  if (session) session.type = 'playback';
-  else if (silence?.paused) void silence.play().catch(() => {});
-}
-
+// game's sound effects, unless the page asks for media playback through
+// Safari's Audio Session API (iOS 16.4 on). Asked from Play's tap, as iOS
+// only starts audio in answer to one, and given back when the song stops.
 const audioSession = () => (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
 
-// The silent loop, on iPhones and iPads without the Audio Session API.
-function silentLoop(): HTMLAudioElement | undefined {
-  const ios =
-    /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  if (audioSession() || !ios) return undefined;
-  return Object.assign(new Audio(silentWav()), { loop: true });
+function claimMediaPlayback(): void {
+  const session = audioSession();
+  if (session) session.type = 'playback';
 }
 
-// A tenth of a second of silence, as a WAV file: 8 kHz, 8-bit, mono.
-function silentWav(): string {
-  const samples = 800;
-  const wav = new DataView(new ArrayBuffer(44 + samples));
-  const text = (at: number, s: string) => [...s].forEach((c, i) => wav.setUint8(at + i, c.codePointAt(0) ?? 0));
-  text(0, 'RIFF');
-  wav.setUint32(4, 36 + samples, true);
-  text(8, 'WAVEfmt ');
-  wav.setUint32(16, 16, true); // format chunk size
-  wav.setUint16(20, 1, true); // PCM
-  wav.setUint16(22, 1, true); // mono
-  wav.setUint32(24, 8000, true); // sample rate
-  wav.setUint32(28, 8000, true); // bytes a second
-  wav.setUint16(32, 1, true); // bytes a sample
-  wav.setUint16(34, 8, true); // bits a sample
-  text(36, 'data');
-  wav.setUint32(40, samples, true);
-  for (let i = 0; i < samples; i++) wav.setUint8(44 + i, 128); // 8-bit silence is the midpoint
-  return URL.createObjectURL(new Blob([wav], { type: 'audio/wav' }));
+function releaseMediaPlayback(): void {
+  const session = audioSession();
+  if (session) session.type = 'auto';
+}
+
+/** What plays a song: its MIDI file, from a time, until stopped. */
+export interface Player {
+  /** Settles once the soundfont is in (play() waits for it). */
+  readonly loaded: Promise<void>;
+  readonly playing: boolean;
+  /** How many seconds into the song playing it is (while playing). */
+  readonly time: number;
+  /** Plays a MIDI file from `from` seconds in, in place of any playing. */
+  play(midi: Uint8Array, from: number): Promise<void>;
+  /** Moves the song playing to `to` seconds in. */
+  seek(to: number): void;
+  stop(): void;
+}
+
+// The synthesizer, and the sequencer that plays MIDI files on it.
+interface Engine {
+  synth: WorkletSynthesizer;
+  sequencer: Sequencer;
 }
 
 /**
- * A player for songs as MIDI files. play() starts one from the top (in
- * place of any playing); stop() stops; now() is how many seconds in it
- * is, or undefined when stopped; finished() says whether it has played to
- * the end. `loading` settles once the soundfont is ready.
+ * Songs played by SpessaSynth's synthesizer and sequencer. A song's time
+ * is kept on the audio clock: the sequencer's own runs stale for a
+ * moment after a song loads, and a song's tempo never changes. After a
+ * song's last note the clock runs on into the silence after it.
  */
-export interface Player {
-  readonly loading: Promise<void>;
-  play(midi: Uint8Array): Promise<void>;
-  stop(): void;
-  now(): number | undefined;
-  finished(): boolean;
-}
+export class SynthPlayer implements Player {
+  readonly loaded: Promise<void>;
+  private readonly context = new AudioContext();
+  private readonly engine: Promise<Engine>;
+  private _playing = false;
+  // When the song playing was at 0 s, on the audio clock.
+  private startedAt = 0;
+  // A seek waiting for the song to load (the sequencer can't place one
+  // before it has): made, at wherever the clock has got to, once it has.
+  private pending = false;
 
-export function createPlayer(): Player {
-  const context = new AudioContext();
-  const silence = silentLoop();
-  // Start loading now; play() waits for it.
-  const ready = setUp(context);
-  let sequencer: Sequencer | undefined;
-  let playing = false;
-  return {
-    loading: ready.then(() => undefined),
-    async play(midi) {
-      // Before any await: still in the tap.
-      playThroughSilentMode(silence);
-      void context.resume();
-      const synth = await ready;
-      sequencer ??= new Sequencer(synth, { skipToFirstNoteOn: false });
-      sequencer.loopCount = 0;
-      synth.stopAll(true);
-      sequencer.loadNewSongList([{ binary: midi.slice().buffer }]);
-      sequencer.play();
-      playing = true;
-    },
-    stop() {
-      sequencer?.pause();
-      void ready.then((synth) => synth.stopAll());
-      silence?.pause();
-      playing = false;
-    },
-    now: () => (playing && sequencer ? sequencer.currentTime : undefined),
-    finished: () => !!sequencer?.isFinished,
-  };
-}
+  constructor() {
+    // Loading starts now; play() waits for it.
+    this.engine = this.setUp();
+    this.loaded = this.engine.then(() => undefined);
+  }
 
-// The synthesizer, its worklet loaded and the soundfont in it.
-async function setUp(context: AudioContext): Promise<WorkletSynthesizer> {
-  const [font] = await Promise.all([loadSoundfont(), context.audioWorklet.addModule(processorUrl)]);
-  const synth = new WorkletSynthesizer(context);
-  synth.connect(context.destination);
-  await synth.soundBankManager.addSoundBank(font, 'main');
-  await synth.isReady;
-  return synth;
+  get playing(): boolean {
+    return this._playing;
+  }
+
+  get time(): number {
+    return this.context.currentTime - this.startedAt;
+  }
+
+  async play(midi: Uint8Array, from: number): Promise<void> {
+    // Before any await: still in the tap.
+    claimMediaPlayback();
+    void this.context.resume();
+    const { synth, sequencer } = await this.engine;
+    synth.stopAll(true);
+    sequencer.loadNewSongList([{ binary: midi.slice().buffer }]);
+    sequencer.play();
+    this._playing = true;
+    this.startedAt = this.context.currentTime - from;
+    this.pending = from > 0;
+  }
+
+  seek(to: number): void {
+    if (!this._playing) return;
+    // The clock moves at once; the sequencer as soon as it can.
+    this.startedAt = this.context.currentTime - Math.max(to, 0);
+    void this.engine.then(({ sequencer }) => {
+      if (sequencer.midiData) this.place(this.time);
+      else this.pending = true;
+    });
+  }
+
+  stop(): void {
+    this._playing = false;
+    this.pending = false;
+    releaseMediaPlayback();
+    void this.engine.then(({ synth, sequencer }) => {
+      sequencer.pause();
+      synth.stopAll();
+    });
+  }
+
+  // Puts the sequencer at a time in the loaded song: past its last event
+  // (where the sequencer would go back to the start), stopped there, as
+  // the song is over; before it, playing on from there, though it had
+  // finished.
+  private place(to: number): void {
+    void this.engine.then(({ synth, sequencer }) => {
+      if (to >= sequencer.duration) {
+        sequencer.pause();
+        synth.stopAll();
+        return;
+      }
+      // The sequencer plays every event up to there (programs, controllers).
+      sequencer.currentTime = to;
+      if (sequencer.paused) sequencer.play();
+    });
+  }
+
+  // The synthesizer, its worklet loaded and the soundfont in it, and its
+  // sequencer, which makes a waiting seek once a song has loaded.
+  private async setUp(): Promise<Engine> {
+    const { context } = this;
+    const [font] = await Promise.all([loadSoundfont(), context.audioWorklet.addModule(processorUrl)]);
+    const synth = new WorkletSynthesizer(context);
+    synth.connect(context.destination);
+    await synth.soundBankManager.addSoundBank(font, 'main');
+    await synth.isReady;
+    const sequencer = new Sequencer(synth, { skipToFirstNoteOn: false });
+    sequencer.loopCount = 0;
+    sequencer.eventHandler.addEvent('songChange', 'pending-seek', () => {
+      if (!this.pending || !this._playing) return;
+      this.pending = false;
+      this.place(this.time);
+    });
+    return { synth, sequencer };
+  }
 }

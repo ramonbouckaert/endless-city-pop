@@ -337,6 +337,7 @@ body.loading .when-loading {
   overflow: hidden;
 }
 
+/* A block per section; clicking one seeks to that point. */
 .sec {
   flex-basis: 0;
   min-width: 0;
@@ -349,6 +350,7 @@ body.loading .when-loading {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
 }
 
 /* Each section type's colour. */
@@ -429,8 +431,10 @@ body.loading .when-loading {
   border-radius: 1px;
   background: var(--playhead);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--panel) 70%, transparent);
-  pointer-events: none;
   will-change: transform;
+  /* Dragged to seek: the pointer, not the page, takes horizontal moves. */
+  cursor: ew-resize;
+  touch-action: none;
 }
 
 /* An inverted triangle capping the line. */
@@ -443,6 +447,16 @@ body.loading .when-loading {
   border-style: solid;
   border-width: 7px 5px 0;
   border-color: var(--playhead) transparent transparent;
+}
+
+/* A wider grip than the 2px line, for fingers. */
+.playhead::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  bottom: 0;
+  left: -10px;
+  right: -10px;
 }
 
 /* ---- No motion ---------------------------------------------------------- */
