@@ -15,43 +15,44 @@ export type ShapeName = 'rise' | 'fall' | 'arch' | 'valley' | 'neighbor' | 'leap
 
 const CELLS: Readonly<Record<MelodyKind, Readonly<Record<MotifLetter, readonly string[]>>>> = {
   chorus: {
-    A: ['.xxxx---', '.x.xx---', 'x-.xx---', '.xx-x---', '..xxx---', '.xxx.x--'],
-    B: ['x-.x.x--', 'x.xxx.x.', '.x.xx.x.', 'x-xx.x--', 'xx.x.x--'],
-    C: ['x---x---', 'x-x-x---', '.x.x----', 'x--x----'],
-    D: ['x-------', '.xx-x---', 'xx-x----'],
-    E: ['.xxxx---', '.x.xx---'],
+    A: ['.xxxx---', '.x.xx---', 'x-.xx---', '.xx-x---', '..xxx---', '.xxx.x--', 'x.xxx---', '.x.x.xx-', 'x--xxx--'],
+    B: ['x-.x.x--', 'x.xxx.x.', '.x.xx.x.', 'x-xx.x--', 'xx.x.x--', '.xx.xx--', 'x...xxx-'],
+    C: ['x---x---', 'x-x-x---', '.x.x----', 'x--x----', '.x--x---', 'x----x--'],
+    D: ['x-------', '.xx-x---', 'xx-x----', '.x------', 'x---x---', '..x.x---', 'x-x.x---'],
+    E: ['.xxxx---', '.x.xx---', 'x.x.xx--'],
   },
   verse: {
-    A: ['.xx.x.x.', '..xx.xx-', '.x.xxx--', 'x.x.xx--', '.xxxx-..'],
-    B: ['.x.x.x--', 'x-.xx.x-', '..x.xxx-', '.xx.x---'],
-    C: ['x--.xx--', 'x-x-x---', '.x.x----'],
-    D: ['x--x----', 'x-------', '.xx-x---'],
-    E: ['.xx.x---'],
+    A: ['.xx.x.x.', '..xx.xx-', '.x.xxx--', 'x.x.xx--', '.xxxx-..', 'x..xx.x.', '.x.x.xx-', 'x.xxx...'],
+    B: ['.x.x.x--', 'x-.xx.x-', '..x.xxx-', '.xx.x---', 'x--.x.x-', 'x...xx.x'],
+    C: ['x--.xx--', 'x-x-x---', '.x.x----', '.x--x---', 'x----x--'],
+    D: ['x--x----', 'x-------', '.xx-x---', '.x------', 'x.x-----', '..x.x---', 'x---.x--'],
+    E: ['.xx.x---', 'x-.x----', '.x.x----'],
   },
   pre: {
-    A: ['.x.xxx--', '.x.xx-x-', 'x.x.xx--'],
-    B: ['x---.x.x', 'x-.x.x--'],
-    C: ['x-------', 'x---x---'],
-    D: ['x---.xx-', 'x-------'],
-    E: ['x---x---'],
+    A: ['.x.xxx--', '.x.xx-x-', 'x.x.xx--', 'x.x.x.x-', '.xx.x.x-'],
+    B: ['x---.x.x', 'x-.x.x--', '.x.x.x--', 'x.x-x---'],
+    C: ['x-------', 'x---x---', '.x------', '.x--x---'],
+    D: ['x---.xx-', 'x-------', '.x------', '..x.x---', 'x---x---'],
+    E: ['x---x---', '.x--x---'],
   },
   bridge: {
-    A: ['x-----xx', 'x-----.x', 'x---x---', 'x-----x-'],
-    B: ['x---.xx-', 'x-x-x---', 'x--x-x--'],
-    C: ['x-------', 'x---x---'],
-    D: ['x-------', 'x-----x-'],
-    E: ['x---x---'],
+    A: ['x-----xx', 'x-----.x', 'x---x---', 'x-----x-', 'x----x--', '.x---x--'],
+    B: ['x---.xx-', 'x-x-x---', 'x--x-x--', 'x--x----', '.x--x---'],
+    C: ['x-------', 'x---x---', '.x------', '.x--x---'],
+    D: ['x-------', 'x-----x-', '.x------', 'x---x---', 'x..x----', '..x-----'],
+    E: ['x---x---', 'x-------'],
   },
   riff: {
-    A: ['x.xx.x.x', 'x..x.xx.', '.xx.xx.x', 'x.x..xx.'],
-    B: ['.x.xx.x.', 'x.xx.x--', '.x.x.xx-'],
-    C: ['x.x.x---'],
-    D: ['x.xx.x--'],
-    E: ['x.x.x---'],
+    A: ['x.xx.x.x', 'x..x.xx.', '.xx.xx.x', 'x.x..xx.', '.x.xx.xx', 'xx..x.xx'],
+    B: ['.x.xx.x.', 'x.xx.x--', '.x.x.xx-', 'x.x.xx--', '.xx.x.x.'],
+    C: ['x.x.x---', 'x..x.x--'],
+    D: ['x.xx.x--', 'x..x----', 'x.x.x.--', '.x.xx---'],
+    E: ['x.x.x---', 'x.x-----'],
   },
 };
 
 const PHRASE: readonly MotifLetter[] = ['A', 'B', 'A', 'C', 'A', 'B', 'A', 'D'];
+const PHRASE_ALT: readonly MotifLetter[] = ['A', 'B', 'A', 'B', 'A', 'C', 'A', 'D'];
 
 const MELODY_RANGES: Readonly<Record<MelodyKind, { center: number; lo: number; hi: number }>> = {
   chorus: { center: 4, lo: -1, hi: 9 },
@@ -76,11 +77,11 @@ const PRE_MELODIES: Readonly<Record<PreMelody, { sequence: number; cells: Readon
 };
 
 const SHAPE_CHOICES: Readonly<Record<MotifLetter, Weighted<ShapeName>>> = {
-  A: [['rise', 4], ['arch', 3], ['leapFall', 2], ['zigzag', 1]],
-  B: [['fall', 3], ['valley', 2], ['neighbor', 1], ['arch', 1]],
-  C: [['fall', 2], ['neighbor', 1], ['valley', 1]],
-  D: [['fall', 3], ['valley', 1]],
-  E: [['rise', 2], ['arch', 1]],
+  A: [['rise', 3], ['arch', 3], ['leapFall', 2], ['zigzag', 2], ['valley', 1]],
+  B: [['fall', 3], ['valley', 2], ['neighbor', 2], ['arch', 2], ['rise', 1]],
+  C: [['fall', 2], ['neighbor', 2], ['valley', 2], ['arch', 1]],
+  D: [['fall', 2], ['valley', 2], ['neighbor', 2], ['arch', 1], ['leapFall', 1]],
+  E: [['rise', 2], ['arch', 2], ['leapFall', 1]],
 };
 
 const ANSWER = {
@@ -110,6 +111,9 @@ const SOLO = {
   turn: 0.2,
   leaps: [1, 2, 2, 3],
 };
+
+const CHROMATIC_PROB = 0.15;
+const CADENCE_WEIGHTS: Weighted<number> = [[0, 11], [7, 5], [-1, 4]];
 
 /** A line in semitones above a key's tonic, on an eighth-note grid. */
 export class Melody extends Line<MelodyNote> {
@@ -255,6 +259,7 @@ export class MelodyWriter {
   private readonly sequence: number;
   private readonly motifs: Partial<Record<MotifLetter, Motif>> = {};
   private readonly seen: Partial<Record<MotifLetter, number>> = {};
+  private readonly drifts: Partial<Record<MotifLetter, number>> = {};
   private prevDeg: number;
   private prevSemis = 0;
 
@@ -272,7 +277,7 @@ export class MelodyWriter {
   }
 
   /** Which motif plays in each of `n` bars. C: half cadence, D: full cadence, E: tag. */
-  static plan(n: number, kind: MelodyKind, style: PreMelody = 'climb'): MotifLetter[] {
+  static plan(n: number, kind: MelodyKind, style: PreMelody = 'climb', rng?: Rng): MotifLetter[] {
     const each = (f: (i: number) => MotifLetter) => Array.from({ length: n }, (_, i) => f(i));
     if (kind === 'pre') {
       // All end on a half cadence into the chorus.
@@ -293,16 +298,16 @@ export class MelodyWriter {
         if (i % 2 === 0) return 'A';
         return i === n - 1 ? 'D' : 'B';
       });
-    if (n === 4) return ['A', 'B', 'A', 'D'];
-    if (n <= 8) return PHRASE.slice(8 - n);
+    const phrase = rng?.chance(0.35) ? PHRASE_ALT : PHRASE;
+    if (n <= 8) return phrase.slice(8 - n);
     return each((i) => {
-      if (i < 8) return PHRASE[i];
+      if (i < 8) return phrase[i];
       return i === n - 1 ? 'D' : 'E';
     });
   }
 
   write(bars: Bar[]): Melody {
-    const plan = MelodyWriter.plan(bars.length, this.kind, this.style);
+    const plan = MelodyWriter.plan(bars.length, this.kind, this.style, this.rng);
     return new Melody(bars.map((bar, b) => this.bar(bar, plan[b])));
   }
 
@@ -313,17 +318,27 @@ export class MelodyWriter {
     const motif = (this.motifs[letter] ??= this.motif(letter));
     // Some pre-choruses climb with every repeat of the motif.
     const climb = this.sequence * occurrence;
+    // Non-A motifs drift ±1 degree on each repeat so the line develops.
+    if (letter !== 'A' && occurrence > 0 && this.sequence === 0) {
+      const raw = (this.drifts[letter] ?? 0) + this.rng.pick([-1, 0, 0, 1]);
+      this.drifts[letter] = Math.max(-2, Math.min(2, raw));
+    }
+    const drift = this.drifts[letter] ?? 0;
     const notes = motif.notes.map((n, i): MelodyNote => {
       const chord = chordAt(bar, n.start, 8);
       const last = i === motif.notes.length - 1;
-      let semis = scale.semis(clamp(motif.startDeg + climb + n.offset, range.lo, range.hi + climb));
+      let semis = scale.semis(clamp(motif.startDeg + climb + drift + n.offset, range.lo, range.hi + climb));
       if (n.start % 4 === 0 || n.len >= 3 || i === 0 || (last && (letter === 'C' || letter === 'D'))) {
         const dir = i === 0 ? 0 : Math.sign(n.offset - motif.notes[i - 1].offset);
         // Riffs stay diatonic: they are harmonised by scale steps.
         semis = chord.snap(semis, key, { prev: this.prevSemis, dir, diatonic: this.kind === 'riff' });
+      } else if (this.kind !== 'riff' && Math.abs(semis - this.prevSemis) === 2 && this.rng.chance(CHROMATIC_PROB)) {
+        semis = this.prevSemis + Math.sign(semis - this.prevSemis);
       }
-      // A full cadence ends on the tonic if it belongs to the chord.
-      if (last && letter === 'D' && chord.pcs.includes(key.tonic)) semis = Math.round(semis / 12) * 12;
+      if (last && letter === 'D') {
+        const w = this.rng.weighted(CADENCE_WEIGHTS);
+        if (w >= 0) semis = Math.round((semis - w) / 12) * 12 + w;
+      }
       this.prevSemis = semis;
       return { start: n.start, len: n.len, semis };
     });
