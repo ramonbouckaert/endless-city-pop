@@ -1,3 +1,4 @@
+import { PERCUSSION } from '../../lib/general-midi';
 import { Chord } from '../../theory';
 import { drumHits } from '../drums';
 import { FIGURES, FINALE_DEGREES, FINALE_HITS, spans, timed } from '../figures';
@@ -23,13 +24,16 @@ export function finale(ctx: ScoreContext<'finale'>): Parts {
   const ride = () =>
     band.drum(
       drumHits(
-        'rd',
+        PERCUSSION.ride,
         Array.from({ length: 32 }, (_, i) => ({ time: i / 16, dur: 1 / 16, gain: 0.09 })),
       ).velocity(rise(0.3, 1, 2)),
     );
   const ring = () => [
     band.drum(
-      Part.stack(drumHits('bd', [{ time: 0, dur: 2, gain: 0.55 }]), drumHits('cr', [{ time: 0, dur: 2, gain: 0.55 }])),
+      Part.stack(
+        drumHits(PERCUSSION.kick, [{ time: 0, dur: 2, gain: 0.55 }]),
+        drumHits(PERCUSSION.crash, [{ time: 0, dur: 2, gain: 0.55 }]),
+      ),
     ),
     ride(),
   ];
@@ -41,9 +45,9 @@ export function finale(ctx: ScoreContext<'finale'>): Parts {
       // The band hits the chord with the drums, then one last stab rings
       // out over the strings.
       const hits = spans(FINALE_HITS, 2);
-      const kit = (['bd', 'sd', 'cr'] as const).map((sound) =>
+      const kit = [PERCUSSION.kick, PERCUSSION.snare, PERCUSSION.crash].map((drum) =>
         drumHits(
-          sound,
+          drum,
           hits.map((h) => ({ ...h, gain: 0.5 })),
         ),
       );
@@ -64,7 +68,10 @@ export function finale(ctx: ScoreContext<'finale'>): Parts {
       const both = changes({ time: 0, dur: 3 / 8, chord: above }, { time: 3 / 8, dur: 13 / 8 });
       const landing = { time: 3 / 8, dur: 13 / 8, gain: 0.55 };
       return {
-        drums: [band.drum(Part.stack(drumHits('bd', [landing]), drumHits('cr', [landing]))), ride()],
+        drums: [
+          band.drum(Part.stack(drumHits(PERCUSSION.kick, [landing]), drumHits(PERCUSSION.crash, [landing]))),
+          ride(),
+        ],
         pitched: [
           band.finaleKeys(both),
           band.strings(both),

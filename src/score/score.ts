@@ -1,12 +1,13 @@
 // A song as timed notes: every note each part plays, with the controls
-// that shape its sound. Times and lengths are in bars (a Strudel cycle),
-// from the start of the song in a Score and of the section in a Part.
+// that shape its sound. Times and lengths are in bars, from the start of
+// the song in a Score and of the section in a Part.
 
+import type { Program } from '../lib/general-midi';
 import type { PartPath } from '../model';
 import type { SectionType } from '../style';
 import type { Bar, Chord } from '../theory';
 
-/** Effects on a note, for the players that apply them (MIDI doesn't). */
+/** Effects on a note: MIDI carries pan, reverb (room) and the filter (lpf); not delay or hpf. */
 export interface Controls {
   readonly room?: number;
   readonly pan?: number;
@@ -25,14 +26,12 @@ export interface Slide {
 export interface ScoreNote {
   readonly time: number;
   readonly dur: number;
-  /** The part of the band that plays it (none: the noise riser). */
+  /** The part of the band that plays it (none: the riser, an effect). */
   readonly path?: PartPath;
-  /** A Strudel sound name, or a drum sound. */
-  readonly sound: string;
-  /** Its MIDI pitch; none for drums and noise. */
-  readonly note?: number;
-  /** The drum machine's bank, for a drum on a kit that has the sound. */
-  readonly bank?: string;
+  /** The General MIDI instrument that plays it, or the song's drum kit. */
+  readonly program: Program | 'drums';
+  /** Its MIDI note: a pitch, or on the drum kit, a percussion key. */
+  readonly note: number;
   readonly gain: number;
   readonly velocity: number;
   /** The sound's trim (Instruments.trim), or a recipe's own. */
@@ -109,10 +108,10 @@ export class Part {
     return this.map((n) => ({ ...n, clip: value }));
   }
 
-  /** Pitched notes moved by semitones. */
+  /** Pitched notes moved by semitones (drums stay as they are). */
   transpose(semis: number): Part {
     if (!semis) return this;
-    return this.map((n) => (n.note === undefined ? n : { ...n, note: n.note + semis }));
+    return this.map((n) => (n.program === 'drums' ? n : { ...n, note: n.note + semis }));
   }
 
   /** Every note `bars` later. */

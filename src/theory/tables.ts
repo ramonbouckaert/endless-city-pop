@@ -1,6 +1,5 @@
 // The facts of Western harmony this project uses: note names, modes
 // and chord-scales, chord symbols and how chords and numerals spell.
-// Scale names are the ones Strudel's scale() takes.
 
 // The modes a song can be in: church modes with a tonality each (style/tonalities).
 export type Mode = 'major' | 'minor' | 'dorian' | 'mixolydian';
@@ -14,7 +13,7 @@ export interface ChordDef {
 export const SHARP_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 export const FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
-// Modes and chord-scales, named the way Strudel's scale() wants them.
+// Modes and chord-scales, as semitones above their root.
 export const MODES: Readonly<Record<string, readonly number[]>> = {
   major: [0, 2, 4, 5, 7, 9, 11],
   dorian: [0, 2, 3, 5, 7, 9, 10],
@@ -45,7 +44,7 @@ export const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 export const LETTER_PCS = [0, 2, 4, 5, 7, 9, 11];
 export const RARE_SPELLINGS = ['Cb', 'Fb', 'E#', 'B#'];
 
-// Chord symbols from Strudel's default (iReal) voicing dictionary.
+// Chord symbols, written as iReal Pro writes them (^ for major seventh).
 export const CHORDS: Readonly<Record<string, ChordDef>> = {
   '': { cls: 'maj', tones: [0, 4, 7] },
   add9: { cls: 'maj', tones: [0, 4, 7, 14] },

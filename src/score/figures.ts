@@ -1,7 +1,7 @@
 // Fixed rhythms and figures the arrangement plays, as data: for each
 // bar, its hits on a sixteenth-note grid, [step, length in steps], and
 // for a figure a value on each: an index into a chord's voicing or a
-// scale degree. The same as render/figures.ts, in mini-notation there.
+// scale degree.
 
 import type { Span } from './score';
 
@@ -150,5 +150,5 @@ export const FINALE_DEGREES = [4, 9, 13, 15, 17, 19];
 // The highest MIDI note a melody may be doubled up to.
 export const DOUBLE_TOP = 100;
 
-// Seconds a slurred note takes to slide into its pitch (Strudel's pattack).
+// Seconds a slurred note takes to slide into its pitch.
 export const SLIDE_SECONDS = 0.05;

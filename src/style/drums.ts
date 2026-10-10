@@ -1,36 +1,16 @@
 // Drum feels as recipes, and the settings the drum writer rolls within.
-// A bar is 16 steps of gains (lib/steps).
+// A bar is 16 steps of gains (lib/steps); drums are General MIDI
+// percussion keys (PERCUSSION).
 
+import { PERCUSSION, type Percussion } from '../lib/general-midi';
 import type { Range, Weighted } from '../lib/random';
 import { at, empty, steps, type StepGains } from '../lib/steps';
-
-// The drum sounds the band plays, by their names in Strudel's samples
-// (and every drum machine's bank), with each one's General MIDI
-// percussion key for the MIDI export.
-export const DRUM_SOUNDS = {
-  bd: { gmKey: 36 },
-  rim: { gmKey: 37 },
-  sd: { gmKey: 38 },
-  cp: { gmKey: 39 },
-  lt: { gmKey: 45 },
-  hh: { gmKey: 42 },
-  oh: { gmKey: 46 },
-  mt: { gmKey: 47 },
-  cr: { gmKey: 49 },
-  ht: { gmKey: 50 },
-  rd: { gmKey: 51 },
-  tb: { gmKey: 54 },
-  cb: { gmKey: 56 },
-  sh: { gmKey: 82 },
-} as const satisfies Readonly<Record<string, { gmKey: number }>>;
-export type DrumSound = keyof typeof DRUM_SOUNDS;
-export const isDrumSound = (name: string): name is DrumSound => name in DRUM_SOUNDS;
 
 export type DrumFeel = 'funk' | 'disco' | 'halfTime' | 'bossa' | 'introRide' | 'claps' | 'build' | 'break';
 export type DrumRole = 'kick' | 'snare' | 'ghost' | 'hat' | 'perc';
 
 export interface DrumVoice {
-  sound: DrumSound;
+  drum: Percussion;
   role: DrumRole;
   bars: readonly StepGains[]; // choices; a recipe picks one
 }
@@ -67,21 +47,29 @@ const BEATS = [0, 4, 8, 12];
 export const EIGHTH_OFFS = [2, 6, 10, 14];
 
 // Extra percussion: shaker, tambourine or cowbell.
-const shaker: DrumVoice = { sound: 'sh', role: 'perc', bars: [empty().map((_, i) => (i % 2 ? 0.06 : 0.1))] };
-const PERCUSSION: readonly DrumVoice[] = [
+const shaker: DrumVoice = {
+  drum: PERCUSSION.shaker,
+  role: 'perc',
+  bars: [empty().map((_, i) => (i % 2 ? 0.06 : 0.1))],
+};
+const EXTRAS: readonly DrumVoice[] = [
   shaker,
   shaker,
-  { sound: 'tb', role: 'perc', bars: [at({ 4: 0.12, 12: 0.12 }), at({ 2: 0.1, 6: 0.1, 10: 0.1, 14: 0.1 })] },
-  { sound: 'cb', role: 'perc', bars: [BEATS, [0, 6, 10], [2, 8, 14]].map((list) => steps(list, 0.08)) },
+  {
+    drum: PERCUSSION.tambourine,
+    role: 'perc',
+    bars: [at({ 4: 0.12, 12: 0.12 }), at({ 2: 0.1, 6: 0.1, 10: 0.1, 14: 0.1 })],
+  },
+  { drum: PERCUSSION.cowbell, role: 'perc', bars: [BEATS, [0, 6, 10], [2, 8, 14]].map((list) => steps(list, 0.08)) },
 ];
-const percussion = (chance: number) => ({ op: 'voice', chance, voices: PERCUSSION }) as const;
+const percussion = (chance: number) => ({ op: 'voice', chance, voices: EXTRAS }) as const;
 
-// The backbeat's sound(s), and how the level scales for each.
-export const BACKBEATS: Weighted<DrumSound[]> = [
-  [['sd'], 4],
-  [['sd', 'cp'], 2],
-  [['cp'], 1],
-  [['rim'], 0.5],
+// The backbeat's drum(s), and how often each plays it.
+export const BACKBEATS: Weighted<Percussion[]> = [
+  [[PERCUSSION.snare], 4],
+  [[PERCUSSION.snare, PERCUSSION.clap], 2],
+  [[PERCUSSION.clap], 1],
+  [[PERCUSSION.sideStick], 0.5],
 ];
 
 // Each feel's groove, as steps rolled in order.
@@ -146,7 +134,11 @@ export const DRUM_FEELS: Readonly<Record<DrumFeel, DrumRecipe>> = {
       },
       { op: 'backbeat', steps: [8], gain: 0.45 },
       { op: 'ghosts', density: [0, 0.2], avoid: [8] },
-      { op: 'voice', chance: 0.5, voices: [{ sound: 'rim', role: 'perc', bars: [at({ 4: 0.08, 12: 0.08 })] }] },
+      {
+        op: 'voice',
+        chance: 0.5,
+        voices: [{ drum: PERCUSSION.sideStick, role: 'perc', bars: [at({ 4: 0.08, 12: 0.08 })] }],
+      },
       { op: 'cymbal', sixteenths: 0.3, ride: 0.35, loud: 0.7 },
       percussion(0.25),
     ],
@@ -158,7 +150,7 @@ export const DRUM_FEELS: Readonly<Record<DrumFeel, DrumRecipe>> = {
         op: 'voice',
         voices: [
           {
-            sound: 'bd',
+            drum: PERCUSSION.kick,
             role: 'kick',
             bars: [
               [0, 6, 8, 14],
@@ -173,7 +165,7 @@ export const DRUM_FEELS: Readonly<Record<DrumFeel, DrumRecipe>> = {
         op: 'voice',
         voices: [
           {
-            sound: 'rim',
+            drum: PERCUSSION.sideStick,
             role: 'snare',
             bars: [
               [0, 3, 6, 10, 13],
@@ -190,7 +182,7 @@ export const DRUM_FEELS: Readonly<Record<DrumFeel, DrumRecipe>> = {
         chance: 0.5,
         voices: [
           {
-            sound: 'sh',
+            drum: PERCUSSION.shaker,
             role: 'perc',
             bars: [
               empty().map((_, i) => {
@@ -213,15 +205,15 @@ export const DRUM_FEELS: Readonly<Record<DrumFeel, DrumRecipe>> = {
       {
         op: 'voice',
         chance: 0.6,
-        voices: [{ sound: 'rim', role: 'snare', bars: [at({ 12: 0.1 }), at({ 4: 0.08, 12: 0.1 })] }],
+        voices: [{ drum: PERCUSSION.sideStick, role: 'snare', bars: [at({ 12: 0.1 }), at({ 4: 0.08, 12: 0.1 })] }],
       },
-      { op: 'voice', chance: 0.4, voices: [{ sound: 'bd', role: 'kick', bars: [at({ 0: 0.35 })] }] },
+      { op: 'voice', chance: 0.4, voices: [{ drum: PERCUSSION.kick, role: 'kick', bars: [at({ 0: 0.35 })] }] },
     ],
   },
   claps: {
     steps: [
       { op: 'kicks', required: BEATS, optional: [], gain: 0.55 },
-      { op: 'voice', voices: [{ sound: 'cp', role: 'snare', bars: [at({ 4: 0.45, 12: 0.45 })] }] },
+      { op: 'voice', voices: [{ drum: PERCUSSION.clap, role: 'snare', bars: [at({ 4: 0.45, 12: 0.45 })] }] },
       percussion(0.5),
     ],
   },
@@ -233,7 +225,7 @@ export const DRUM_FEELS: Readonly<Record<DrumFeel, DrumRecipe>> = {
         op: 'voice',
         voices: [
           {
-            sound: 'sd',
+            drum: PERCUSSION.snare,
             role: 'snare',
             bars: [2, 4].map((every) => empty().map((_, i) => (i % every ? 0 : 0.18 + (i / 16) * 0.2))),
           },
@@ -293,12 +285,12 @@ export const FILLS = {
     ['stop', 1, 0.3],
   ] as readonly (readonly [FillKind, number, number])[],
   mixed: [
-    ['sd', 3],
-    ['ht', 1],
-    ['mt', 1],
-    ['lt', 1],
-    ['bd', 1],
-  ] as Weighted<DrumSound>,
+    [PERCUSSION.snare, 3],
+    [PERCUSSION.highTom, 1],
+    [PERCUSSION.midTom, 1],
+    [PERCUSSION.lowTom, 1],
+    [PERCUSSION.kick, 1],
+  ] as Weighted<Percussion>,
   sixteenths: 0.65,
   quietLevel: 0.6,
 };

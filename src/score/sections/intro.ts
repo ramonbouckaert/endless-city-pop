@@ -1,3 +1,4 @@
+import { PERCUSSION } from '../../lib/general-midi';
 import { drumHits } from '../drums';
 import { Part } from '../score';
 import type { Parts, PlayedScoreContext } from './context';
@@ -16,7 +17,7 @@ export function intro(ctx: PlayedScoreContext<'intro'>): Parts {
       };
     case 'drumsFirst': {
       // The drums alone, then the band in halfway on a crash.
-      const crash = drumHits('cr', [{ time: len / 2, dur: 1, gain: 0.2 }]);
+      const crash = drumHits(PERCUSSION.crash, [{ time: len / 2, dur: 1, gain: 0.2 }]);
       return {
         drums: [...drums, band.drum(crash)],
         pitched: [halfway(B), halfway(band.keys(C).gain(0.26)), halfway(band.clav(C)), ctx.teaser(mat.melody)],

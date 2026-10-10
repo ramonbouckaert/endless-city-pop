@@ -196,8 +196,8 @@ describe('MIDI', () => {
     }
     expect(panned).toBeGreaterThan(0);
   });
-  it('shares a channel only between sounds that never play at once, set up as each starts', () => {
-    // Fifteen sounds playing throughout, then two in the finale; the
+  it('shares a channel only between instruments that never play at once, set up as each starts', () => {
+    // Fifteen instruments playing throughout, then two in the finale; the
     // first two finish early.
     const spans = [
       { first: 0, last: 100 },
@@ -214,7 +214,7 @@ describe('MIDI', () => {
   });
 
   it("never plays two of a song's tracks on one channel at once", () => {
-    // ch1 has seventeen melodic sounds, two of them only in the finale.
+    // ch1 has seventeen melodic instruments, two of them only in the finale.
     const tracks = read(songToMidi(Song.generate('ch1'))).tracks.slice(1);
     const spans = new Map<number, [number, number][]>();
     for (const track of tracks) {
@@ -231,5 +231,47 @@ describe('MIDI', () => {
       const sorted = list.sort((a, b) => a[0] - b[0]);
       for (let i = 1; i < sorted.length; i++) expect(sorted[i][0]).toBeGreaterThanOrEqual(sorted[i - 1][1]);
     }
+  });
+  it("puts the drums on the song's kit", () => {
+    for (const seed of ['kit0', 'kit1', 'kit2']) {
+      const song = Song.generate(seed);
+      const tracks = read(songToMidi(song)).tracks;
+      const drums = defined(
+        tracks.find((t) => t.some((e) => e.status === (0x90 | DRUM_CHANNEL))),
+        'a drum track',
+      );
+      expect(drums.find((e) => e.status === (0xc0 | DRUM_CHANNEL))?.data).toEqual([song.instruments.kit.program]);
+    }
+  });
+
+  it("sweeps a vamp's keys open with brightness, and leaves other tracks as they are", () => {
+    // Find a song whose vamp plays (it sweeps its keys' filter open).
+    const song = defined(
+      Array.from({ length: 50 }, (_, i) => Song.generate(`vamp${i}`)).find((s) => s.form.first('vamp')),
+      'a song with a vamp',
+    );
+    const tracks = read(songToMidi(song)).tracks.slice(1);
+    const brightness = (t: (typeof tracks)[number]) =>
+      t.filter((e) => (e.status & 0xf0) === 0xb0 && e.data[0] === CC.brightness).map((e) => e.data[1]);
+    const swept = tracks.filter((t) => brightness(t).some((v) => v < 64));
+    expect(swept.length).toBeGreaterThan(0);
+    for (const t of swept) expect(new Set(brightness(t)).size).toBeGreaterThan(3);
+    // Every other track sets brightness once, to 64: the sound as it is.
+    for (const t of tracks.filter((t) => !swept.includes(t))) expect(brightness(t)).toEqual([64]);
+  });
+
+  it('plays a riser as a reverse cymbal into the next section', () => {
+    const song = defined(
+      Array.from({ length: 80 }, (_, i) => Song.generate(`rise${i}`)).find((s) => {
+        const pre = s.part('pre');
+        return pre && (pre.variant === 'climb' || pre.variant === 'pedal');
+      }),
+      'a song with a rising pre-chorus',
+    );
+    const cymbal = read(songToMidi(song)).tracks.find((t) =>
+      t.some((e) => e.type === 0x03 && String.fromCharCode(...e.data) === 'Reverse Cymbal'),
+    );
+    const program = defined(cymbal, 'a reverse cymbal track').find((e) => (e.status & 0xf0) === 0xc0);
+    expect(program?.data).toEqual([119]);
   });
 });

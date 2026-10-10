@@ -81,9 +81,9 @@ footer {
   font-size: 13px;
 }
 
-/* The song card and the debug panel. */
-.song,
-.debug {
+/* The song card. */
+.song {
+  margin: 20px 0;
   padding: 16px;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -103,17 +103,13 @@ footer {
 
 /* ---- Controls ----------------------------------------------------------- */
 
-button,
-.debug select {
+button {
   font: inherit;
   font-size: 14px;
   color: var(--text);
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 8px;
-}
-
-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -124,11 +120,6 @@ button {
 
 button:hover {
   border-color: var(--muted);
-}
-
-button:disabled {
-  cursor: progress;
-  opacity: 0.75;
 }
 
 .primary {
@@ -154,7 +145,7 @@ button:disabled {
   stroke-linejoin: round;
 }
 
-/* The export button's icon, a spinner while the file is written. */
+/* The export button's icon. */
 .icon {
   display: inline-grid;
   place-items: center;
@@ -162,28 +153,7 @@ button:disabled {
   height: 16px;
 }
 
-.busy .icon svg {
-  display: none;
-}
-
-.busy .icon {
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(1turn);
-  }
-}
-
 /* ---- The song: title, meta and buttons --------------------------------- */
-
-.song {
-  margin: 20px 0;
-}
 
 /* The title takes what room the buttons leave, wrapping within it; the
    buttons only drop below it when even 320px won't fit beside them. */
@@ -257,11 +227,23 @@ button:disabled {
 }
 
 .when-playing,
+.when-loading,
 body.playing .when-stopped {
   display: none;
 }
 
 body.playing .when-playing {
+  display: inline;
+}
+
+/* While the soundfont loads, Play says so (and still works: the song
+   starts once the sounds are in). */
+body.loading .when-stopped,
+body.loading .when-playing {
+  display: none;
+}
+
+body.loading .when-loading {
   display: inline;
 }
 
@@ -469,105 +451,5 @@ body.playing .when-playing {
   }
   .sec.now {
     animation: none;
-  }
-}
-
-/* ---- The ?debug=true instrument panel (debug/panel.ts) ----------------- */
-
-.debug {
-  margin: 0 0 20px;
-}
-
-.debug h2,
-.debug h3 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.debug-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px 16px;
-}
-
-.debug-note {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.debug-actions {
-  display: flex;
-  gap: 8px;
-}
-
-/* One grid for every row, so the columns line up. */
-.debug-rows {
-  display: grid;
-  grid-template-columns: max-content 1fr minmax(180px, 280px);
-  align-items: center;
-  gap: 4px 16px;
-  margin: 12px 0 20px;
-}
-
-.debug-row {
-  display: contents;
-}
-
-.debug-label {
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.debug-row.changed .debug-label::after {
-  content: ' •';
-  color: var(--accent);
-}
-
-.debug-plays {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.debug select {
-  min-width: 0;
-  padding: 5px 8px;
-}
-
-.debug-changes {
-  margin: 8px 0 0;
-  padding: 10px 12px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font-size: 13px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-/* Phones: each row its own grid, label and menu side by side, what it
-   plays below. */
-@media (max-width: 640px) {
-  .debug-rows {
-    display: block;
-  }
-  .debug-row {
-    display: grid;
-    grid-template-columns: 1fr minmax(0, 1.4fr);
-    grid-template-areas: 'label menu' 'plays plays';
-    align-items: center;
-    gap: 2px 12px;
-    margin-bottom: 10px;
-  }
-  .debug-label {
-    grid-area: label;
-  }
-  .debug-row select {
-    grid-area: menu;
-  }
-  .debug-plays {
-    grid-area: plays;
   }
 }

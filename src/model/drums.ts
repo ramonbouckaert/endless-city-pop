@@ -5,6 +5,7 @@
 // ends in a fill gets a few (snare rolls, tom runs, unison hits, stops)
 // for its repeats to pick from. A bar is 16 steps of gains (0 = silent).
 
+import { PERCUSSION, type Percussion } from '../lib/general-midi';
 import type { Rng } from '../lib/random';
 import { at, empty, steps, type StepGains } from '../lib/steps';
 import {
@@ -17,19 +18,18 @@ import {
   type DrumPlan,
   type DrumRecipe,
   type DrumRole,
-  type DrumSound,
   type DrumStep,
   type FillKind,
 } from '../style';
 
 export interface DrumPart {
-  sound: DrumSound;
+  drum: Percussion;
   role: DrumRole;
   bars: readonly StepGains[]; // four bars, the fourth a variation
 }
 export interface DrumHit {
   step: number;
-  sound: DrumSound;
+  drum: Percussion;
   gain: number;
 }
 // A fill over the end of a section's last bar, from `start`: replacing
@@ -73,12 +73,16 @@ export class DrumWriter {
     const { rng, recipe, feel, crash, fill } = this;
     const groove = new RecipeRun(recipe, rng.fork('groove')).run();
     const vary = !recipe.steady && rng.chance(DRUMS.vary.chance);
-    const parts: DrumPart[] = groove.voices.map(({ sound, role, bar }) => {
+    const parts: DrumPart[] = groove.voices.map(({ drum, role, bar }) => {
       const fourthBar = vary && role === 'kick' ? this.varyKick(bar) : bar;
-      return { sound, role, bars: [bar, bar, bar, fourthBar] };
+      return { drum, role, bars: [bar, bar, bar, fourthBar] };
     });
     if (groove.openOnFour && rng.chance(DRUMS.openOnFour.chance)) {
-      parts.push({ sound: 'oh', role: 'hat', bars: [empty(), empty(), empty(), at({ 14: DRUMS.openOnFour.gain })] });
+      parts.push({
+        drum: PERCUSSION.openHat,
+        role: 'hat',
+        bars: [empty(), empty(), empty(), at({ 14: DRUMS.openOnFour.gain })],
+      });
     }
     const fills = fill
       ? Array.from({ length: FILLS.count }, (_, i) => new FillWriter(rng.fork(`fill/${i}`), !!recipe.quiet).write())
@@ -97,7 +101,7 @@ export class DrumWriter {
 
 // One bar of a drum part, as the recipe made it.
 interface Voice {
-  sound: DrumSound;
+  drum: Percussion;
   role: DrumRole;
   bar: StepGains;
 }
@@ -106,7 +110,7 @@ interface Voice {
 class RecipeRun {
   private readonly voices: Voice[] = [];
   private openOnFour: boolean;
-  private cymbalSound: DrumSound = 'hh';
+  private timekeeper: Percussion = PERCUSSION.closedHat; // the hi-hat or ride
 
   constructor(
     private readonly recipe: DrumRecipe,
@@ -120,8 +124,8 @@ class RecipeRun {
     return { voices: this.voices, openOnFour: this.openOnFour };
   }
 
-  private add(sound: DrumSound, role: DrumRole, bar: StepGains): void {
-    this.voices.push({ sound, role, bar });
+  private add(drum: Percussion, role: DrumRole, bar: StepGains): void {
+    this.voices.push({ drum, role, bar });
   }
 
   private step(step: DrumStep): void {
@@ -146,19 +150,23 @@ class RecipeRun {
     const soft = optional.flatMap(([i, p]) =>
       this.rng.chance(p * density) ? [[i, gain * this.rng.range(DRUMS.kickSoft)]] : [],
     );
-    this.add('bd', 'kick', at({ ...Object.fromEntries(required.map((i) => [i, gain])), ...Object.fromEntries(soft) }));
+    this.add(
+      PERCUSSION.kick,
+      'kick',
+      at({ ...Object.fromEntries(required.map((i) => [i, gain])), ...Object.fromEntries(soft) }),
+    );
   }
 
   // Snare, clap or both; a rim click plays softer.
   private backbeat({ steps: beats, gain, orElse }: Op<'backbeat'>): void {
     const hits = orElse && !this.rng.chance(orElse.keep) ? orElse.steps : beats;
-    const sounds = this.rng.weighted(BACKBEATS);
-    for (const sound of sounds) {
+    const drums = this.rng.weighted(BACKBEATS);
+    for (const drum of drums) {
       let level: number;
-      if (sound === 'rim') level = gain * 0.4;
-      else if (sound === 'cp' && sounds.length > 1) level = gain * 0.8;
+      if (drum === PERCUSSION.sideStick) level = gain * 0.4;
+      else if (drum === PERCUSSION.clap && drums.length > 1) level = gain * 0.8;
       else level = gain;
-      this.add(sound, 'snare', steps(hits, level));
+      this.add(drum, 'snare', steps(hits, level));
     }
   }
 
@@ -169,7 +177,7 @@ class RecipeRun {
       const weight = i % 2 === 0 ? 0.6 : 1;
       return avoid.includes(i) || !this.rng.chance(d * weight) ? 0 : this.rng.range(DRUMS.ghostGain);
     });
-    if (bar.some(Boolean)) this.add('sd', 'ghost', bar);
+    if (bar.some(Boolean)) this.add(PERCUSSION.snare, 'ghost', bar);
   }
 
   // Hi-hat or ride, eighths or sixteenths, accented on the beat or, for
@@ -177,13 +185,13 @@ class RecipeRun {
   private cymbal({ ride, sixteenths, loud }: Op<'cymbal'>): void {
     const { rng } = this;
     const c = DRUMS.cymbal;
-    const sound = rng.chance(ride) ? 'rd' : 'hh';
+    const drum = rng.chance(ride) ? PERCUSSION.ride : PERCUSSION.closedHat;
     const sixteen = rng.chance(sixteenths);
-    const accent = rng.range(c.accent) * loud * (sound === 'rd' ? DRUMS.rideLevel : 1);
+    const accent = rng.range(c.accent) * loud * (drum === PERCUSSION.ride ? DRUMS.rideLevel : 1);
     const mid = accent * rng.range(c.mid);
     const weak = accent * rng.range(c.weak);
     const [on, off] = rng.chance(c.offbeat) ? [mid, accent] : [accent, mid];
-    this.cymbalSound = sound;
+    this.timekeeper = drum;
     const cymbalGain = (i: number): number => {
       if (!sixteen && i % 2) return 0;
       if (i % 4 === 0) return on;
@@ -191,22 +199,22 @@ class RecipeRun {
       return weak;
     };
     this.add(
-      sound,
+      drum,
       'hat',
       empty().map((_, i) => cymbalGain(i)),
     );
   }
 
   private openHats({ chance }: Op<'openHats'>): void {
-    if (this.cymbalSound === 'hh' && this.rng.chance(chance)) {
-      this.add('oh', 'hat', steps(EIGHTH_OFFS, DRUMS.openHatGain));
+    if (this.timekeeper === PERCUSSION.closedHat && this.rng.chance(chance)) {
+      this.add(PERCUSSION.openHat, 'hat', steps(EIGHTH_OFFS, DRUMS.openHatGain));
     } else this.openOnFour = true;
   }
 
   private voice({ chance, voices }: Op<'voice'>): void {
     if (chance !== undefined && !this.rng.chance(chance)) return;
-    const { sound, role, bars } = this.rng.pick(voices);
-    this.add(sound, role, this.rng.pick(bars));
+    const { drum, role, bars } = this.rng.pick(voices);
+    this.add(drum, role, this.rng.pick(bars));
   }
 }
 
@@ -229,34 +237,38 @@ class FillWriter {
   write(): DrumFill {
     const { rng, start, level } = this;
     const hits: DrumHit[] = [];
-    const hit = (step: number, sound: DrumSound, gain: number) => hits.push({ step, sound, gain });
+    const hit = (step: number, drum: Percussion, gain: number) => hits.push({ step, drum, gain });
     switch (this.kind) {
       case 'roll':
-        this.run((i) => hit(i, 'sd', this.ramp(i)));
+        this.run((i) => hit(i, PERCUSSION.snare, this.ramp(i)));
         break;
       case 'toms':
         this.run((i) =>
-          hit(i, (['ht', 'mt', 'lt'] as const)[Math.min(2, Math.floor(this.progress(i) * 3))], this.ramp(i) * 1.4),
+          hit(
+            i,
+            [PERCUSSION.highTom, PERCUSSION.midTom, PERCUSSION.lowTom][Math.min(2, Math.floor(this.progress(i) * 3))],
+            this.ramp(i) * 1.4,
+          ),
         );
-        if (rng.chance(0.5)) hit(15, 'bd', 0.6 * level);
+        if (rng.chance(0.5)) hit(15, PERCUSSION.kick, 0.6 * level);
         break;
       case 'mixed':
         this.run((i) => {
           if (i > start && rng.chance(0.2)) return;
-          const sound = rng.weighted(FILLS.mixed);
-          hit(i, sound, this.ramp(i) * (sound === 'sd' ? 1 : 1.3));
+          const drum = rng.weighted(FILLS.mixed);
+          hit(i, drum, this.ramp(i) * (drum === PERCUSSION.snare ? 1 : 1.3));
         });
         break;
       case 'unison':
         // Kick and snare together on a syncopated figure.
         for (let i = start; i < 16; i += 3) {
-          hit(i, 'sd', 0.4 * level);
-          hit(i, 'bd', 0.6 * level);
+          hit(i, PERCUSSION.snare, 0.4 * level);
+          hit(i, PERCUSSION.kick, 0.6 * level);
         }
         break;
       case 'stop':
         // Everything stops, then a snare pickup.
-        hit(rng.pick([14, 15]), 'sd', 0.35 * level);
+        hit(rng.pick([14, 15]), PERCUSSION.snare, 0.35 * level);
     }
     return { start, stop: this.kind === 'stop', hits };
   }

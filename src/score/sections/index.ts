@@ -1,6 +1,5 @@
-// Each section type's recipe as notes: which instruments play its
-// material, and how. The same recipes as render/sections/; a change to
-// one belongs in the other until playback moves to the score.
+// Each section type's recipe: which instruments play its material, and
+// how, as notes.
 
 import { isPlayed, type Section, type Song } from '../../model';
 import type { SectionType } from '../../style';

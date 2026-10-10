@@ -3,21 +3,21 @@
 Endless, procedurally generated city pop: songs in the jazz-funk harmony
 of late-'70s and '80s Japanese pop, in major, minor, dorian and
 mixolydian keys, each with a bilingual title (真夜中のドライブ (Midnight
-Drive)), one after another. They're built from music theory rules as
-[Strudel](https://strudel.cc) patterns and played in the browser by
-Strudel itself.
+Drive)), one after another. They're built from music theory rules,
+written out as MIDI, and played in the browser on the
+[GeneralUser GS](https://www.schristiancollins.com/generaluser.php)
+soundfont by [SpessaSynth](https://github.com/spessasus/spessasynth_lib).
 
 Every song comes from a seed, so the same seed always gives the
-same song. The app calls Strudel's functions directly to build each song
-(harmony, drums, instruments, melodies, sections, then the arrangement);
-it doesn't write out Strudel code.
+same song: its harmony, drums, instruments, melodies and sections, then
+the arrangement, as timed notes (a score) and a MIDI file.
 
 ## Quick start
 
 ```sh
 npm install
 npm run dev        # the app, at http://localhost:5173
-npm test           # unit tests, then queries 12 songs' patterns through Strudel
+npm test           # unit tests, then checks 12 songs' scores and MIDI
 npm run song -- mySeed   # print a song's outline
 npm run midi -- mySeed   # write mySeed.mid
 ```
@@ -25,7 +25,7 @@ npm run midi -- mySeed   # write mySeed.mid
 ## How a song is made
 
 ```
-seed ─▶ mode, key ─▶ form ─▶ harmony ─▶ melody, bass ─▶ Strudel pattern
+seed ─▶ mode, key ─▶ form ─▶ harmony ─▶ melody, bass ─▶ score ─▶ MIDI ─▶ soundfont synth
 ```
 
 ### Modes
@@ -48,21 +48,37 @@ sus V can be the phrygian 7b9sus. Bridges in minor visit the relative
 major, bVI, iv minor or the Neapolitan; dorian bridges go to the parent
 major or a half step up, as in So What.
 
-| Step         | Module                  | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ------------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Style        | `src/style/`            | Every table and tunable, the style as data: each mode's tonality (`tonalities/`), form odds, section rhythms, drum recipes and bass feels, melody cells and phrase forms, harmony colours, instruments and title words. The generators in `src/model/` read these; nothing in `style/` rolls dice or loads Strudel.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Form         | `src/model/form.ts`     | Built from optional parts, so length and shape vary by seed: an intro (the chorus teased, planing add9 chords, or one of several vamps and turnarounds, in one of four arrangements) and maybe a vamp; one to three verse / pre-chorus / chorus rounds (the pre-chorus and riffs may not appear at all); a middle of a bridge and up to two solos of one or two choruses each, in either order, maybe a breakdown and a drum break; then one to three last choruses, each of which may lift the key up again (by one to three semitones, up to +4 in all), an optional outro and a final chord. Repeats vary: later verses add parts, later choruses add answers and the last one a "big" layer.                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Harmony      | `src/model/harmony.ts`  | Roman-numeral templates realised in the song's key and mode as extended chords (the tonic coloured by mode), then reharmonised with tritone substitutions, related ii chords and secondary dominants (a mixolydian I7 is never tritone-subbed: it is home). Bridges move to a related key chosen by circle-of-fifths distance or a chromatic mediant, and end with the mode's cadence back home. Lifts into a final chorus use one of the mode's jazz turnarounds into the new key; in major: bVI-V, ii-V, tritone sub, backdoor iv-bVII, V of V, iii-VI-ii-V, a side-slipped ii-V, a sus pedal, a bare V7alt, the long way round, or Coltrane changes; minor adds the Neapolitan and Andalusian, dorian a plagal and aeolian approach and a half-step side-slip. Solos are written in eights, each ending with the mode's cadence home: its two-bar pair (ii-V in major, iiø-V7alt in minor, i-IV in dorian, I-bVII in mixolydian) moving through keys a step apart, two bars on the home tonic first, or one of the song's vamps; then reharmonised, each chord taking its scale from its pair's key. A 16-bar solo is two different eights. |
-| Pre-chorus   | `src/style/variants.ts` | Each song's pre-chorus (2 to 8 bars) takes one of five flavours, each with its own progressions, melody, drums, bass and arrangement: **climb** (a stepwise rise to V, keys opening up over a noise riser), **pedal** (long notes over a held sus dominant, strings swelling), **drop** (the drums drop out and return halfway), **stops** (stop-time band hits under a free lead) and **borrowed** (colour from outside the key: minor-key iv, bIII, bVI and bVII in major; dorian IV7 and the Neapolitan in minor). Progressions are fitted to end on their cadence into the chorus; later rounds add a layer.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Chord-scales | `src/theory/chord.ts`   | Each chord gets the mode that fits it: diatonic chords take their mode in the key (dorian ii, mixolydian V, lydian IV in major; dorian iv, lydian bVI in minor), altered dominants take altered or phrygian dominant, tritone subs take lydian dominant, a minor m(maj7) melodic minor, and so on. Every mode is placed by its relative major, which also sets its spelling (F# dorian with sharps, Eb dorian with flats). Chords are spelled by scale degree (Bb and Eb in C, never A# and D#).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Melody       | `src/model/melody.ts`   | Motif-based phrases (A B A C ...): each motif is a rhythm cell and a melodic shape (rise, arch, fall, leap and fall, ...). Repeats keep the shape and move to fit the new chord; strong beats land on chord tones; pre-chorus melodies climb a step each bar, answer themselves, or hold long notes; full cadences end on the tonic. Solos are bebop-ish runs in chord-scale degrees. Chorus answers fill the gaps the hook leaves.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Bass         | `src/model/bass.ts`     | Written per section: each picks a feel from a short list (funk, disco, driving eighths, half-time, bossa, pedal) and rolls its density, syncopation, octave pops and note lengths, writes a one-bar groove in chord-scale degrees, varies it bar by bar with a fill closing each four-bar phrase, and often approaches the next chord's root (chromatically, usually).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Drums        | `src/model/drums.ts`    | One kit per song (the default samples or a classic drum machine). Each section picks a feel (funk, disco, half-time, bossa, ride, claps, build) and rolls its groove: kick placement, ghost notes, hi-hat or ride in eighths or sixteenths with an accent shape, open hats, and sometimes shaker, tambourine or cowbell, with the fourth bar of each phrase varied. Sections may open with a crash and close with a fill (snare roll, toms, mixed, unison hits or a stop), a different one each repeat.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Pattern      | `src/render/`           | `Arranger` builds the song as one Strudel pattern: a `Band` of instruments over chord and note patterns, a `stack` per section from its type's recipe (`render/sections/`), and `arrange` over the form. The model's notes become mini-notation, Strudel's own sequence language, in `render/notation.ts`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Step         | Module                      | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------ | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Style        | `src/style/`                | Every table and tunable, the style as data: each mode's tonality (`tonalities/`), form odds, section rhythms, drum recipes and bass feels, melody cells and phrase forms, harmony colours, instruments and title words. The generators in `src/model/` read these; nothing in `style/` rolls dice.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Form         | `src/model/form-planner.ts` | Built from optional parts, so length and shape vary by seed: an intro (the chorus teased, planing add9 chords, or one of several vamps and turnarounds, in one of four arrangements) and maybe a vamp; one to three verse / pre-chorus / chorus rounds (the pre-chorus and riffs may not appear at all); a middle of a bridge and up to two solos of one or two choruses each, in either order, maybe a breakdown and a drum break; then one to three last choruses, each of which may lift the key up again (by one to three semitones, up to +4 in all), an optional outro and a final chord. Repeats vary: later verses add parts, later choruses add answers and the last one a "big" layer.                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Harmony      | `src/model/harmony.ts`      | Roman-numeral templates realised in the song's key and mode as extended chords (the tonic coloured by mode), then reharmonised with tritone substitutions, related ii chords and secondary dominants (a mixolydian I7 is never tritone-subbed: it is home). Bridges move to a related key chosen by circle-of-fifths distance or a chromatic mediant, and end with the mode's cadence back home. Lifts into a final chorus use one of the mode's jazz turnarounds into the new key; in major: bVI-V, ii-V, tritone sub, backdoor iv-bVII, V of V, iii-VI-ii-V, a side-slipped ii-V, a sus pedal, a bare V7alt, the long way round, or Coltrane changes; minor adds the Neapolitan and Andalusian, dorian a plagal and aeolian approach and a half-step side-slip. Solos are written in eights, each ending with the mode's cadence home: its two-bar pair (ii-V in major, iiø-V7alt in minor, i-IV in dorian, I-bVII in mixolydian) moving through keys a step apart, two bars on the home tonic first, or one of the song's vamps; then reharmonised, each chord taking its scale from its pair's key. A 16-bar solo is two different eights. |
+| Pre-chorus   | `src/style/variants.ts`     | Each song's pre-chorus (2 to 8 bars) takes one of five flavours, each with its own progressions, melody, drums, bass and arrangement: **climb** (a stepwise rise to V, keys opening up over a noise riser), **pedal** (long notes over a held sus dominant, strings swelling), **drop** (the drums drop out and return halfway), **stops** (stop-time band hits under a free lead) and **borrowed** (colour from outside the key: minor-key iv, bIII, bVI and bVII in major; dorian IV7 and the Neapolitan in minor). Progressions are fitted to end on their cadence into the chorus; later rounds add a layer.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Chord-scales | `src/theory/chord.ts`       | Each chord gets the mode that fits it: diatonic chords take their mode in the key (dorian ii, mixolydian V, lydian IV in major; dorian iv, lydian bVI in minor), altered dominants take altered or phrygian dominant, tritone subs take lydian dominant, a minor m(maj7) melodic minor, and so on. Every mode is placed by its relative major, which also sets its spelling (F# dorian with sharps, Eb dorian with flats). Chords are spelled by scale degree (Bb and Eb in C, never A# and D#).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Melody       | `src/model/melody.ts`       | Motif-based phrases (A B A C ...): each motif is a rhythm cell and a melodic shape (rise, arch, fall, leap and fall, ...). Repeats keep the shape and move to fit the new chord; strong beats land on chord tones; pre-chorus melodies climb a step each bar, answer themselves, or hold long notes; full cadences end on the tonic. Solos are bebop-ish runs in chord-scale degrees. Chorus answers fill the gaps the hook leaves.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Bass         | `src/model/bass.ts`         | Written per section: each picks a feel from a short list (funk, disco, driving eighths, half-time, bossa, pedal) and rolls its density, syncopation, octave pops and note lengths, writes a one-bar groove in chord-scale degrees, varies it bar by bar with a fill closing each four-bar phrase, and often approaches the next chord's root (chromatically, usually).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Drums        | `src/model/drums.ts`        | One kit per song (one of the soundfont's General MIDI drum kits: standard, room, power, electronic, 808/909, dance or jazz). Each section picks a feel (funk, disco, half-time, bossa, ride, claps, build) and rolls its groove: kick placement, ghost notes, hi-hat or ride in eighths or sixteenths with an accent shape, open hats, and sometimes shaker, tambourine or cowbell, with the fourth bar of each phrase varied. Sections may open with a crash and close with a fill (snare roll, toms, mixed, unison hits or a stop), a different one each repeat.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Score        | `src/score/`                | `ScoreArranger` writes the song as timed notes: a `ScoreBand` of instruments over the section's chords and lines, each section by its type's recipe (`score/sections/`), shifted into its key, swung and placed on the form. Chords are voiced in close position under each part's top note. `src/midi/from-score.ts` writes the score as a MIDI file with each track's mix.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
-The song model (`src/theory/`, `src/style/` and `src/model/`) has no dependencies: a song is plain musical data (chords, notes, drum steps). Only `src/render/` and `src/midi/from-pattern.ts` load Strudel. `src/app/player.ts` runs Strudel's scheduler on Web Audio
-(`@strudel/webaudio`, General MIDI soundfonts and the same drum samples
-strudel.cc loads).
+Everything up to the MIDI file (`src/theory/`, `src/style/`,
+`src/model/`, `src/score/` and `src/midi/`) has no dependencies: a song
+is plain musical data. `src/app/player.ts` plays the MIDI file in the
+browser with SpessaSynth (an AudioWorklet synthesizer and sequencer) on
+GeneralUser GS, kept in the browser's Cache Storage after the first
+visit.
+
+### The soundfont
+
+The app doesn't serve all of GeneralUser GS (32 MB): `npm run soundfont`
+(`scripts/build-soundfont.ts`) builds a 4 MB copy with only what a song
+can play. It downloads the full bank once into `node_modules/.cache`,
+keeps the instruments in `SOUNDFONT_PROGRAMS` and the drum kits in
+`SOUNDFONT_KITS` (`src/style/instruments.ts`), and on those kits only the
+drums the band plays, then compresses the samples to Ogg Vorbis (SF3;
+`--quality` sets the Vorbis quality, 4 by default). The result is
+committed as `src/app/soundfont/GeneralUser-GS-city-pop.sf3`. If a song
+can play something the file lacks (a new instrument in the style's
+lists), `test/soundfont.test.ts` fails until you run it again.
 
 ## Playing
 
@@ -70,13 +86,15 @@ The **↻** button writes a new song; **Play** starts it from its first
 bar (and becomes **Stop**), with the section playing glowing and a
 playhead line moving across the form. With **Autoplay** on (the default; the browser remembers if you
 turn it off), a new song takes over a second after each song's final
-chord, so the music keeps going; with it off, a song loops.
+chord, so the music keeps going; with it off, a song stops at its end. The
+first Play waits for the soundfont to load (the button says so).
 
 ## Instruments
 
-`src/style/instruments.ts` says which Strudel sounds play which part.
-Strudel's samples are drums and effects, so pitched parts use its General
-MIDI soundfonts and synths. Each song picks:
+`src/style/instruments.ts` says which instruments play which part. An
+instrument is a General MIDI program (`GM.electricPiano1` is 4, from
+`src/lib/general-midi.ts`) all the way through, and a drum is a General
+MIDI percussion key (`PERCUSSION.snare` is 38). Each song picks:
 
 - **Melody voices**: a lead, its octave double and four soloists from
   `VOICES.pool`: saxes, clarinet, flute, harmonica, trumpets, trombone,
@@ -87,27 +105,16 @@ MIDI soundfonts and synths. Each song picks:
   nylon), pad, strings, choir, answering brass or flute, bell (vibes and
   other mallets), horn stabs and their second voice, and bass (electric,
   slap, fretless, upright, synth).
-- **A drum kit** from `KITS`: the default samples or one of 16 drum
-  machines, including the TR-808, TR-909 and Oberheim DMX. The drum
-  sounds a machine lacks (`KIT_GAPS`) come from the default samples.
+- **A drum kit** from `KITS`: one of GeneralUser GS's drum kits,
+  mostly the standard ones, sometimes room, power, electronic, 808/909,
+  dance or jazz.
 
-No song plays one sound in two parts while a part has another to choose,
-counting soundfonts that are the same recording under another name
-(`SAME_SOUND`) as one. Sounds play louder or quieter by their level in
-`SOUND_LEVELS`, measured by rendering each with Strudel playing the same
-phrase and comparing loudness; notes above a soundfont's top
-(`SOUND_TOPS`, where its samples are missing) drop an octave.
-
-### Trying other instruments
-
-Open the app with `?debug=true` (e.g. `http://localhost:5173/?debug=true`)
-for an **Instruments** panel under the player: every part the band plays
-(keys, clavinet, bass, pads, lead, soloists, horns, drum kit, ...), what
-it plays, and a menu that starts on the song's own pick and lists every
-sound Strudel has loaded (General MIDI soundfonts, synths, samples, drum
-machines). A choice re-arranges the song at once, even while it plays,
-carries over to new songs, and is remembered in the browser. **Copy
-changes** copies your choices and what each replaced.
+No song plays one sound in two parts while a part has another to choose.
+Sounds play louder or quieter by their level in `SOUND_LEVELS`, measured
+by `npm run levels` (`scripts/measure-levels.ts`): it renders the same
+phrase on every instrument offline (SpessaSynth in Node, on the app's
+soundfont) and compares loudness. Run it again after changing the
+soundfont or the instruments a song picks from.
 
 ## MIDI export
 
@@ -116,21 +123,24 @@ as a type-1 Standard MIDI File: one track per instrument with its General
 MIDI program (Rhodes, clavinet, finger bass, alto sax, ...), drums on
 channel 10 in General MIDI percussion keys, and a conductor track with
 the tempo, 4/4, the key signature (minor, or the relative major's for a
-mode) and a marker at each section. `src/midi/from-pattern.ts` reads every
-note from the song's Strudel pattern, so the file has exactly what the
-app plays, swing and voicings included; `src/midi/writer.ts` writes the
-bytes. Effects (reverb, filters, delay) and the noise riser don't carry
-over, and later key changes keep the opening key signature.
+mode) and a marker at each section. It is the same file the app plays,
+so it has exactly what you hear, swing included: each track's volume,
+pan, reverb and filter sweeps as controllers, the song's drum kit, and
+the risers as reverse cymbals (delay doesn't carry over). Later key
+changes keep the opening key signature. `src/midi/from-score.ts` builds
+it from the score; `src/midi/writer.ts` writes the bytes.
 
 ## Checking songs without listening
 
-`scripts/checker.ts` queries every bar of a song's pattern and reports
-mini-notation errors, unknown sound names and notes out of range. `npm run check:songs
--- 25` sweeps 25 seeds. `npm run smoke` (with `npm run preview`
-running) loads the built app in Chromium and presses Play.
+`npm run check:songs -- 25` sweeps 25 seeds, checking each song's score
+and MIDI file: pitches in range, real times and lengths, a General MIDI
+program for every sound, and every section playing something. `npm run
+smoke` (with `npm run preview` running) loads the built app in Chromium
+and presses Play.
 
 ## Licence
 
-Strudel is licensed under the GNU AGPL 3.0, and this app bundles it, so
-this project is AGPL-3.0-or-later too (see `LICENSE`). If you host it,
-the source must stay available to its users.
+This project is AGPL-3.0-or-later (see `LICENSE`): if you host it, the
+source must stay available to its users. It bundles SpessaSynth
+(Apache-2.0) and serves its own copy of GeneralUser GS by S. Christian
+Collins, whose licence is in `public/soundfonts/GeneralUser-GS-LICENSE.txt`.

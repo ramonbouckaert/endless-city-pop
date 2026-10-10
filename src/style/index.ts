@@ -1,6 +1,6 @@
 // The style as data: everything that makes a song city pop rather than
 // some other music. model/ writes songs from these tables; nothing here
-// loads Strudel or rolls dice.
+// rolls dice.
 
 export * from './bass';
 export * from './drums';

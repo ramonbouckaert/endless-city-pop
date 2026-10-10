@@ -1,11 +1,12 @@
 // A song as MIDI, from its score: every note on one track per instrument
-// (General MIDI programs, drums on channel 10), each track with the mix
-// (volume, pan and reverb as controllers), and the form's sections as
-// markers. No Strudel: writer.ts writes the bytes.
+// (General MIDI programs, drums on channel 10 on the song's kit), each
+// track with the mix (volume, pan, reverb and filter as controllers),
+// and the form's sections as markers. writer.ts writes the bytes. The
+// app plays this file; the MIDI download saves it.
 
-import type { Instruments, Song } from '../model';
+import { programName, type Program } from '../lib/general-midi';
+import type { Instruments, Kit, Song } from '../model';
 import { ScoreArranger, type Score } from '../score';
-import { DRUM_SOUNDS, GM_PROGRAMS, isDrumSound } from '../style';
 import {
   CC,
   DRUM_CHANNEL,
@@ -19,50 +20,53 @@ import {
 
 const DRUM_TICKS = TICKS_PER_BAR / 16;
 
-/** A note on its way to a track: the sound it plays (or 'drums'), as MIDI, and its place in the mix. */
-export interface SoundNote {
-  sound: string;
+/** A note on its way to a track: the instrument that plays it (or the drum kit), as MIDI, and its place in the mix. */
+export interface TrackNote {
+  program: Program | 'drums';
   note: MidiNote;
-  /** Its level: gain, velocity and the sound's trim together. */
+  /** Its level: gain, velocity and the instrument's trim together. */
   level: number;
   pan: number; // 0 left, 0.5 centre, 1 right
   room: number; // reverb, 0 dry to 1
+  /** A low-pass filter's cutoff in Hz, if the note has one. */
+  lpf?: number;
 }
 
 // A level (0.05 for a ghost note, 0.75 for the bass) as a MIDI value:
 // its square root spreads those out.
 const midiLevel = (level: number) => 127 * Math.sqrt(Math.min(1, Math.max(0, level)));
 
-/** Every note of a score as MIDI; drums by their General MIDI key, sounds that are neither (the noise riser) left out. */
-export function midiNotes(score: Score, bpm: number): SoundNote[] {
+/** Every note of a score as MIDI: drums a sixteenth long, the rest as long as they sound. */
+export function midiNotes(score: Score, bpm: number): TrackNote[] {
   const ticksPerSecond = (bpm / 60) * PPQ;
-  return score.notes.flatMap((n): SoundNote[] => {
-    const tick = n.time * TICKS_PER_BAR;
-    const level = n.gain * n.velocity * n.postgain;
-    const mix = { level, pan: n.controls.pan ?? 0.5, room: n.controls.room ?? 0 };
-    if (n.note === undefined) {
-      if (!isDrumSound(n.sound)) return [];
-      const note = { tick, dur: DRUM_TICKS, pitch: DRUM_SOUNDS[n.sound].gmKey, velocity: midiLevel(level) };
-      return [{ sound: 'drums', note, ...mix }];
-    }
-    const note: MidiNote = { tick, dur: n.dur * TICKS_PER_BAR * n.clip, pitch: n.note, velocity: midiLevel(level) };
-    if (n.slide) note.slide = { semis: n.slide.semis, ticks: n.slide.seconds * ticksPerSecond };
-    return [{ sound: n.sound, note, ...mix }];
+  return score.notes.map(({ time, dur, program, note: pitch, gain, velocity, postgain, clip, slide, controls }) => {
+    const level = gain * velocity * postgain;
+    const { pan = 0.5, room = 0, lpf } = controls;
+    const length = program === 'drums' ? DRUM_TICKS : dur * TICKS_PER_BAR * clip;
+    const note: MidiNote = { tick: time * TICKS_PER_BAR, dur: length, pitch, velocity: midiLevel(level) };
+    if (slide) note.slide = { semis: slide.semis, ticks: slide.seconds * ticksPerSecond };
+    return { program, note, level, pan, room, ...(lpf === undefined ? {} : { lpf }) };
   });
 }
 
+// A filter cutoff as brightness (CC74): 64, the sound as it is, at 8 kHz
+// (or no filter), down to 0 at 250 Hz, five octaves below.
+const brightness = (lpf: number | undefined) =>
+  lpf === undefined ? 64 : Math.round(Math.min(127, Math.max(0, 64 + (64 * Math.log2(lpf / 8000)) / 5)));
+
 // A track's mix, from `start`: its volume set by its loudest note, each
 // note's velocity relative to that (so together they play at the note's
-// level, and the track's fader moves the whole part), and its pan and
-// reverb, changed where its notes change them.
-function mixed(notes: readonly SoundNote[], start: number): { notes: MidiNote[]; controls: ControlChange[] } {
+// level, and the track's fader moves the whole part), and its pan, reverb
+// and brightness, changed where its notes change them.
+function mixed(notes: readonly TrackNote[], start: number): { notes: MidiNote[]; controls: ControlChange[] } {
   const loudest = Math.max(...notes.map((n) => n.level), 1e-6);
   const controls: ControlChange[] = [{ tick: start, controller: CC.volume, value: midiLevel(loudest) }];
-  let last: { pan?: number; reverb?: number } = {};
-  for (const { note, pan, room } of [...notes].sort((a, b) => a.note.tick - b.note.tick)) {
-    const now = { pan: Math.round(pan * 127), reverb: Math.round(room * 127) };
-    if (now.pan !== last.pan) controls.push({ tick: note.tick, controller: CC.pan, value: now.pan });
-    if (now.reverb !== last.reverb) controls.push({ tick: note.tick, controller: CC.reverb, value: now.reverb });
+  let last: Partial<Record<'pan' | 'reverb' | 'brightness', number>> = {};
+  for (const { note, pan, room, lpf } of [...notes].sort((a, b) => a.note.tick - b.note.tick)) {
+    const now = { pan: Math.round(pan * 127), reverb: Math.round(room * 127), brightness: brightness(lpf) };
+    for (const key of ['pan', 'reverb', 'brightness'] as const) {
+      if (now[key] !== last[key]) controls.push({ tick: note.tick, controller: CC[key], value: now[key] });
+    }
     last = now;
   }
   return {
@@ -74,14 +78,14 @@ function mixed(notes: readonly SoundNote[], start: number): { notes: MidiNote[];
 const MELODIC_CHANNELS = Array.from({ length: 16 }, (_, i) => i).filter((c) => c !== DRUM_CHANNEL);
 
 /**
- * A channel for each sound (in order of their first notes), and the tick
- * it is set up for it: one of its own while there are channels left;
- * then one whose sound has finished before this one starts; failing
- * that, the one whose sound finishes soonest.
+ * A channel for each instrument (in order of their first notes), and the
+ * tick it is set up for it: one of its own while there are channels left;
+ * then one whose instrument has finished before this one starts; failing
+ * that, the one whose instrument finishes soonest.
  */
 export function channelsFor(spans: readonly { first: number; last: number }[]): { channel: number; start: number }[] {
-  const ends = new Map<number, number>(); // channel -> when its sound finishes
-  // A channel whose sound has finished by `first`, or the one finishing soonest.
+  const ends = new Map<number, number>(); // channel -> when its instrument finishes
+  // A channel whose instrument has finished by `first`, or the one finishing soonest.
   const reused = (first: number) => {
     const byEnd = [...ends].sort((a, b) => a[1] - b[1]);
     return (byEnd.find(([, end]) => end <= first) ?? byEnd[0])[0];
@@ -94,31 +98,26 @@ export function channelsFor(spans: readonly { first: number; last: number }[]): 
   });
 }
 
-// A track for each sound's notes, the drums on the drum channel and the
-// rest on the others (channelsFor).
-function tracksFor(notes: readonly SoundNote[]): MidiTrack[] {
-  const sounds = [...new Set(notes.map((n) => n.sound))];
-  const of = (sound: string) => notes.filter((n) => n.sound === sound);
-  const melodic = sounds.filter((sound) => sound !== 'drums');
+// A track for each instrument's notes, the drums on the drum channel and
+// the rest on the others (channelsFor).
+function tracksFor(notes: readonly TrackNote[], kit: Kit): MidiTrack[] {
+  const programs = [...new Set(notes.map((n) => n.program))];
+  const of = (program: Program | 'drums') => notes.filter((n) => n.program === program);
+  const melodic = programs.filter((p): p is Program => p !== 'drums');
   const channels = channelsFor(
-    melodic.map((sound) => {
-      const mine = of(sound);
+    melodic.map((program) => {
+      const mine = of(program);
       return {
         first: Math.min(...mine.map((n) => n.note.tick)),
         last: Math.max(...mine.map((n) => n.note.tick + n.note.dur)),
       };
     }),
   );
-  return sounds.map((sound) => {
-    if (sound === 'drums') return { name: 'Drums', channel: DRUM_CHANNEL, ...mixed(of(sound), 0) };
-    const { channel, start } = channels[melodic.indexOf(sound)];
-    return {
-      name: sound.replace(/^gm_/, '').replaceAll('_', ' '),
-      channel,
-      program: GM_PROGRAMS[sound] ?? 0,
-      start,
-      ...mixed(of(sound), start),
-    };
+  return programs.map((program) => {
+    if (program === 'drums')
+      return { name: `Drums (${kit.name})`, channel: DRUM_CHANNEL, program: kit.program, ...mixed(of(program), 0) };
+    const { channel, start } = channels[melodic.indexOf(program)];
+    return { name: programName(program), channel, program, start, ...mixed(of(program), start) };
   });
 }
 
@@ -132,6 +131,6 @@ export function songToMidi(song: Song, instruments: Instruments = song.instrumen
     bpm: song.bpm,
     key: song.key,
     markers,
-    tracks: tracksFor(midiNotes(score, song.bpm)),
+    tracks: tracksFor(midiNotes(score, song.bpm), instruments.kit),
   });
 }

@@ -1,9 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
-// Unit tests cover everything but render/ (and the notation it builds), which has no dependencies. Querying
-// the Strudel patterns built from it is `npm run check:songs`, which bundles
-// with esbuild because some Strudel dependencies only resolve properly
-// through their "module" builds.
+// Unit tests cover everything but the browser page (src/app/, bar its
+// pure helpers). `npm run check:songs` sweeps many seeds' scores and MIDI.
 export default defineConfig({
   test: { include: ['test/**/*.test.ts'] },
 });

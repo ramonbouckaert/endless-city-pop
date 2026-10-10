@@ -1,14 +1,11 @@
-// Which Strudel sounds play which part: the band's default sounds, the
-// sounds each song picks from for a part, the melody voices' pool, the
-// drum kits, and the facts about sounds those choices rely on (how loud
-// each plays, how high it goes, which share a recording, and its General
-// MIDI program for the MIDI export).
-//
-// Strudel's loaded samples are drums and effects, so pitched parts use
-// its General MIDI soundfonts and synths.
+// Which instruments play which part: the band's defaults, the ones each
+// song picks from for a part, the melody voices' pool, the drum kits, and
+// how loud each instrument plays. Instruments are General MIDI programs
+// (GM, lib/general-midi.ts); the app plays them from GeneralUser GS,
+// trimmed to SOUNDFONT_PROGRAMS and SOUNDFONT_KITS by `npm run soundfont`.
 
+import { GM, type Program } from '../lib/general-midi';
 import type { Weighted } from '../lib/random';
-import type { DrumSound } from './drums';
 
 // The band's parts, besides the melody voices.
 export type BandPart =
@@ -25,312 +22,203 @@ export type BandPart =
   | 'bass';
 // Band parts a song picks a sound for, from PICKS.
 export type PickedPart = Exclude<BandPart, 'clav'>;
-// The parts with a sound of their own: the band, the lead and its octave
-// double (the soloists are numbered).
-export type LabelledPart = BandPart | 'lead' | 'double';
-
-// Each part's name on the page, in the order the debug panel lists them.
-export const PART_LABELS: Readonly<Record<LabelledPart, string>> = {
-  keys: 'Keys',
-  clav: 'Clavinet',
-  guitar: 'Rhythm guitar',
-  bass: 'Bass',
-  pad: 'Pad',
-  strings: 'Strings',
-  choir: 'Choir',
-  lead: 'Lead',
-  double: 'Melody double',
-  answer: 'Answer',
-  bell: 'Bell',
-  stabs: 'Horn stabs',
-  hornDouble: 'Horn double',
-};
-
 // ---- The band ---------------------------------------------------------
 
-// Each part's default sound: the one its levels in render/mix.ts were
+// Each part's default sound: the one its levels in score/mix.ts were
 // set for. A picked part plays louder or quieter by its sound's level
 // over this one's.
-export const BAND: Readonly<Record<BandPart, string>> = {
-  keys: 'gm_epiano1',
-  clav: 'gm_clavinet',
-  guitar: 'gm_electric_guitar_muted',
-  pad: 'gm_voice_oohs',
-  strings: 'gm_string_ensemble_1',
-  choir: 'gm_choir_aahs',
-  answer: 'gm_trumpet',
-  bell: 'gm_vibraphone',
-  stabs: 'gm_brass_section',
-  hornDouble: 'gm_alto_sax',
-  bass: 'gm_electric_bass_finger',
+export const BAND: Readonly<Record<BandPart, Program>> = {
+  keys: GM.electricPiano1,
+  clav: GM.clavinet,
+  guitar: GM.electricGuitarMuted,
+  pad: GM.voiceOohs,
+  strings: GM.stringEnsemble1,
+  choir: GM.choirAahs,
+  answer: GM.trumpet,
+  bell: GM.vibraphone,
+  stabs: GM.brassSection,
+  hornDouble: GM.altoSax,
+  bass: GM.electricBassFinger,
 };
 
 // The sounds each song picks from for a part, in the order parts are
 // picked (their order here). A part never takes a sound another part already plays (melody
 // voices first), where its list allows.
-export const PICKS: Readonly<Record<PickedPart, readonly string[]>> = {
+export const PICKS: Readonly<Record<PickedPart, readonly Program[]>> = {
   // Electric pianos and clavinet; acoustic piano and organs.
-  keys: ['gm_epiano1', 'gm_epiano2', 'gm_clavinet', 'gm_piano', 'gm_percussive_organ', 'gm_rock_organ'],
+  keys: [GM.electricPiano1, GM.electricPiano2, GM.clavinet, GM.acousticGrandPiano, GM.percussiveOrgan, GM.rockOrgan],
   // Funk scratching on any electric; nylon for a bossa feel.
-  guitar: [
-    'gm_electric_guitar_muted',
-    'gm_electric_guitar_jazz',
-    'gm_electric_guitar_clean',
-    'gm_acoustic_guitar_nylon',
-  ],
-  pad: ['gm_pad_warm', 'gm_pad_poly', 'gm_pad_choir', 'gm_pad_metallic', 'gm_pad_halo', 'gm_pad_sweep'],
-  // (String ensemble 2 is the same recording as 1; synth strings 1 won't load.)
-  strings: ['gm_string_ensemble_1', 'gm_synth_strings_2'],
-  choir: ['gm_choir_aahs', 'gm_voice_oohs', 'gm_synth_choir'],
+  guitar: [GM.electricGuitarMuted, GM.electricGuitarJazz, GM.electricGuitarClean, GM.acousticGuitarNylon],
+  pad: [GM.warmPad, GM.polysynthPad, GM.choirPad, GM.metallicPad, GM.haloPad, GM.sweepPad],
+  strings: [GM.stringEnsemble1, GM.stringEnsemble2, GM.synthStrings1, GM.synthStrings2],
+  choir: [GM.choirAahs, GM.voiceOohs, GM.synthVoice],
   // The phrases answering the hook: brass, or a flute.
-  answer: ['gm_trumpet', 'gm_muted_trumpet', 'gm_trombone', 'gm_flute'],
+  answer: [GM.trumpet, GM.mutedTrumpet, GM.trombone, GM.flute],
   // The intro teaser and bridge melody, high up: mallets and bells.
-  bell: ['gm_vibraphone', 'gm_marimba', 'gm_xylophone', 'gm_celesta', 'gm_music_box', 'gm_kalimba', 'gm_glockenspiel'],
-  stabs: ['gm_brass_section', 'gm_synth_brass_1', 'gm_synth_brass_2'],
-  hornDouble: ['gm_alto_sax', 'gm_tenor_sax', 'gm_baritone_sax', 'gm_trombone'],
+  bell: [GM.vibraphone, GM.marimba, GM.xylophone, GM.celesta, GM.musicBox, GM.kalimba, GM.glockenspiel],
+  stabs: [GM.brassSection, GM.synthBrass1, GM.synthBrass2],
+  hornDouble: [GM.altoSax, GM.tenorSax, GM.baritoneSax, GM.trombone],
   // Electric, upright and synth basses.
   bass: [
-    'gm_electric_bass_pick',
-    'gm_electric_bass_finger',
-    'gm_slap_bass_1',
-    'gm_slap_bass_2',
-    'gm_fretless_bass',
-    'gm_acoustic_bass',
-    'gm_synth_bass_1',
-    'gm_synth_bass_2',
+    GM.electricBassPick,
+    GM.electricBassFinger,
+    GM.slapBass1,
+    GM.slapBass2,
+    GM.fretlessBass,
+    GM.acousticBass,
+    GM.synthBass1,
+    GM.synthBass2,
   ],
 };
 
 // ---- Melody voices ----------------------------------------------------
 
 // Each song picks its lead, the lead's octave double and its soloists
-// from `pool`, none twice. Their levels in render/mix.ts are set for the
+// from `pool`, none twice. Their levels in score/mix.ts are set for the
 // alto sax (level 1).
-export const VOICES = {
+export const VOICES: { readonly pool: readonly Program[]; readonly soloists: number } = {
   pool: [
     // Reeds and brass
-    'gm_soprano_sax',
-    'gm_alto_sax',
-    'gm_tenor_sax',
-    'gm_clarinet',
-    'gm_flute',
-    'gm_harmonica',
-    'gm_trumpet',
-    'gm_muted_trumpet',
-    'gm_trombone',
-    'gm_french_horn',
-    'gm_brass_section',
-    'gm_synth_brass_1',
-    'gm_synth_brass_2',
+    GM.sopranoSax,
+    GM.altoSax,
+    GM.tenorSax,
+    GM.clarinet,
+    GM.flute,
+    GM.harmonica,
+    GM.trumpet,
+    GM.mutedTrumpet,
+    GM.trombone,
+    GM.frenchHorn,
+    GM.brassSection,
+    GM.synthBrass1,
+    GM.synthBrass2,
     // Guitars, keys and mallets
-    'gm_electric_guitar_jazz',
-    'gm_overdriven_guitar',
-    'gm_piano',
-    'gm_drawbar_organ',
-    'gm_reed_organ',
-    'gm_glockenspiel',
-    'gm_vibraphone',
+    GM.electricGuitarJazz,
+    GM.overdrivenGuitar,
+    GM.acousticGrandPiano,
+    GM.drawbarOrgan,
+    GM.reedOrgan,
+    GM.glockenspiel,
+    GM.vibraphone,
     // Pads, effects and voices
-    'gm_fx_crystal',
-    'gm_fx_atmosphere',
-    'gm_pad_warm',
-    'gm_pad_poly',
-    'gm_pad_choir',
-    'gm_pad_metallic',
-    'gm_pad_halo',
-    'gm_pad_sweep',
-    'gm_voice_oohs',
+    GM.crystal,
+    GM.atmosphere,
+    GM.warmPad,
+    GM.polysynthPad,
+    GM.choirPad,
+    GM.metallicPad,
+    GM.haloPad,
+    GM.sweepPad,
+    GM.voiceOohs,
   ],
   soloists: 4,
 };
 
+// ---- Effects ----------------------------------------------------------
+
+// The riser into a pre-chorus's chorus or a lift's: a reverse cymbal.
+export const RISER: Program = GM.reverseCymbal;
+
 // ---- Drum kits --------------------------------------------------------
 
-// The default samples (null) or a drum machine, by Strudel bank name.
-export const KITS: Weighted<string | null> = [
-  [null, 6],
-  ['LinnDrum', 1],
-  ['LinnLM2', 1],
-  ['RolandTR626', 1],
-  ['RolandR8', 1],
-  ['RolandMT32', 1],
-  ['BossDR550', 1],
-  ['AkaiXR10', 1],
-  ['YamahaRY30', 1],
-  ['RolandTR808', 1],
-  ['RolandTR909', 1],
-  ['OberheimDMX', 1],
-  ['LinnLM1', 1],
-  ['EmuSP12', 1],
-  ['AkaiMPC60', 1],
-  ['EmuDrumulator', 1],
-  ['SequentialCircuitsDrumtracks', 1],
+/** A drum kit: its program on the drum channel, and its name in the soundfont. */
+export interface KitDef {
+  program: number;
+  name: string;
+}
+
+// GeneralUser GS's drum kits that suit the style (not its brushes,
+// orchestral or effects kits), mostly the standard ones.
+export const KITS: Weighted<KitDef> = [
+  [{ program: 0, name: 'Standard 1' }, 4],
+  [{ program: 1, name: 'Standard 2' }, 1],
+  [{ program: 2, name: 'Standard 3' }, 1],
+  [{ program: 8, name: 'Room' }, 2],
+  [{ program: 16, name: 'Power' }, 1],
+  [{ program: 24, name: 'Electronic' }, 1],
+  [{ program: 25, name: '808/909' }, 1],
+  [{ program: 26, name: 'Dance' }, 1],
+  [{ program: 32, name: 'Jazz' }, 1],
 ];
 
-// Drum sounds a kit lacks, which play from the default samples instead.
-export const KIT_GAPS: Readonly<Record<string, readonly DrumSound[]>> = {
-  RolandTR808: ['rd', 'tb'],
-  RolandTR909: ['sh', 'tb', 'cb'],
-  OberheimDMX: ['cb'],
-  LinnLM1: ['rd', 'cr', 'mt'],
-  EmuSP12: ['sh', 'tb'],
-  AkaiMPC60: ['sh', 'tb', 'cb'],
-  EmuDrumulator: ['rd', 'sh', 'tb'],
-  SequentialCircuitsDrumtracks: ['lt', 'mt'],
-};
+// ---- Everything a song can play -----------------------------------------
+
+/**
+ * Every instrument a song can play, and every drum kit: what
+ * scripts/build-soundfont.ts keeps of GeneralUser GS for the app.
+ */
+export const SOUNDFONT_PROGRAMS: ReadonlySet<Program> = new Set([
+  ...Object.values(BAND),
+  ...Object.values(PICKS).flat(),
+  ...VOICES.pool,
+  RISER,
+]);
+export const SOUNDFONT_KITS: ReadonlySet<number> = new Set(KITS.map(([kit]) => kit.program));
 
 // ---- Facts about sounds -----------------------------------------------
 
-// How loud to play each sound, so any can take a part: the alto sax's
-// loudness over its own, playing the same phrase at the same gain (RMS of
-// Strudel's offline render, basses two octaves down), kept within 0.5 to
-// 2 (the glockenspiel measured 2.7, the rock organ 2.3). Only ratios
-// between sounds that share a part matter.
-export const SOUND_LEVELS: Readonly<Record<string, number>> = {
-  gm_soprano_sax: 0.72,
-  gm_alto_sax: 1,
-  gm_tenor_sax: 1.05,
-  gm_baritone_sax: 0.89,
-  gm_clarinet: 0.71,
-  gm_flute: 1.06,
-  gm_harmonica: 1.03,
-  gm_trumpet: 1.37,
-  gm_muted_trumpet: 0.8,
-  gm_trombone: 0.94,
-  gm_french_horn: 1.54,
-  gm_brass_section: 1.36,
-  gm_synth_brass_1: 1.03,
-  gm_synth_brass_2: 0.97,
-  gm_electric_guitar_jazz: 0.98,
-  gm_electric_guitar_clean: 0.63,
-  gm_electric_guitar_muted: 1.94,
-  gm_overdriven_guitar: 0.88,
-  gm_acoustic_guitar_nylon: 0.79,
-  gm_piano: 0.8,
-  gm_epiano1: 0.84,
-  gm_epiano2: 1.43,
-  gm_clavinet: 0.75,
-  gm_drawbar_organ: 1.24,
-  gm_percussive_organ: 1.2,
-  gm_rock_organ: 2,
-  gm_reed_organ: 0.83,
-  gm_vibraphone: 0.67,
-  gm_marimba: 1.47,
-  gm_xylophone: 1.84,
-  gm_celesta: 0.67,
-  gm_music_box: 0.71,
-  gm_kalimba: 1.47,
-  gm_glockenspiel: 2,
-  gm_fx_crystal: 1.03,
-  gm_fx_atmosphere: 0.97,
-  gm_pad_warm: 0.97,
-  gm_pad_poly: 0.97,
-  gm_pad_choir: 2,
-  gm_pad_metallic: 1.03,
-  gm_pad_halo: 0.61,
-  gm_pad_sweep: 1.03,
-  gm_string_ensemble_1: 1.03,
-  gm_synth_strings_2: 0.59,
-  gm_choir_aahs: 1.29,
-  gm_voice_oohs: 0.58,
-  gm_synth_choir: 0.61,
-  pulse: 1.11,
-  sawtooth: 0.83,
-  sine: 0.57,
-  supersaw: 0.99,
-  triangle: 0.7,
-  gm_electric_bass_finger: 1.04,
-  gm_electric_bass_pick: 1.06,
-  gm_slap_bass_1: 1.06,
-  gm_slap_bass_2: 0.95,
-  gm_fretless_bass: 0.58,
-  gm_acoustic_bass: 0.7,
-  gm_synth_bass_1: 0.59,
-  gm_synth_bass_2: 0.53,
-};
-
-// The highest MIDI note a soundfont plays: above it, its samples won't
-// decode or are silent. Higher notes drop by octaves.
-export const SOUND_TOPS: Readonly<Record<string, number>> = {
-  gm_vibraphone: 85,
-  gm_clarinet: 85,
-  gm_baritone_sax: 90,
-  gm_acoustic_guitar_nylon: 92,
-  gm_fx_crystal: 94,
-};
-
-// Soundfonts that are another's recording under a different name (they
-// render identically), so a song doesn't play one sound in two parts.
-export const SAME_SOUND: Readonly<Record<string, string>> = {
-  gm_pad_metallic: 'gm_string_ensemble_1',
-  gm_pad_sweep: 'gm_string_ensemble_1',
-  gm_string_ensemble_2: 'gm_string_ensemble_1',
-  gm_fx_atmosphere: 'gm_pad_warm',
-  gm_synth_choir: 'gm_pad_halo',
-};
-
-// General MIDI programs (counting from 0) for the MIDI export. Strudel's
-// synths take the nearest General MIDI sound: the synth leads, and an
-// ocarina's near-pure tone for the sine.
-export const GM_PROGRAMS: Readonly<Record<string, number>> = {
-  gm_piano: 0,
-  gm_epiano1: 4,
-  gm_epiano2: 5,
-  gm_clavinet: 7,
-  gm_celesta: 8,
-  gm_glockenspiel: 9,
-  gm_music_box: 10,
-  gm_vibraphone: 11,
-  gm_marimba: 12,
-  gm_xylophone: 13,
-  gm_drawbar_organ: 16,
-  gm_percussive_organ: 17,
-  gm_rock_organ: 18,
-  gm_reed_organ: 20,
-  gm_harmonica: 22,
-  gm_acoustic_guitar_nylon: 24,
-  gm_electric_guitar_jazz: 26,
-  gm_electric_guitar_clean: 27,
-  gm_electric_guitar_muted: 28,
-  gm_overdriven_guitar: 29,
-  gm_acoustic_bass: 32,
-  gm_electric_bass_finger: 33,
-  gm_electric_bass_pick: 34,
-  gm_fretless_bass: 35,
-  gm_slap_bass_1: 36,
-  gm_slap_bass_2: 37,
-  gm_synth_bass_1: 38,
-  gm_synth_bass_2: 39,
-  gm_string_ensemble_1: 48,
-  gm_synth_strings_2: 51,
-  gm_choir_aahs: 52,
-  gm_voice_oohs: 53,
-  gm_synth_choir: 54,
-  gm_trumpet: 56,
-  gm_trombone: 57,
-  gm_muted_trumpet: 59,
-  gm_french_horn: 60,
-  gm_brass_section: 61,
-  gm_synth_brass_1: 62,
-  gm_synth_brass_2: 63,
-  gm_soprano_sax: 64,
-  gm_alto_sax: 65,
-  gm_tenor_sax: 66,
-  gm_baritone_sax: 67,
-  gm_clarinet: 71,
-  gm_flute: 73,
-  sine: 79,
-  pulse: 80,
-  sawtooth: 81,
-  supersaw: 81,
-  triangle: 82,
-  gm_pad_warm: 89,
-  gm_pad_poly: 90,
-  gm_pad_choir: 91,
-  gm_pad_metallic: 93,
-  gm_pad_halo: 94,
-  gm_pad_sweep: 95,
-  gm_fx_crystal: 98,
-  gm_fx_atmosphere: 99,
-  gm_kalimba: 108,
+// How loud to play each instrument, so any can take a part: the alto sax's
+// loudness over its own on GeneralUser GS, playing the same phrase at the
+// same velocity (RMS of a dry offline render, basses two octaves down),
+// kept within 0.5 to 2. Measured by `npm run levels`; run it again after
+// changing the soundfont or the instruments a song picks from.
+// Only ratios between sounds that share a part matter.
+export const SOUND_LEVELS: Readonly<Partial<Record<Program, number>>> = {
+  [GM.acousticGrandPiano]: 1.07,
+  [GM.electricPiano1]: 0.9,
+  [GM.electricPiano2]: 1.32,
+  [GM.clavinet]: 1.34,
+  [GM.celesta]: 0.86,
+  [GM.glockenspiel]: 1.62,
+  [GM.musicBox]: 1.85,
+  [GM.vibraphone]: 0.65,
+  [GM.marimba]: 1.02,
+  [GM.xylophone]: 2, // measured 2.00
+  [GM.drawbarOrgan]: 0.97,
+  [GM.percussiveOrgan]: 0.98,
+  [GM.rockOrgan]: 0.97,
+  [GM.reedOrgan]: 0.92,
+  [GM.harmonica]: 1.22,
+  [GM.acousticGuitarNylon]: 1.13,
+  [GM.electricGuitarJazz]: 1.17,
+  [GM.electricGuitarClean]: 1.3,
+  [GM.electricGuitarMuted]: 2, // measured 2.61
+  [GM.overdrivenGuitar]: 0.83,
+  [GM.acousticBass]: 0.67,
+  [GM.electricBassFinger]: 0.7,
+  [GM.electricBassPick]: 0.89,
+  [GM.fretlessBass]: 0.5, // measured 0.48
+  [GM.slapBass1]: 0.76,
+  [GM.slapBass2]: 1.42,
+  [GM.synthBass1]: 0.62,
+  [GM.synthBass2]: 0.72,
+  [GM.stringEnsemble1]: 0.96,
+  [GM.stringEnsemble2]: 1.05,
+  [GM.synthStrings1]: 0.93,
+  [GM.synthStrings2]: 1.66,
+  [GM.choirAahs]: 1.12,
+  [GM.voiceOohs]: 0.82,
+  [GM.synthVoice]: 1.31,
+  [GM.trumpet]: 1.01,
+  [GM.trombone]: 0.94,
+  [GM.mutedTrumpet]: 1.74,
+  [GM.frenchHorn]: 0.52,
+  [GM.brassSection]: 1.03,
+  [GM.synthBrass1]: 1.05,
+  [GM.synthBrass2]: 0.93,
+  [GM.sopranoSax]: 0.91,
+  [GM.altoSax]: 1,
+  [GM.tenorSax]: 0.99,
+  [GM.baritoneSax]: 0.97,
+  [GM.clarinet]: 0.74,
+  [GM.flute]: 0.79,
+  [GM.warmPad]: 1.42,
+  [GM.polysynthPad]: 1.21,
+  [GM.choirPad]: 1.08,
+  [GM.metallicPad]: 1.22,
+  [GM.haloPad]: 1.07,
+  [GM.sweepPad]: 1.06,
+  [GM.crystal]: 1,
+  [GM.atmosphere]: 0.76,
+  [GM.kalimba]: 1.14,
 };

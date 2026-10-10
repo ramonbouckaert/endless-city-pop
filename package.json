@@ -1,7 +1,7 @@
 {
   "name": "endless-city-pop",
   "version": "0.1.0",
-  "description": "Endless procedurally generated city pop: jazz-funk harmony from music theory rules, bilingual titles, played in the browser by Strudel.",
+  "description": "Endless procedurally generated city pop: jazz-funk harmony from music theory rules, bilingual titles, played in the browser on a General MIDI soundfont.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -10,26 +10,26 @@
     "check:songs": "scripts/run-node.sh scripts/sweep.ts",
     "song": "scripts/run-node.sh scripts/generate.ts",
     "midi": "scripts/run-node.sh scripts/midi.ts",
+    "soundfont": "scripts/run-node.sh scripts/build-soundfont.ts",
+    "levels": "scripts/run-node.sh scripts/measure-levels.ts",
     "smoke": "node scripts/smoke.ts",
     "format": "prettier --write .",
     "typecheck": "tsc -p tsconfig.json"
   },
   "license": "AGPL-3.0-or-later",
   "dependencies": {
-    "@strudel/core": "1.2.6",
-    "@strudel/mini": "1.2.6",
-    "@strudel/soundfonts": "1.3.0",
-    "@strudel/tonal": "1.2.6",
-    "@strudel/webaudio": "1.3.0"
+    "spessasynth_lib": "4.3.14"
   },
   "devDependencies": {
     "@types/node": "^24.19.1",
     "esbuild": "^0.28.2",
     "playwright": "1.56",
     "prettier": "3.8.1",
+    "spessasynth_core": "4.3.22",
     "typescript": "^5.9.3",
     "vite": "^8.3.4",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "wasm-media-encoders": "0.7.0"
   },
   "type": "module",
   "private": true

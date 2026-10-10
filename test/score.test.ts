@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { songToMidi } from '../src/midi/from-score';
 import { Song } from '../src/model';
 import { ScoreArranger } from '../src/score';
-import { DRUM_SOUNDS, SOUND_TOPS } from '../src/style';
+import { PERCUSSION } from '../src/lib/general-midi';
 import { Chord, voice, voicingNote } from '../src/theory';
 import { defined } from './helpers';
 
@@ -29,11 +29,12 @@ describe('score', () => {
     }
   });
 
-  it('plays drums from the drum sounds, on the kit', () => {
+  it("plays the band's drums on the kit", () => {
+    const drums = Object.values(PERCUSSION);
     for (const song of songs) {
-      for (const n of scoreOf(song).notes.filter((n) => n.note === undefined && n.path)) {
+      for (const n of scoreOf(song).notes.filter((n) => n.program === 'drums')) {
         expect(n.path).toBe('kit');
-        expect(DRUM_SOUNDS).toHaveProperty(n.sound);
+        expect(drums).toContain(n.note);
       }
     }
   });
@@ -44,7 +45,6 @@ describe('score', () => {
       const verse = defined(song.part('verse'), 'a verse');
       const start = song.form.starts[index];
       const lead = scoreOf(song).notes.filter((n) => n.path === 'lead' && n.time >= start && n.time < start + 1);
-      const top = SOUND_TOPS[song.instruments.sounds.lead];
       // The first bar's notes, by their start (an eighth-note grid, so never swung).
       for (const m of verse.melody.bars[0]) {
         const at = start + m.start / 8;
@@ -52,9 +52,7 @@ describe('score', () => {
           lead.find((n) => Math.abs(n.time - at) < 1e-9),
           `a lead note at bar ${at}`,
         ).note;
-        const pitch = 60 + verse.key.tonic + m.semis;
-        if (top === undefined) expect(note).toBe(pitch);
-        else expect((pitch - defined(note, 'a pitch')) % 12).toBe(0);
+        expect(note).toBe(60 + verse.key.tonic + m.semis);
       }
     }
   });

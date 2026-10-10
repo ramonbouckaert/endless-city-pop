@@ -1,52 +1,52 @@
-// The song playing (or ready to): generating songs, arranging them, and
-// starting or swapping them on the player's clock.
+// The song playing (or ready to): generating songs, writing each as a
+// MIDI file, and playing them one after another.
 
 import { randomSeed } from '../lib/random';
-import { Song, type Instruments } from '../model';
-import { Arranger, type Arrangement } from '../render';
+import { songToMidi } from '../midi/from-score';
+import { Song } from '../model';
 import type { Player } from './player';
-import { startFor } from './time';
+import { bars, seconds } from './time';
 
-// Seconds' notice the player needs to start a song cleanly.
-const LEAD = 0.2;
+// Seconds of silence after a song's final chord before the next starts.
+const TAIL_SECONDS = 1;
 
 export interface SessionOptions {
-  /** Instruments to arrange a song with in place of its own (the debug panel's). */
-  instruments?: (song: Song) => Instruments | undefined;
-  /** A new song is ready, arranged. */
-  onSong(song: Song, arrangement: Arrangement): void;
+  /** A new song is ready. */
+  onSong(song: Song): void;
   /** Something went wrong (empty: nothing has). */
   onError(message: string): void;
 }
 
-// A song as arranged, with the instruments it was arranged for.
-type Arranged = Arrangement & { song: Song; instruments: Instruments };
+// A song, and the MIDI file it plays as.
+interface Written {
+  song: Song;
+  midi: Uint8Array;
+}
 
 export class Session {
-  private arranged: Arranged | undefined;
-  // Where the current song starts on the player's clock, in cycles: songs
-  // after the first start where the one before ended, or a moment after a
-  // Generate, not wherever the clock has got to.
-  private start = 0;
+  private written: Written | undefined;
+  // When the current song's final chord was first heard to be over, by
+  // the page's clock (ms): the next song follows TAIL_SECONDS later.
+  private endedAt: number | undefined;
 
   constructor(
     private readonly player: Player,
     private readonly options: SessionOptions,
   ) {}
 
-  // The current song, arranged: there is one once generate() has run.
-  private get current(): Arranged {
-    if (!this.arranged) throw new Error('No song yet: generate() one first');
-    return this.arranged;
+  // The current song: there is one once generate() has run.
+  private get current(): Written {
+    if (!this.written) throw new Error('No song yet: generate() one first');
+    return this.written;
   }
 
   get song(): Song {
     return this.current.song;
   }
 
-  /** The instruments the current song is arranged with: its own, or the debug panel's choices. */
-  get instruments(): Instruments {
-    return this.current.instruments;
+  /** The current song as a MIDI file: what plays, and what Export as MIDI saves. */
+  get midi(): Uint8Array {
+    return this.current.midi;
   }
 
   get playing(): boolean {
@@ -56,38 +56,31 @@ export class Session {
   /** A new song from a random seed, its key, mode and tempo left to the seed. */
   generate(): void {
     try {
-      this.arranged = this.arrange(Song.generate(randomSeed()));
+      const song = Song.generate(randomSeed());
+      this.written = { song, midi: songToMidi(song) };
+      this.endedAt = undefined;
     } catch (e) {
       this.options.onError(`Could not generate a song: ${(e as Error).message}`);
       throw e;
     }
-    this.options.onSong(this.song, this.current);
-  }
-
-  /** The current song arranged again (its instruments changed), live if it is playing. */
-  rearrange(): void {
-    this.arranged = this.arrange(this.song);
-    if (this.playing) void this.play();
+    this.options.onSong(this.song);
   }
 
   /** A new song, playing from its start straight away if one was playing. */
   next(): void {
+    const wasPlaying = this.playing;
     this.generate();
-    if (this.playing) void this.play((this.player.now() ?? 0) + LEAD * this.current.cps);
+    if (wasPlaying) void this.play();
   }
 
-  /**
-   * Starts the song from its first bar, or while one plays, swaps in the
-   * current song: from cycle `from` on the player's clock, or where the
-   * last one started (a new arrangement of the same song).
-   */
-  async play(from?: number): Promise<void> {
+  /** Plays the current song from its start. */
+  async play(): Promise<void> {
     this.options.onError('');
-    this.start = startFor(this.playing, from, this.start);
+    this.endedAt = undefined;
     try {
-      await this.player.play(this.current.pattern.late(this.start), this.current.cps);
+      await this.player.play(this.midi);
     } catch (e) {
-      this.options.onError(`Strudel: ${(e as Error).message ?? e}`);
+      this.options.onError(`Could not play: ${(e as Error).message ?? e}`);
     }
   }
 
@@ -95,27 +88,25 @@ export class Session {
     this.player.stop();
   }
 
-  /** How many bars into the song the player is: negative before it starts, looping every `cycles`. */
+  /** How many bars into the song the player is: negative when stopped. */
   position(): number {
     const now = this.player.now();
-    return now === undefined || now < this.start ? -1 : (now - this.start) % this.current.cycles;
+    return now === undefined ? -1 : bars(now, this.song.bpm);
   }
 
-  /**
-   * When the song's final chord has played, a new song takes over where
-   * the old one would loop, after its second of silence (or at once, if
-   * that has passed).
-   */
-  autoplay(): void {
+  /** Whether the song has played out: its final chord, and a second's silence after it. */
+  done(): boolean {
     const now = this.player.now();
-    if (now === undefined || now < this.start + this.song.bars) return;
-    const end = this.start + this.current.cycles;
-    this.generate();
-    void this.play(Math.max(end, now + LEAD * this.current.cps));
+    if (now === undefined) return false;
+    const over = this.player.finished() || now >= seconds(this.song.bars, this.song.bpm);
+    if (!over) return false;
+    this.endedAt ??= performance.now();
+    return performance.now() - this.endedAt >= TAIL_SECONDS * 1000;
   }
 
-  private arrange(song: Song): Arranged {
-    const instruments = this.options.instruments?.(song) ?? song.instruments;
-    return { song, instruments, ...new Arranger(song, instruments).arrange() };
+  /** A new song, played from its start. */
+  playNext(): void {
+    this.generate();
+    void this.play();
   }
 }

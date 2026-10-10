@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Song, type Grace } from '../src/model';
-import { soloDegrees, soloSlides } from '../src/render/notation';
+import { ScoreArranger } from '../src/score';
 import {
   FINALE_STYLES,
   INTRO,
@@ -46,17 +46,6 @@ describe('section materials', () => {
           notes++;
           if (n.grace) graces.push(n.grace);
         }
-        // Grace notes render as a short note in front: "[8b 8@2]", "[9 8@5]".
-        const rendered = soloDegrees(mat.solo).join(' ');
-        for (const m of rendered.matchAll(/\[(\d+)([#b]?) (\d+)@(\d+)]/g)) {
-          const [, grace, accidental, note, weight] = m;
-          if (accidental) expect(grace).toBe(note);
-          else expect(Math.abs(Number(grace) - Number(note))).toBe(1);
-          expect(Number(weight) % 3).toBe(2);
-        }
-        // Slurred ones slide into the note, a semitone or a step: "[0 0 -1 ...]".
-        const slides = soloSlides(mat.solo);
-        expect(slides).toHaveLength(sec.bars);
         for (const { grace } of mat.solo.bars.flat()) {
           if (!grace) continue;
           const { from, chromatic, semis } = grace;
@@ -64,12 +53,22 @@ describe('section materials', () => {
           expect(Math.abs(semis)).toBeGreaterThanOrEqual(1);
           expect(Math.abs(semis)).toBeLessThanOrEqual(chromatic ? 1 : 3); // up to an augmented second
         }
-        const bends = slides
-          .join(' ')
-          .match(/(?<=[[ ])-?\d+/g)
-          ?.map(Number)
-          .filter((x) => x !== 0);
-        expect(bends?.length ?? 0).toBe(mat.solo.bars.flat().filter((n) => n.grace?.slur).length);
+        // In the score, a flicked grace note is a third of a sixteenth just
+        // before its note, a step or a semitone away; a slurred one slides in.
+        const index = song.form.sections.indexOf(sec);
+        const start = song.form.starts[index];
+        const played = new ScoreArranger(song)
+          .arrange()
+          .notes.filter((n) => n.path?.startsWith('soloists.') && n.time >= start && n.time < start + sec.bars)
+          .sort((x, y) => x.time - y.time);
+        const flicks = played.flatMap((n, k) => (Math.abs(n.dur - 1 / 48) < 1e-9 ? [[n, played[k + 1]] as const] : []));
+        expect(flicks.length).toBe(mat.solo.bars.flat().filter((n) => n.grace && !n.grace.slur).length);
+        for (const [flick, note] of flicks) {
+          const step = Math.abs(defined(flick.note, 'a pitch') - defined(note?.note, 'the note after a flick'));
+          expect(step).toBeGreaterThanOrEqual(1);
+          expect(step).toBeLessThanOrEqual(3);
+        }
+        expect(played.filter((n) => n.slide).length).toBe(mat.solo.bars.flat().filter((n) => n.grace?.slur).length);
         if (sec.bars === 16) {
           sixteens++;
           const names = mat.bars.map((b) => b.map((c) => c.name(song.key)).join(' '));

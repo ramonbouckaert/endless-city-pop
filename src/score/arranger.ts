@@ -1,6 +1,6 @@
 // Turns a song into its score: each section of the form by its type's
 // recipe (in sections/), shifted into its key, swung, and placed at the
-// bar it starts on. As render/arranger.ts arranges it for Strudel.
+// bar it starts on.
 
 import { Rng } from '../lib/random';
 import type { Instruments, PartPath, Song } from '../model';
@@ -31,8 +31,8 @@ export class ScoreArranger {
     return { notes: notes.toSorted((a, b) => a.time - b.time), bars: song.bars, uses };
   }
 
-  // Swing, as Strudel's swingBy(swing, 8): a note starting in the second
-  // half of an eighth moves later by half the swing of an eighth.
+  // Swing: a note starting in the second half of an eighth moves later
+  // by half the swing of an eighth.
   private swung(n: ScoreNote): ScoreNote {
     const eighths = n.time * 8;
     if (eighths - Math.floor(eighths) < 0.5) return n;

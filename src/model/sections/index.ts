@@ -1,6 +1,6 @@
 // Writes the material each part of a form plays: its harmony, then its
 // melody, then the drums and bass that play it. Each section type has
-// its writer here (as each has its recipe in render/sections/); each
+// its writer here (as each has its recipe in score/sections/); each
 // part draws on its own forked stream.
 
 import type { Rng } from '../../lib/random';

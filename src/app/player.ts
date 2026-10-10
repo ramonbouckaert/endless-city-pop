@@ -1,29 +1,9 @@
-// Strudel's scheduler wired to Web Audio, with the same sound library
-// strudel.cc loads (drum machines, General MIDI soundfonts).
+// The song's MIDI played on a General MIDI soundfont, in the browser:
+// SpessaSynth's synthesizer in an AudioWorklet, and its sequencer.
 
-import type { Pattern } from '@strudel/core';
-import {
-  initAudioOnFirstClick,
-  registerSynthSounds,
-  samples,
-  soundMap,
-  webaudioRepl,
-  type ReplState,
-} from '@strudel/webaudio';
-
-const DOUGH = 'https://raw.githubusercontent.com/felixroos/dough-samples/main';
-const UZU = 'https://raw.githubusercontent.com/tidalcycles/uzu-drumkit/main';
-
-function loadSounds(): Promise<unknown> {
-  return Promise.all([
-    registerSynthSounds(),
-    // Imported lazily: the soundfont module touches `window` on load.
-    import('@strudel/soundfonts').then(({ registerSoundfonts }) => registerSoundfonts()),
-    samples(`${DOUGH}/tidal-drum-machines.json`),
-    samples(`${DOUGH}/Dirt-Samples.json`),
-    samples(`${UZU}/strudel.json`),
-  ]);
-}
+import processorUrl from 'spessasynth_lib/dist/spessasynth_processor.min.js?url';
+import { Sequencer, WorkletSynthesizer } from 'spessasynth_lib';
+import { loadSoundfont } from './soundfont';
 
 // iPhones mute Web Audio with the ring/silent switch, as they would a
 // game's sound effects; music played by an <audio> element plays on. So
@@ -69,45 +49,58 @@ function silentWav(): string {
   return URL.createObjectURL(new Blob([wav], { type: 'audio/wav' }));
 }
 
-/** A sound Strudel can play, by name: a synth, a General MIDI soundfont or a sample. */
-export interface SoundInfo {
-  name: string;
-  type: string;
-}
-
 /**
- * A player for patterns: play(pattern, cps) starts or swaps the pattern;
- * stop() stops; now() is how many cycles it has played, or undefined
- * when stopped; sounds() lists every sound once they have loaded.
+ * A player for songs as MIDI files. play() starts one from the top (in
+ * place of any playing); stop() stops; now() is how many seconds in it
+ * is, or undefined when stopped; finished() says whether it has played to
+ * the end. `loading` settles once the soundfont is ready.
  */
 export interface Player {
-  play(pattern: Pattern, cps: number): Promise<void>;
+  readonly loading: Promise<void>;
+  play(midi: Uint8Array): Promise<void>;
   stop(): void;
   now(): number | undefined;
-  sounds(): Promise<SoundInfo[]>;
+  finished(): boolean;
 }
 
-export function createPlayer({ onUpdate }: { onUpdate?: (state: ReplState) => void } = {}): Player {
-  initAudioOnFirstClick();
-  // Start loading now; play() waits for it.
-  const loaded = loadSounds();
+export function createPlayer(): Player {
+  const context = new AudioContext();
   const silence = silentLoop();
-  const repl = webaudioRepl({ onUpdateState: (state) => onUpdate?.(state) });
+  // Start loading now; play() waits for it.
+  const ready = setUp(context);
+  let sequencer: Sequencer | undefined;
+  let playing = false;
   return {
-    async play(pattern, cps) {
-      playThroughSilentMode(silence); // before any await: still in the tap
-      await loaded;
-      repl.setCps(cps);
-      await repl.setPattern(pattern, true);
+    loading: ready.then(() => undefined),
+    async play(midi) {
+      // Before any await: still in the tap.
+      playThroughSilentMode(silence);
+      void context.resume();
+      const synth = await ready;
+      sequencer ??= new Sequencer(synth, { skipToFirstNoteOn: false });
+      sequencer.loopCount = 0;
+      synth.stopAll(true);
+      sequencer.loadNewSongList([{ binary: midi.slice().buffer }]);
+      sequencer.play();
+      playing = true;
     },
     stop() {
-      repl.stop();
+      sequencer?.pause();
+      void ready.then((synth) => synth.stopAll());
       silence?.pause();
+      playing = false;
     },
-    now: () => (repl.scheduler.started ? repl.scheduler.now() : undefined),
-    async sounds() {
-      await loaded;
-      return Object.entries(soundMap.get()).map(([name, { data }]) => ({ name, type: data?.type ?? 'other' }));
-    },
+    now: () => (playing && sequencer ? sequencer.currentTime : undefined),
+    finished: () => !!sequencer?.isFinished,
   };
+}
+
+// The synthesizer, its worklet loaded and the soundfont in it.
+async function setUp(context: AudioContext): Promise<WorkletSynthesizer> {
+  const [font] = await Promise.all([loadSoundfont(), context.audioWorklet.addModule(processorUrl)]);
+  const synth = new WorkletSynthesizer(context);
+  synth.connect(context.destination);
+  await synth.soundBankManager.addSoundBank(font, 'main');
+  await synth.isReady;
+  return synth;
 }

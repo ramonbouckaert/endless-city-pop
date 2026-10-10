@@ -1,5 +1,5 @@
 // A song: seed -> mode and key, tempo, form, each part's material, the
-// sounds that play it, and a title. render/ turns one into a Strudel pattern.
+// sounds that play it, and a title. score/ turns one into timed notes.
 
 import { Rng } from '../lib/random';
 import { SONG, TONALITIES, type SectionType } from '../style';
@@ -35,7 +35,7 @@ export class Song {
 
   /** A song from a seed, which picks everything else: mode, key, tempo, form and sounds. */
   static generate(seed?: string | number): Song {
-    const s = String(seed ?? 'strudel');
+    const s = String(seed ?? 'demo');
     const rng = new Rng(s);
     const mode = rng.fork('mode').weightedKey(TONALITIES);
     const tonality = TONALITIES[mode];

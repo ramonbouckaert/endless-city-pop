@@ -23,19 +23,19 @@ export interface Slide {
   ticks: number;
 }
 
-/** A controller change: CC7 volume, CC10 pan, CC91 reverb send, ... (values 0-127). */
+/** A controller change: CC7 volume, CC10 pan, CC74 brightness (filter cutoff), CC91 reverb send, ... (values 0-127). */
 export interface ControlChange {
   tick: number;
   controller: number;
   value: number;
 }
 
-export const CC = { volume: 7, pan: 10, reverb: 91 } as const;
+export const CC = { volume: 7, pan: 10, brightness: 74, reverb: 91 } as const;
 
 export interface MidiTrack {
   name: string;
   channel: number; // 0-15
-  program?: number; // General MIDI program, 0-127 (none on the drum channel)
+  program?: number; // General MIDI program, 0-127 (on the drum channel: the drum kit)
   notes: MidiNote[];
   /** Controller changes; at a note's tick, before it starts. */
   controls?: readonly ControlChange[];
@@ -87,8 +87,7 @@ function trackEvents(track: MidiTrack): TrackEvent[] {
   const ch = track.channel & 0x0f;
   const start = Math.max(0, Math.round(track.start ?? 0));
   const events: TrackEvent[] = [{ tick: 0, data: meta(0x03, text(track.name)) }];
-  if (track.program !== undefined && ch !== DRUM_CHANNEL)
-    events.push({ tick: start, data: [0xc0 | ch, track.program & 0x7f] });
+  if (track.program !== undefined) events.push({ tick: start, data: [0xc0 | ch, track.program & 0x7f] });
   // Pitch bends reach the widest slide: two semitones, unless one is wider.
   const slides = track.notes.flatMap((n) => (n.slide ? [Math.abs(n.slide.semis)] : []));
   const range = Math.max(2, ...slides.map(Math.ceil));

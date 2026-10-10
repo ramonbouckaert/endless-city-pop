@@ -1,12 +1,10 @@
 // The instruments, as a score plays them: a song's sounds on lines of
 // pitches and on chords, each part at its level in the mix. A band plays
 // one section, and notes which of its parts that section asks for
-// (`uses`). The same parts as render/band.ts, which builds them as
-// Strudel patterns.
+// (`uses`).
 
 import type { Rng } from '../lib/random';
 import type { Instruments, PartPath, SoundPath } from '../model';
-import { MAX_SHIFT, SOUND_TOPS } from '../style';
 import { voice, voicingNote, type Chord } from '../theory';
 import { COMP, type Figure, FIGURES, RHYTHMS, spans, timed } from './figures';
 import { MIX, type Level, type MixName } from './mix';
@@ -50,36 +48,27 @@ export class ScoreBand {
     return new Set(this.used);
   }
 
-  /** Drums on this song's kit; sounds the kit lacks play from the default samples. */
+  /** Drums, on the song's kit. */
   drum(part: Part): Part {
     this.used.add('kit');
-    const { kit } = this.instruments;
-    return part.map((n) => {
-      const bank = kit.bankFor(n.sound);
-      return bank ? { ...n, bank } : n;
-    });
+    return part;
   }
 
-  // A part's sound on some notes at a level in the mix, trimmed for the
-  // sound picked; notes above the sound's top drop by octaves. Sections
-  // shifted up a key transpose after this, so the top allows for the
-  // highest lift.
+  // A part's instrument on some notes at a level in the mix, trimmed for
+  // the instrument picked.
   private play(path: SoundPath, specs: readonly NoteSpec[], { gain, room, pan, clip }: Level): Part {
     this.used.add(path);
-    const sound = this.instruments.sound(path);
-    const top = SOUND_TOPS[sound];
+    const program = this.instruments.sound(path);
     const postgain = this.instruments.trim(path);
     const controls = { ...(room === undefined ? {} : { room }), ...(pan === undefined ? {} : { pan }) };
     return new Part(
       specs.map(({ time, dur, note, slide }): ScoreNote => {
-        let pitch = note;
-        while (top !== undefined && pitch > top - MAX_SHIFT) pitch -= 12;
         return {
           time,
           dur,
           path,
-          sound,
-          note: pitch,
+          program,
+          note,
           gain,
           velocity: 1,
           postgain,

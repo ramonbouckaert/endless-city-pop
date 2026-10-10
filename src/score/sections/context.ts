@@ -1,11 +1,11 @@
 // What a section's recipe works with: its section and material, the
 // band, and the parts most recipes share. Sections the band plays
 // through get a PlayedScoreContext: their chords, bass, lines and the
-// figures built on them. As render/sections/context.ts, without Strudel.
+// figures built on them.
 
 import { lazy } from '../../lib/lazy';
 import type { Line, MaterialOf, Melody, Note, PlayedMaterial, PlayedType, SectionOf, Solo, Song } from '../../model';
-import type { DrumRole, SectionType } from '../../style';
+import { RISER, type DrumRole, type SectionType } from '../../style';
 import type { Chord, Key } from '../../theory';
 import type { NoteSpec, ScoreBand } from '../band';
 import { drumNotes } from '../drums';
@@ -52,14 +52,22 @@ export class ScoreContext<T extends SectionType = SectionType> {
     return (time) => time >= start;
   }
 
-  /** White noise rising through the section, a hit a bar. */
+  /** A reverse cymbal swelling through the last bar into the next section. */
   get riser(): Part {
-    const bars = Array.from({ length: this.len }, (_, b) => b);
-    return new Part(
-      bars.map((time) => ({ time, dur: 1, sound: 'white', gain: 0, velocity: 1, postgain: 1, clip: 1, controls: {} })),
-    )
-      .gain(rise(0, 0.07, this.len))
-      .hpf(3000);
+    const time = this.len - 1;
+    return new Part([
+      {
+        time,
+        dur: 1,
+        program: RISER,
+        note: 60,
+        gain: 0.35,
+        velocity: 1,
+        postgain: 1,
+        clip: 1,
+        controls: {},
+      },
+    ]);
   }
 }
 

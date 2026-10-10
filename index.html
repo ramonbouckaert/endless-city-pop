@@ -35,6 +35,7 @@
             <button type="button" class="primary" id="play">
               <span class="when-stopped">▶ Play</span>
               <span class="when-playing">■ Stop</span>
+              <span class="when-loading">Loading sounds…</span>
             </button>
             <button type="button" id="midi" title="Download this song as a MIDI file" aria-label="Export as MIDI">
               <span class="icon" aria-hidden="true">
@@ -58,15 +59,15 @@
         </div>
         <p id="error" class="error" role="alert" hidden></p>
       </section>
-
-      <section id="debug" class="debug" hidden></section>
     </main>
 
     <footer>
-      Procedurally generated city pop, built on
-      <a href="https://codeberg.org/uzu/strudel" target="_blank" rel="noopener">Strudel</a> (AGPL-3.0). Created with a
-      lot of help from <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>, source
-      code available
+      Procedurally generated city pop, played on the
+      <a href="https://www.schristiancollins.com/generaluser.php" target="_blank" rel="noopener">GeneralUser GS</a>
+      soundfont by S. Christian Collins with
+      <a href="https://github.com/spessasus/spessasynth_lib" target="_blank" rel="noopener">SpessaSynth</a>. Created
+      with a lot of help from <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>,
+      source code available
       <a href="https://github.com/ramonbouckaert/endless-city-pop" target="_blank" rel="noopener">here</a>.
     </footer>
     <script type="module" src="/src/app/main.ts"></script>

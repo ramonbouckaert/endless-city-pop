@@ -1,6 +1,7 @@
 #!/bin/sh
-# Bundle a Node script with esbuild before running it: several Strudel
-# dependencies only resolve correctly through their "module" field.
+# Bundle a Node script with esbuild before running it: src/ imports its
+# modules without file extensions, which Node's own TypeScript support
+# can't resolve.
 set -e
 script="$1"; shift
 out="node_modules/.cache/run-node/$(basename "$script" .ts).bundle.mjs"
