@@ -26,11 +26,5 @@ export const COMP = {
   bossa: '[x ~ ~ x] [~ ~ x ~] [~ x ~ ~] [x ~ ~ ~]',
 };
 
-// The highest MIDI note a melody may be doubled up to.
-export const DOUBLE_TOP = 100;
-
 // Seconds of silence after the final chord, before the song loops.
 export const TAIL_SECONDS = 1;
-
-// Seconds a slurred note takes to slide into its pitch (Strudel's pattack).
-export const SLIDE_SECONDS = 0.05;

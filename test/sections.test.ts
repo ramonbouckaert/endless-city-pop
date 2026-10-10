@@ -12,6 +12,7 @@ import {
   TONALITIES,
 } from '../src/style';
 import { MODES, type Mode } from '../src/theory';
+import { defined } from './helpers';
 
 describe('section materials', () => {
   it("starts the opening vamp's drums late, light or with the whole kit", () => {
@@ -56,18 +57,19 @@ describe('section materials', () => {
         // Slurred ones slide into the note, a semitone or a step: "[0 0 -1 ...]".
         const slides = soloSlides(mat.solo);
         expect(slides).toHaveLength(sec.bars);
-        for (const n of mat.solo.bars.flat().filter((n) => n.grace)) {
-          const { from, chromatic, semis } = n.grace!;
+        for (const { grace } of mat.solo.bars.flat()) {
+          if (!grace) continue;
+          const { from, chromatic, semis } = grace;
           expect(Math.sign(semis)).toBe(from);
           expect(Math.abs(semis)).toBeGreaterThanOrEqual(1);
           expect(Math.abs(semis)).toBeLessThanOrEqual(chromatic ? 1 : 3); // up to an augmented second
         }
         const bends = slides
           .join(' ')
-          .match(/(?<=[[ ])-?\d+/g)!
-          .map(Number)
+          .match(/(?<=[[ ])-?\d+/g)
+          ?.map(Number)
           .filter((x) => x !== 0);
-        expect(bends.length).toBe(mat.solo.bars.flat().filter((n) => n.grace?.slur).length);
+        expect(bends?.length ?? 0).toBe(mat.solo.bars.flat().filter((n) => n.grace?.slur).length);
         if (sec.bars === 16) {
           sixteens++;
           const names = mat.bars.map((b) => b.map((c) => c.name(song.key)).join(' '));
@@ -99,9 +101,10 @@ describe('section materials', () => {
   });
 
   it('varies the pre-chorus', () => {
-    const pres = Array.from({ length: 150 }, (_, i) => Song.generate(`pre${i}`))
-      .filter((song) => song.part('pre'))
-      .map((song) => ({ mat: song.part('pre')!, bars: song.form.first('pre')!.bars }));
+    const pres = Array.from({ length: 150 }, (_, i) => Song.generate(`pre${i}`)).flatMap((song) => {
+      const [mat, sec] = [song.part('pre'), song.form.first('pre')];
+      return mat && sec ? [{ mat, bars: sec.bars }] : [];
+    });
     expect(new Set(pres.map((p) => p.mat.variant))).toEqual(new Set(Object.keys(PRE_FLAVOURS)));
     expect(new Set(pres.map((p) => p.bars))).toEqual(new Set([2, 4, 6, 8]));
     for (const { mat, bars } of pres) {
@@ -146,7 +149,7 @@ describe('section materials', () => {
         expect(lift.key.tonic).toBe((song.key.tonic + sec.liftTo) % 12);
         expect(lift.key.mode).toBe(mode);
         expect(lift.bars).toHaveLength(sec.bars);
-        for (const chord of lift.bars.flat()) expect(MODES).toHaveProperty([chord.scale!]);
+        for (const chord of lift.bars.flat()) expect(MODES).toHaveProperty([defined(chord.scale, 'a chord-scale')]);
         expect(lift.bass.bars).toHaveLength(sec.bars);
       });
     }
@@ -156,7 +159,7 @@ describe('section materials', () => {
   });
 
   it('varies the intro', () => {
-    const intros = Array.from({ length: 150 }, (_, i) => Song.generate(`intro${i}`).part('intro')!);
+    const intros = Array.from({ length: 150 }, (_, i) => defined(Song.generate(`intro${i}`).part('intro'), 'an intro'));
     expect(new Set(intros.map((m) => m.variant))).toEqual(new Set(Object.keys(INTRO_TEXTURES)));
     expect(new Set(intros.map((m) => m.harmony))).toEqual(new Set(INTRO.harmony.map(([name]) => name)));
   });
@@ -179,15 +182,19 @@ describe('section materials', () => {
         expect(new Set(mat.soloists).size).toBe(2);
         for (const i of song.soloists) expect(mat.soloists.slice(0, song.soloists.length)).toContain(i);
       } else {
-        expect(mat.bars).toBe(song.part('intro')!.bars);
-        expect(mat.melody).toBe(song.part('intro')!.melody);
+        const intro = defined(song.part('intro'), 'an intro');
+        expect(mat.bars).toBe(intro.bars);
+        expect(mat.melody).toBe(intro.melody);
       }
     }
     expect(styles).toEqual(new Set(['reprise', 'trade']));
   });
 
   it('varies the finale', () => {
-    const endings = Array.from({ length: 100 }, (_, i) => Song.generate(`finale${i}`).part('finale')!.variant);
+    const endings = Array.from(
+      { length: 100 },
+      (_, i) => defined(Song.generate(`finale${i}`).part('finale'), 'a finale').variant,
+    );
     expect(new Set(endings)).toEqual(new Set(Object.keys(FINALE_STYLES)));
   });
 
@@ -200,7 +207,7 @@ describe('section materials', () => {
     expect(forms('verse')).toEqual(new Set(all));
     expect(forms('bridge')).toEqual(new Set(all.filter((f) => f !== 'callResponse')));
     for (const song of songs) {
-      const chorus = song.part('chorus')!;
+      const chorus = defined(song.part('chorus'), 'a chorus');
       expect(chorus.melody.bars).toHaveLength(chorus.bars.length);
     }
   });

@@ -7,7 +7,7 @@
 
 import type { Rng } from '../lib/random';
 import { BASS, BASS_DEGREES, BASS_FEELS, BASS_NOTES, type BassFeel, type BassFeelDef, type BassToken } from '../style';
-import { BASS_LOW, Scale, type Bar, type Chord, type Degree, type Key } from '../theory';
+import { BASS_LOW, type Bar, type Chord, type Degree, type Key } from '../theory';
 import { Line, type Note } from './line';
 
 /** A note in the chord-scale of the chord it sounds over (the bar's last, for an approach note). */
@@ -26,6 +26,8 @@ export class BassLine extends Line<BassNote> {
 }
 
 type Step = BassToken | 'A' | null; // A: the approach note
+
+const ROOT: Degree = { step: 0, alter: 0 };
 
 export class BassWriter {
   readonly feel: BassFeel;
@@ -68,8 +70,12 @@ export class BassWriter {
         if (i > at) return null;
         return split && i === 8 ? 'R' : tok;
       });
-      const target = at < 16 ? this.approach(bar.at(-1)!, bars[(b + 1) % bars.length][0]) : undefined;
-      return this.notes(steps, (tok) => (tok === 'A' ? target! : { step: BASS_DEGREES[tok], alter: 0 }));
+      // The approach into the next bar's first chord (with no chords to
+      // go between, the root).
+      const last = bar.at(-1);
+      const next = bars[(b + 1) % bars.length]?.[0];
+      const target = at < 16 && last && next ? this.approach(last, next) : ROOT;
+      return this.notes(steps, (tok) => (tok === 'A' ? target : { step: BASS_DEGREES[tok], alter: 0 }));
     });
     return new BassLine(this.feel, lines);
   }
@@ -135,18 +141,18 @@ export class BassWriter {
     const approach = rng.chance(BASS.chromatic) ? BASS.approachChromatic : BASS.approachDiatonic;
     let pitch = target === root ? root + rng.pick(BASS.approachSame) : target + rng.pick(approach);
     while (pitch < BASS_LOW) pitch += 12;
-    return Scale.named(cur.scale!).degree(pitch - root, this.key.usesFlats);
+    return cur.chordScale.degree(pitch - root, this.key.usesFlats);
   }
 
   // Notes ring to the next one, or are cut short when the feel is
   // choppy; the gap becomes a rest.
   private notes(steps: readonly Step[], degree: (tok: BassToken | 'A') => Degree): BassNote[] {
-    const starts = steps.flatMap((tok, i) => (tok ? [i] : []));
-    return starts.map((start, k) => {
-      const gap = (starts[k + 1] ?? 16) - start;
+    const starts = steps.flatMap((tok, i) => (tok ? [{ start: i, tok }] : []));
+    return starts.map(({ start, tok }, k) => {
+      const gap = (starts[k + 1]?.start ?? 16) - start;
       const maxLen = this.grid === 16 ? 1 : 2;
       const len = this.rng.chance(this.legato) ? gap : Math.min(gap, maxLen);
-      return { start, len, degree: degree(steps[start]!) };
+      return { start, len, degree: degree(tok) };
     });
   }
 }

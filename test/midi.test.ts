@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Key } from '../src/theory';
-import { DRUM_CHANNEL, keySignature, PPQ, vlq, writeMidi, type MidiSong } from '../src/midi/writer';
+import { channelsFor, songToMidi } from '../src/midi/from-score';
+import { CC, DRUM_CHANNEL, keySignature, PPQ, vlq, writeMidi, type MidiSong } from '../src/midi/writer';
+import { Song } from '../src/model';
+import { defined } from './helpers';
 
 // A small Standard MIDI File reader: each track's events with absolute ticks.
 function read(bytes: Uint8Array) {
@@ -147,5 +150,86 @@ describe('MIDI', () => {
       [2 * PPQ, 'on'],
       [3 * PPQ, 'off'],
     ]);
+  });
+  it('writes controller changes before the notes at their tick', () => {
+    const file = read(
+      writeMidi(
+        song([
+          {
+            name: 'lead',
+            channel: 2,
+            notes: [
+              { tick: 0, dur: PPQ, pitch: 60, velocity: 100 },
+              { tick: PPQ, dur: PPQ, pitch: 62, velocity: 100 },
+            ],
+            controls: [
+              { tick: 0, controller: CC.volume, value: 90 },
+              { tick: PPQ, controller: CC.pan, value: 30 },
+            ],
+          },
+        ]),
+      ),
+    );
+    expect(file.tracks[1].filter((e) => e.status !== 0xff)).toEqual([
+      { tick: 0, status: 0xb2, data: [CC.volume, 90] },
+      { tick: 0, status: 0x92, data: [60, 100] },
+      { tick: PPQ, status: 0x82, data: [60, 0] },
+      { tick: PPQ, status: 0xb2, data: [CC.pan, 30] },
+      { tick: PPQ, status: 0x92, data: [62, 100] },
+      { tick: 2 * PPQ, status: 0x82, data: [62, 0] },
+    ]);
+  });
+
+  it("gives each of a song's tracks its volume, pan and reverb before its first note", () => {
+    const tracks = read(songToMidi(Song.generate('mix'))).tracks.slice(1);
+    let panned = 0;
+    for (const track of tracks) {
+      const first = track.findIndex((e) => (e.status & 0xf0) === 0x90);
+      const mix: number[] = [CC.volume, CC.pan, CC.reverb];
+      const before = track.slice(0, first).filter((e) => (e.status & 0xf0) === 0xb0 && mix.includes(e.data[0]));
+      expect(before.map((e) => e.data[0]).sort((a, b) => a - b)).toEqual(mix);
+      const pans = track.filter((e) => (e.status & 0xf0) === 0xb0 && e.data[0] === CC.pan);
+      if (pans.some((e) => e.data[1] !== 64)) panned++;
+      // The loudest note plays at full velocity: the track's volume sets its level.
+      const velocities = track.filter((e) => (e.status & 0xf0) === 0x90).map((e) => e.data[1]);
+      expect(Math.max(...velocities)).toBe(127);
+    }
+    expect(panned).toBeGreaterThan(0);
+  });
+  it('shares a channel only between sounds that never play at once, set up as each starts', () => {
+    // Fifteen sounds playing throughout, then two in the finale; the
+    // first two finish early.
+    const spans = [
+      { first: 0, last: 100 },
+      { first: 0, last: 200 },
+      ...Array.from({ length: 13 }, () => ({ first: 0, last: 1000 })),
+      { first: 900, last: 1000 },
+      { first: 950, last: 1000 },
+    ];
+    const channels = channelsFor(spans);
+    expect(new Set(channels.slice(0, 15).map((c) => c.channel)).size).toBe(15);
+    expect(channels.map((c) => c.channel)).not.toContain(DRUM_CHANNEL);
+    expect(channels[15]).toEqual({ channel: channels[0].channel, start: 900 });
+    expect(channels[16]).toEqual({ channel: channels[1].channel, start: 950 });
+  });
+
+  it("never plays two of a song's tracks on one channel at once", () => {
+    // ch1 has seventeen melodic sounds, two of them only in the finale.
+    const tracks = read(songToMidi(Song.generate('ch1'))).tracks.slice(1);
+    const spans = new Map<number, [number, number][]>();
+    for (const track of tracks) {
+      const notes = track.filter((e) => (e.status & 0xf0) === 0x90 || (e.status & 0xf0) === 0x80);
+      if (!notes.length) continue;
+      const ch = notes[0].status & 0x0f;
+      spans.set(ch, [...(spans.get(ch) ?? []), [notes[0].tick, defined(notes.at(-1), 'a last note').tick]]);
+      // Its program comes no later than its first note.
+      const program = track.find((e) => (e.status & 0xf0) === 0xc0);
+      if (program) expect(program.tick).toBeLessThanOrEqual(notes[0].tick);
+    }
+    expect([...spans.values()].some((s) => s.length > 1)).toBe(true);
+    for (const list of spans.values()) {
+      const sorted = list.sort((a, b) => a[0] - b[0]);
+      for (let i = 1; i < sorted.length; i++) expect(sorted[i][0]).toBeGreaterThanOrEqual(sorted[i - 1][1]);
+    }
   });
 });

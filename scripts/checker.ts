@@ -55,6 +55,6 @@ function noteProblem(c: number, v: Record<string, any>, sound: string | undefine
   const midi = typeof v.note === 'number' ? v.note : noteToMidi(v.note);
   if (!Number.isFinite(midi)) return `bar ${c}: bad note ${v.note}`;
   if (midi < 23 || midi > 100) return `bar ${c}: note ${v.note} out of range (${sound})`;
-  if (midi > (SOUND_TOPS[sound!] ?? 127)) return `bar ${c}: note ${v.note} above ${sound}'s top`;
+  if (sound !== undefined && midi > (SOUND_TOPS[sound] ?? 127)) return `bar ${c}: note ${v.note} above ${sound}'s top`;
   return undefined;
 }

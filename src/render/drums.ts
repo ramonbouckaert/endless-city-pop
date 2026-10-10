@@ -31,8 +31,9 @@ export function renderDrums(
     return cut && (fill.stop || role === 'kick' || role === 'snare' || role === 'ghost') ? entered.mask(cut) : entered;
   });
   // The fill's hits, one part per sound, in the last bar.
-  const fillParts = [...new Set(fill?.hits.map((h) => h.sound))].map((sound) => {
-    const bar = at(Object.fromEntries(fill!.hits.filter((h) => h.sound === sound).map((h) => [h.step, h.gain])));
+  const fillHits = fill?.hits ?? [];
+  const fillParts = [...new Set(fillHits.map((h) => h.sound))].map((sound) => {
+    const bar = at(Object.fromEntries(fillHits.filter((h) => h.sound === sound).map((h) => [h.step, h.gain])));
     return s(lastBar(len, hits(bar, sound), '~')).gain(lastBar(len, gains(bar), '0'));
   });
   const crash = d.crash ? [s(`<cr ${'~ '.repeat(len - 1)}>`).gain(0.2)] : [];

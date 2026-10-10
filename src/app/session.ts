@@ -1,7 +1,6 @@
 // The song playing (or ready to): generating songs, arranging them, and
 // starting or swapping them on the player's clock.
 
-import type { Pattern } from '@strudel/core';
 import { randomSeed } from '../lib/random';
 import { Song, type Instruments } from '../model';
 import { Arranger, type Arrangement } from '../render';
@@ -20,8 +19,11 @@ export interface SessionOptions {
   onError(message: string): void;
 }
 
+// A song as arranged, with the instruments it was arranged for.
+type Arranged = Arrangement & { song: Song; instruments: Instruments };
+
 export class Session {
-  private current!: Arrangement & { song: Song };
+  private arranged: Arranged | undefined;
   // Where the current song starts on the player's clock, in cycles: songs
   // after the first start where the one before ended, or a moment after a
   // Generate, not wherever the clock has got to.
@@ -32,13 +34,19 @@ export class Session {
     private readonly options: SessionOptions,
   ) {}
 
+  // The current song, arranged: there is one once generate() has run.
+  private get current(): Arranged {
+    if (!this.arranged) throw new Error('No song yet: generate() one first');
+    return this.arranged;
+  }
+
   get song(): Song {
     return this.current.song;
   }
 
-  /** The current song's arranged pattern. */
-  get pattern(): Pattern {
-    return this.current.pattern;
+  /** The instruments the current song is arranged with: its own, or the debug panel's choices. */
+  get instruments(): Instruments {
+    return this.current.instruments;
   }
 
   get playing(): boolean {
@@ -48,7 +56,7 @@ export class Session {
   /** A new song from a random seed, its key, mode and tempo left to the seed. */
   generate(): void {
     try {
-      this.current = this.arrange(Song.generate(randomSeed()));
+      this.arranged = this.arrange(Song.generate(randomSeed()));
     } catch (e) {
       this.options.onError(`Could not generate a song: ${(e as Error).message}`);
       throw e;
@@ -58,7 +66,7 @@ export class Session {
 
   /** The current song arranged again (its instruments changed), live if it is playing. */
   rearrange(): void {
-    this.current = this.arrange(this.song);
+    this.arranged = this.arrange(this.song);
     if (this.playing) void this.play();
   }
 
@@ -106,7 +114,8 @@ export class Session {
     void this.play(Math.max(end, now + LEAD * this.current.cps));
   }
 
-  private arrange(song: Song): Arrangement & { song: Song } {
-    return { song, ...new Arranger(song, this.options.instruments?.(song)).arrange() };
+  private arrange(song: Song): Arranged {
+    const instruments = this.options.instruments?.(song) ?? song.instruments;
+    return { song, instruments, ...new Arranger(song, instruments).arrange() };
   }
 }

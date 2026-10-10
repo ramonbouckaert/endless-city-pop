@@ -9,7 +9,9 @@ export function outro(sec: SectionOf<'outro'>, ctx: WriteContext, rng: Rng): Mat
   const { groove } = OUTRO_STYLES[sec.variant];
   if (sec.variant === 'reprise') {
     // The intro's chords, and its teaser if it had one.
-    const { bars, melody } = ctx.material(ctx.form.first('intro')!);
+    const intro = ctx.form.first('intro');
+    if (!intro) throw new Error('A reprise outro needs an intro to play again');
+    const { bars, melody } = ctx.material(intro);
     return {
       ...ctx.band('outro', ctx.key, bars, groove, rng.fork('groove')),
       variant: 'reprise',

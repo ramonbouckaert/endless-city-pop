@@ -23,11 +23,28 @@ export interface Slide {
   ticks: number;
 }
 
+/** A controller change: CC7 volume, CC10 pan, CC91 reverb send, ... (values 0-127). */
+export interface ControlChange {
+  tick: number;
+  controller: number;
+  value: number;
+}
+
+export const CC = { volume: 7, pan: 10, reverb: 91 } as const;
+
 export interface MidiTrack {
   name: string;
   channel: number; // 0-15
   program?: number; // General MIDI program, 0-127 (none on the drum channel)
   notes: MidiNote[];
+  /** Controller changes; at a note's tick, before it starts. */
+  controls?: readonly ControlChange[];
+  /**
+   * When the channel is set up for this track (its program and pitch-bend
+   * range): 0, unless it takes over a channel another track played on
+   * before it.
+   */
+  start?: number;
 }
 
 export interface MidiSong {
@@ -68,16 +85,23 @@ interface TrackEvent {
 
 function trackEvents(track: MidiTrack): TrackEvent[] {
   const ch = track.channel & 0x0f;
+  const start = Math.max(0, Math.round(track.start ?? 0));
   const events: TrackEvent[] = [{ tick: 0, data: meta(0x03, text(track.name)) }];
   if (track.program !== undefined && ch !== DRUM_CHANNEL)
-    events.push({ tick: 0, data: [0xc0 | ch, track.program & 0x7f] });
+    events.push({ tick: start, data: [0xc0 | ch, track.program & 0x7f] });
   // Pitch bends reach the widest slide: two semitones, unless one is wider.
   const slides = track.notes.flatMap((n) => (n.slide ? [Math.abs(n.slide.semis)] : []));
   const range = Math.max(2, ...slides.map(Math.ceil));
-  if (slides.length) events.push(...bendRange(ch, range).map((data) => ({ tick: 0, data })));
+  if (slides.length) events.push(...bendRange(ch, range).map((data) => ({ tick: start, data })));
+  for (const c of track.controls ?? []) {
+    events.push({
+      tick: Math.max(0, Math.round(c.tick)),
+      data: [0xb0 | ch, c.controller & 0x7f, clamp(Math.round(c.value), 0, 127)],
+    });
+  }
   for (const n of separate(track.notes)) {
     const pitch = clamp(Math.round(n.pitch), 0, 127);
-    if (n.slide) events.push(...slide(ch, n, range));
+    if (n.slide) events.push(...slide(ch, n, n.slide, range));
     events.push(
       { tick: n.tick, data: [0x90 | ch, pitch, clamp(Math.round(n.velocity), 1, 127)] },
       { tick: n.tick + n.dur, data: [0x80 | ch, pitch, 0], off: true },
@@ -99,11 +123,11 @@ const bendRange = (ch: number, semis: number) =>
 
 // A note's slide as pitch bends: off its pitch at the note-on, back to
 // centre in steps, never past the note's end.
-function slide(ch: number, n: MidiNote, range: number): TrackEvent[] {
-  const ticks = Math.min(n.slide!.ticks, n.dur);
+function slide(ch: number, n: MidiNote, { semis: from, ticks: over }: Slide, range: number): TrackEvent[] {
+  const ticks = Math.min(over, n.dur);
   const steps = Math.max(1, Math.min(BEND_STEPS, Math.floor(ticks)));
   return Array.from({ length: steps + 1 }, (_, i) => {
-    const semis = n.slide!.semis * (1 - i / steps);
+    const semis = from * (1 - i / steps);
     const bend = clamp(Math.round(8192 + (semis / range) * 8192), 0, 16383);
     return { tick: n.tick + Math.round((i * ticks) / steps), data: [0xe0 | ch, bend & 0x7f, bend >> 7] };
   });

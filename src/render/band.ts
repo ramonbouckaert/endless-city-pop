@@ -10,7 +10,7 @@ import type { Instruments, PartPath, SoundPath } from '../model';
 import { MAX_SHIFT, SOUND_TOPS } from '../style';
 import type { Bar, Key } from '../theory';
 import { COMP, FIGURES } from './figures';
-import { MIX, type Level, type MixName } from './mix';
+import { MIX, type Level, type MixName } from '../score/mix';
 import { chordSeq, scaleSeq, seq } from './notation';
 
 // The parts that play chords.

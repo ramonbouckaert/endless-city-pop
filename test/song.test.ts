@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Song } from '../src/model';
 import { TONALITIES } from '../src/style';
 import { CHORDS, MODES, type Mode } from '../src/theory';
+import { defined } from './helpers';
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => `seed${i}`);
 
@@ -17,7 +18,7 @@ describe('Song', () => {
       for (const mat of Object.values(song.materials)) {
         for (const chord of ('bars' in mat ? mat.bars : []).flat()) {
           expect(CHORDS).toHaveProperty([chord.symbol]);
-          expect(MODES).toHaveProperty([chord.scale!]);
+          expect(MODES).toHaveProperty([defined(chord.scale, 'a chord-scale')]);
         }
         if ('drums' in mat) expect(mat.drums.fills.length > 0).toBe(mat.drums.fill);
         if ('bass' in mat) expect(mat.bass.bars).toHaveLength(mat.bars.length);
@@ -43,8 +44,7 @@ describe('Song', () => {
     const song = Song.generate('snap0');
     expect(song.key.name).toMatchSnapshot();
     expect(
-      song
-        .part('chorus')!
+      defined(song.part('chorus'), 'a chorus')
         .bars.flat()
         .map((c) => c.name(song.key)),
     ).toMatchSnapshot();
@@ -63,11 +63,11 @@ describe('Song', () => {
       for (const mat of Object.values(song.materials)) {
         for (const chord of ('bars' in mat ? mat.bars : []).flat()) {
           expect(CHORDS).toHaveProperty([chord.symbol]);
-          expect(MODES).toHaveProperty([chord.scale!]);
+          expect(MODES).toHaveProperty([defined(chord.scale, 'a chord-scale')]);
         }
         if ('bass' in mat) expect(mat.bass.bars).toHaveLength(mat.bars.length);
       }
-      const fin = song.part('finale')!.chord;
+      const fin = defined(song.part('finale'), 'a finale').chord;
       expect(fin.root).toBe(song.key.tonic);
       expect(fin.cls).toBe(tonic);
       expect(finale.map(([symbol]) => symbol)).toContain(fin.symbol);

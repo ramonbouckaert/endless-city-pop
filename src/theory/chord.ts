@@ -25,6 +25,11 @@ export class Chord {
     if (scale) this.scale = scale;
   }
 
+  /** Its chord-scale: the one fitted to it, or failing that its family's usual one. */
+  get chordScale(): Scale {
+    return Scale.named(this.scale ?? FAMILY_SCALES[this.cls]);
+  }
+
   withScale(scale: string): Chord {
     return new Chord(this.root, this.symbol, scale);
   }
@@ -72,7 +77,8 @@ export class Chord {
    */
   fitScale(key: Key, next: Chord): string {
     if (SYMBOL_SCALES[this.symbol]) return SYMBOL_SCALES[this.symbol];
-    if (this.pcs.every((pc) => key.has(pc))) return key.modeAt(this.root)!;
+    const mode = key.modeAt(this.root);
+    if (mode !== undefined && this.pcs.every((pc) => key.has(pc))) return mode;
     if (this.dominant && this.resolvesToMinor(key, next) && this.fits(DOM_TO_MINOR_SCALE)) return DOM_TO_MINOR_SCALE;
     return FAMILY_SCALES[this.cls];
   }

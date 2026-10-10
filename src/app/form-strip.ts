@@ -62,7 +62,10 @@ export class FormStrip {
       li.classList.remove('short', 'bare');
       const style = getComputedStyle(li);
       const room = li.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
-      const fits = (label: string) => li.querySelector(label)!.getBoundingClientRect().width * 1.1 <= room;
+      const fits = (label: string) => {
+        const span = li.querySelector(label);
+        return !!span && span.getBoundingClientRect().width * 1.1 <= room;
+      };
       if (fits('.full')) continue;
       li.classList.add('short');
       if (!fits('.short')) li.classList.add('bare');

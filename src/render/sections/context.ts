@@ -10,7 +10,8 @@ import type { DrumRole, SectionType } from '../../style';
 import type { Key } from '../../theory';
 import { Band, chords, perBar, scales } from '../band';
 import { renderDrums } from '../drums';
-import { DOUBLE_TOP, FIGURES, SLIDE_SECONDS } from '../figures';
+import { DOUBLE_TOP, SLIDE_SECONDS } from '../../score/figures';
+import { FIGURES } from '../figures';
 import { bassDegrees, from, keyScale, lastBar, melodyDegrees, soloDegrees, soloSlides } from '../notation';
 
 /** A section's drums, and its pitched parts (falsy ones left out). */
@@ -43,7 +44,7 @@ export class SectionContext<T extends SectionType = SectionType> {
 export class PlayedContext<T extends PlayedType = PlayedType> extends SectionContext<T> {
   // The material, as every played section has it.
   private get played(): PlayedMaterial {
-    return this.mat as PlayedMaterial;
+    return this.mat;
   }
 
   // The section's chords and scales, and the band's bass line over them,

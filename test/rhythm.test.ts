@@ -11,7 +11,7 @@ describe('rhythm', () => {
       for (const mat of Object.values(song.materials)) {
         if (mat.type === 'finale') continue;
         expect(mat.drums, mat.type).toBeDefined();
-        expect(mat.drums!.parts.length, mat.type).toBeGreaterThan(0);
+        expect(mat.drums.parts.length, mat.type).toBeGreaterThan(0);
       }
     }
   });
@@ -20,7 +20,7 @@ describe('rhythm', () => {
     for (const song of songs) {
       for (const mat of Object.values(song.materials)) {
         if (mat.type === 'finale') continue;
-        for (const part of mat.drums!.parts) {
+        for (const part of mat.drums.parts) {
           expect(part.bars).toHaveLength(4);
           for (const bar of part.bars) expect(bar).toHaveLength(16);
         }
@@ -32,7 +32,7 @@ describe('rhythm', () => {
     for (const song of songs) {
       for (const mat of Object.values(song.materials)) {
         if (mat.type === 'finale') continue;
-        const { fill, fills } = mat.drums!;
+        const { fill, fills } = mat.drums;
         expect(fills.length > 0).toBe(fill);
         for (const f of fills) {
           expect(f.start).toBeGreaterThanOrEqual(0);

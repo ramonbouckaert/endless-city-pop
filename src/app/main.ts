@@ -70,7 +70,7 @@ class App {
     $('play').addEventListener('click', () => (session.playing ? session.stop() : void session.play()));
     const midi = $<HTMLButtonElement>('midi');
     midi.addEventListener('click', () =>
-      downloadMidi(midi, session.song, session.pattern, (msg) => this.showError(msg)),
+      downloadMidi(midi, session.song, session.instruments, (msg) => this.showError(msg)),
     );
   }
 
