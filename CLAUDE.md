@@ -49,6 +49,7 @@ Dependency rules:
 - `model/` reads `style/` tables and produces **plain musical data** only: chords, notes with degrees or semitones, 16-step drum gains. Nothing in `model/` writes mini-notation or imports Strudel.
 - `render/notation.ts` turns model data into mini-notation strings without importing Strudel, so tests can check it. Everything else in `render/` and `midi/from-pattern.ts` loads Strudel; unit tests and plain scripts must not import them.
 - `app/` is the only browser/DOM code.
+- Side effects: only DOM code in `app/`, and methods changing their own class's private fields. An `Rng` passed to a function or constructor belongs to it: the caller hands on `rng.fork(label)` (forking reads only the seed) and never draws from what it handed on.
 
 ### Song pipeline
 
@@ -62,7 +63,7 @@ seed → mode, key → form (Section[]) → materials per part → instruments �
 - `MaterialOf<T>` (`model/material.ts`) gives each section type its own material shape. `song.material(section)`, `song.part(type)` (first part of a type) and `song.parts(type)` look them up.
 - Variants (`style/variants.ts`): every way a section type can be played (intro texture, vamp entry, pre-chorus flavour, solo comp, lift, outro and finale style) is a `Variants` table of weighted entries, some with their own groove. The material stores its pick as `variant`; the recipe switches on it.
 - `pickInstruments` (`model/orchestration.ts`) picks every part's sound and the drum kit. `Sounds` is uniform: every part is a sound name; gains come from `voiceGain`/`level` and the band's own gains in `render/band.ts`.
-- `Arranger` (`render/arranger.ts`) calls each section's recipe from `render/sections/` (one file per section type) with a `PlayedContext` (chords, scales, bass, drums, lines) for sections the band plays through, or a plain `SectionContext` for a drum break or finale. `Band` notes which parts each section type asks for; the arrangement's `uses` feeds the debug panel, so recipes build only parts they play.
+- `Arranger` (`render/arranger.ts`) calls each section's recipe from `render/sections/` (one file per section type) with a `PlayedContext` (chords, scales, bass, drums, lines) for sections the band plays through, or a plain `SectionContext` for a drum break or finale. Each section gets its own `Band`, which notes (privately) which parts the recipe asks for; the arranger merges them into the arrangement's `uses` for the debug panel, so recipes build only parts they play.
 
 ### Data flow for a mode
 

@@ -17,8 +17,8 @@ export function pre(sec: SectionOf<'pre'>, ctx: WriteContext, rng: Rng): Materia
   const template = rng.pick(fitting.length ? fitting : options);
   const bars = new Harmonizer(key, rng.fork('harmony')).progression(template, sec.bars, { ending: true });
   return {
-    ...ctx.band('pre', key, bars, groove, rng),
+    ...ctx.band('pre', key, bars, groove, rng.fork('groove')),
     variant,
-    melody: ctx.melody('pre', key, bars, rng, melody),
+    melody: ctx.melody('pre', key, bars, rng.fork('melody'), melody),
   };
 }

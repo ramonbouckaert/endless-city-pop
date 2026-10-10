@@ -12,9 +12,10 @@ export function intro(_sec: SectionOf<'intro'>, ctx: WriteContext, rng: Rng): Ma
   const variant = rng.weightedKey(INTRO_TEXTURES);
   let melody: Melody | undefined;
   if (harmony === 'chorus') melody = ctx.shared.hook().take(4);
-  else if (harmony === 'template' && rng.chance(INTRO.melodyChance)) melody = ctx.melody('riff', ctx.key, bars, rng);
+  else if (harmony === 'template' && rng.chance(INTRO.melodyChance))
+    melody = ctx.melody('riff', ctx.key, bars, rng.fork('melody'));
   return {
-    ...ctx.band('intro', ctx.key, bars, INTRO_TEXTURES[variant].groove, rng),
+    ...ctx.band('intro', ctx.key, bars, INTRO_TEXTURES[variant].groove, rng.fork('groove')),
     harmony,
     variant,
     ...(melody ? { melody } : {}),

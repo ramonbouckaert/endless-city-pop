@@ -1,7 +1,7 @@
 import type { Rng } from '../../lib/random';
 import { FORM, OUTRO_STYLES } from '../../style';
 import { materialOf, type MaterialOf } from '../material';
-import { Solo } from '../melody';
+import { SoloWriter } from '../melody';
 import { soloistsOf, type SectionOf } from '../section';
 import type { WriteContext } from './context';
 
@@ -10,7 +10,11 @@ export function outro(sec: SectionOf<'outro'>, ctx: WriteContext, rng: Rng): Mat
   if (sec.variant === 'reprise') {
     // The intro's chords, and its teaser if it had one.
     const { bars, melody } = materialOf('intro', ctx.material(ctx.form[0]));
-    return { ...ctx.band('outro', ctx.key, bars, groove, rng), variant: 'reprise', ...(melody ? { melody } : {}) };
+    return {
+      ...ctx.band('outro', ctx.key, bars, groove, rng.fork('groove')),
+      variant: 'reprise',
+      ...(melody ? { melody } : {}),
+    };
   }
   // Two soloists trade lines over the vamp's changes, or a vamp of its
   // own when the song has none: the song's soloists first, if it had solos.
@@ -18,9 +22,9 @@ export function outro(sec: SectionOf<'outro'>, ctx: WriteContext, rng: Rng): Mat
   const bars = Array.from({ length: sec.bars }, (_, i) => loop[i % loop.length]);
   const [first, second] = [...new Set([...soloistsOf(ctx.form), ...FORM.soloists])];
   return {
-    ...ctx.band('outro', ctx.key, bars, groove, rng),
+    ...ctx.band('outro', ctx.key, bars, groove, rng.fork('groove')),
     variant: 'trade',
-    solo: Solo.improvise(bars, rng.fork('line')),
+    solo: new SoloWriter(rng.fork('line')).write(bars),
     soloists: [first, second],
   };
 }

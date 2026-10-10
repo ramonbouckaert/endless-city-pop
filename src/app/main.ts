@@ -73,7 +73,7 @@ setInterval(() => autoplay() && session.autoplay(), 100);
 
 $('generate').addEventListener('click', () => session.next());
 $('play').addEventListener('click', () => (session.playing ? session.stop() : void session.play()));
-midiBtn.addEventListener('click', () => downloadMidi(midiBtn, session.song, session.current.pattern, showError));
+midiBtn.addEventListener('click', () => downloadMidi(midiBtn, session.song, session.pattern, showError));
 
 session.generate();
 requestAnimationFrame(followPlayhead);

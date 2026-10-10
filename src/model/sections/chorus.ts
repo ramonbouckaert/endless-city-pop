@@ -10,7 +10,7 @@ export function chorus(_sec: SectionOf<'chorus'>, ctx: WriteContext, rng: Rng): 
   const bars = ctx.shared.chorusBars();
   const hook = ctx.shared.hook();
   return {
-    ...ctx.band('chorus', key, bars, RHYTHM.chorus, rng),
+    ...ctx.band('chorus', key, bars, RHYTHM.chorus, rng.fork('groove')),
     melody: hook,
     answer: hook.answer(bars, key, rng.fork('answer')),
   };

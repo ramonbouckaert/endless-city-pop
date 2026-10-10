@@ -4,14 +4,16 @@ exports[`Song > writes the same chorus for a seed as it did 1`] = `"G major"`;
 
 exports[`Song > writes the same chorus for a seed as it did 2`] = `
 [
-  "G69",
+  "G^9",
   "E7alt",
   "Am9",
-  "D13",
-  "Bm9",
-  "E7alt",
-  "Am9",
-  "Am9",
+  "A7#9",
   "D9",
+  "Bm9",
+  "Bm7b5",
+  "E13b9",
+  "Am11",
+  "A13",
+  "Ab13#11",
 ]
 `;

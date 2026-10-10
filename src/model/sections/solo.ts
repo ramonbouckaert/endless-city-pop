@@ -2,7 +2,7 @@ import type { Rng } from '../../lib/random';
 import { SOLO_COMPS } from '../../style';
 import { Harmonizer } from '../harmony';
 import type { MaterialOf } from '../material';
-import { Solo } from '../melody';
+import { SoloWriter } from '../melody';
 import type { SectionOf } from '../section';
 import type { WriteContext } from './context';
 
@@ -13,8 +13,8 @@ export function solo(sec: SectionOf<'solo'>, ctx: WriteContext, rng: Rng): Mater
   const variant = before ? rng.weightedKey(SOLO_COMPS, ctx.material(before).variant) : 'band';
   const bars = new Harmonizer(ctx.key, rng.fork('changes')).solo(sec.bars);
   return {
-    ...ctx.band('solo', ctx.key, bars, SOLO_COMPS[variant].groove, rng),
+    ...ctx.band('solo', ctx.key, bars, SOLO_COMPS[variant].groove, rng.fork('groove')),
     variant,
-    solo: Solo.improvise(bars, rng.fork('line')),
+    solo: new SoloWriter(rng.fork('line')).write(bars),
   };
 }

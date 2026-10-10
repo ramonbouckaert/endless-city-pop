@@ -98,9 +98,14 @@ export class Solo extends Line<SoloNote> {
   constructor(bars: SoloNote[][]) {
     super(bars, 16);
   }
+}
 
-  /** An improvised solo. Chord tones are the even degrees, and beats land on them. */
-  static improvise(bars: Bar[], rng: Rng): Solo {
+/** Improvises a solo. Chord tones are the even degrees, and beats land on them. */
+export class SoloWriter {
+  constructor(private readonly rng: Rng) {}
+
+  write(bars: Bar[]): Solo {
+    const { rng } = this;
     const { lo } = SOLO;
     // Each bar carries on from where the last left the line: its degree and direction.
     const { lines } = bars.reduce<{ deg: number; dir: number; lines: SoloNote[][] }>(
@@ -111,9 +116,9 @@ export class Solo extends Line<SoloNote> {
         const line = [...rhythm].reduce(
           (at, ch, s) => {
             if (ch !== 'x') return at;
-            const r = Solo.advance(rhythm, s, at.deg, at.dir, rng);
+            const r = this.advance(rhythm, s, at.deg, at.dir);
             const graced = (s % 4 === 0 || rhythm[s - 1] !== 'x') && rng.chance(SOLO.grace.chance);
-            const note = graced ? { ...r.note, grace: Solo.grace(chordAt(bar, s, 16), r.deg, at.deg, rng) } : r.note;
+            const note = graced ? { ...r.note, grace: this.grace(chordAt(bar, s, 16), r.deg, at.deg) } : r.note;
             return { deg: r.deg, dir: r.dir, notes: [...at.notes, note] };
           },
           { deg, dir, notes: [] as SoloNote[] },
@@ -126,7 +131,8 @@ export class Solo extends Line<SoloNote> {
   }
 
   // A grace note into `target`, never from `prev`, the note just played.
-  private static grace(chord: Chord, target: number, prev: number, rng: Rng): Grace {
+  private grace(chord: Chord, target: number, prev: number): Grace {
+    const { rng } = this;
     let { from, chromatic } = rng.weighted(SOLO.grace.from);
     if (!chromatic && target + from === prev) chromatic = true;
     const scale = chord.scale && Scale.named(chord.scale);
@@ -134,13 +140,8 @@ export class Solo extends Line<SoloNote> {
     return { from, chromatic, semis, slur: rng.chance(SOLO.grace.slur) };
   }
 
-  private static advance(
-    rhythm: string,
-    s: number,
-    deg: number,
-    dir: number,
-    rng: Rng,
-  ): { note: SoloNote; deg: number; dir: number } {
+  private advance(rhythm: string, s: number, deg: number, dir: number): { note: SoloNote; deg: number; dir: number } {
+    const { rng } = this;
     const { lo, hi } = SOLO;
     if (rng.chance(SOLO.turn)) dir = -dir;
     deg += dir * (rhythm[s + 1] === 'x' ? 1 : rng.pick(SOLO.leaps));
@@ -151,44 +152,11 @@ export class Solo extends Line<SoloNote> {
   }
 }
 
-// Melodic shapes, as degree offsets from a motif's first note. Openings
-// tend to rise (often by thirds, outlining the chord); answers fall
-// back; cadences settle.
+// Offsets for `n` notes, each a step from the one before.
 function walk(n: number, step: (i: number) => number): number[] {
   const out = [0];
   for (let i = 1; i < n; i++) out.push(out[i - 1] + step(i));
   return out;
-}
-function shapeOffsets(name: ShapeName, n: number, rng: Rng): number[] {
-  switch (name) {
-    case 'rise':
-      return walk(n, () =>
-        rng.weighted([
-          [1, 2],
-          [2, 3],
-          [3, 1],
-        ]),
-      );
-    case 'fall':
-      return walk(
-        n,
-        () =>
-          -rng.weighted([
-            [1, 3],
-            [2, 2],
-          ]),
-      );
-    case 'arch':
-      return walk(n, (i) => (i < n / 2 ? rng.pick([1, 2, 2]) : -rng.pick([1, 1, 2])));
-    case 'valley':
-      return walk(n, (i) => (i < n / 2 ? -rng.pick([1, 2]) : rng.pick([1, 2, 2])));
-    case 'neighbor':
-      return Array.from({ length: n }, (_, i) => [0, 1, 0, -1][i % 4]);
-    case 'leapFall':
-      return walk(n, (i) => (i === 1 ? rng.pick([3, 4]) : -1));
-    case 'zigzag':
-      return walk(n, (i) => (i % 2 ? rng.pick([2, 3]) : -1));
-  }
 }
 
 interface Motif {
@@ -291,7 +259,7 @@ export class MelodyWriter {
     const cells = this.phrase?.cells?.[letter] ?? this.cells[letter];
     if (!cells) throw new Error(`No ${letter} cells for a ${this.kind} melody`);
     const rhythm = parseRhythm(rng.pick(cells));
-    const offsets = shapeOffsets(rng.weighted(SHAPE_CHOICES[letter]), rhythm.length, rng);
+    const offsets = this.shape(rng.weighted(SHAPE_CHOICES[letter]), rhythm.length);
     const top = Math.max(...offsets);
     const startDeg =
       letter === 'A'
@@ -299,13 +267,49 @@ export class MelodyWriter {
         : clamp(this.prevDeg - top + rng.pick([0, 1, 2]), range.lo, range.hi);
     return { notes: rhythm.map((n, i) => ({ ...n, offset: offsets[i] })), startDeg };
   }
+
+  // A melodic shape, as degree offsets from a motif's first note. Openings
+  // tend to rise (often by thirds, outlining the chord); answers fall
+  // back; cadences settle.
+  private shape(name: ShapeName, n: number): number[] {
+    const { rng } = this;
+    switch (name) {
+      case 'rise':
+        return walk(n, () =>
+          rng.weighted([
+            [1, 2],
+            [2, 3],
+            [3, 1],
+          ]),
+        );
+      case 'fall':
+        return walk(
+          n,
+          () =>
+            -rng.weighted([
+              [1, 3],
+              [2, 2],
+            ]),
+        );
+      case 'arch':
+        return walk(n, (i) => (i < n / 2 ? rng.pick([1, 2, 2]) : -rng.pick([1, 1, 2])));
+      case 'valley':
+        return walk(n, (i) => (i < n / 2 ? -rng.pick([1, 2]) : rng.pick([1, 2, 2])));
+      case 'neighbor':
+        return Array.from({ length: n }, (_, i) => [0, 1, 0, -1][i % 4]);
+      case 'leapFall':
+        return walk(n, (i) => (i === 1 ? rng.pick([3, 4]) : -1));
+      case 'zigzag':
+        return walk(n, (i) => (i % 2 ? rng.pick([2, 3]) : -1));
+    }
+  }
 }
 
 // A phrase form over `n` bars: its last bars if shorter, else tagged
 // before its full cadence.
 function phrasePlan(plan: readonly MotifLetter[], n: number): MotifLetter[] {
   if (n <= plan.length) return plan.slice(plan.length - n);
-  return [...plan, ...Array<MotifLetter>(n - plan.length - 1).fill('E'), 'D'];
+  return [...plan, ...new Array<MotifLetter>(n - plan.length - 1).fill('E'), 'D'];
 }
 
 // A loop over `n` bars, into as much of its end as fits after the first bar.

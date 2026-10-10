@@ -19,11 +19,11 @@ export class SharedHarmony {
   readonly chorusBars = lazy((): Bar[] => {
     const { ctx } = this;
     const rng = this.rng.fork('chorusHarmony');
-    const bars = ctx.progress(rng.pick(ctx.templates.chorus), 8, rng);
+    const bars = ctx.progress(rng.pick(ctx.templates.chorus), 8, rng.fork('harmony'));
     const len = ctx.first('chorus')?.bars ?? 8;
     if (len <= 8) return bars;
     const tag = new Template(rng.pick(ctx.templates.tag)).fit(len - 8);
-    return [...bars, ...new Harmonizer(ctx.key, rng).realize(tag)];
+    return [...bars, ...new Harmonizer(ctx.key, rng.fork('tag')).realize(tag)];
   });
 
   /** The chorus's melody. */
@@ -38,7 +38,7 @@ export class SharedHarmony {
     const rng = this.rng.fork('introHarmony');
     const harmony = rng.weighted(INTRO.harmony);
     if (harmony === 'chorus') return { harmony, bars: this.chorusBars().slice(0, 4) };
-    if (harmony === 'planing') return { harmony, bars: new Harmonizer(ctx.key, rng).planing() };
-    return { harmony, bars: ctx.progress(rng.pick(ctx.templates.intro), 4, rng) };
+    if (harmony === 'planing') return { harmony, bars: new Harmonizer(ctx.key, rng.fork('planing')).planing() };
+    return { harmony, bars: ctx.progress(rng.pick(ctx.templates.intro), 4, rng.fork('harmony')) };
   });
 }

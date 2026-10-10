@@ -1,6 +1,7 @@
 // The song playing (or ready to): generating songs, arranging them, and
 // starting or swapping them on the player's clock.
 
+import type { Pattern } from '@strudel/core';
 import { randomSeed } from '../lib/random';
 import { Song, type Instruments } from '../model';
 import { Arranger, type Arrangement } from '../render';
@@ -20,11 +21,11 @@ export interface SessionOptions {
 }
 
 export class Session {
-  current!: Arrangement & { song: Song };
+  private current!: Arrangement & { song: Song };
   // Where the current song starts on the player's clock, in cycles: songs
   // after the first start where the one before ended, or a moment after a
   // Generate, not wherever the clock has got to.
-  start = 0;
+  private start = 0;
 
   constructor(
     private readonly player: Player,
@@ -33,6 +34,11 @@ export class Session {
 
   get song(): Song {
     return this.current.song;
+  }
+
+  /** The current song's arranged pattern. */
+  get pattern(): Pattern {
+    return this.current.pattern;
   }
 
   get playing(): boolean {

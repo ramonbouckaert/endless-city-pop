@@ -12,5 +12,5 @@ export function lift(sec: SectionOf<'lift'>, ctx: WriteContext, rng: Rng): Mater
   const bars = new Harmonizer(key, rng.fork('harmony')).turnaround(turnaround);
   const before = ctx.previous(sec);
   const variant = rng.weightedKey(LIFT_STYLES, before && ctx.material(before).variant);
-  return { ...ctx.band('lift', key, bars, RHYTHM.lift, rng), turnaround, variant };
+  return { ...ctx.band('lift', key, bars, RHYTHM.lift, rng.fork('groove')), turnaround, variant };
 }

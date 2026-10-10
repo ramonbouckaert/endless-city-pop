@@ -13,7 +13,11 @@ import { MelodyWriter, type Melody } from '../melody';
 import { isSection, type Section, type SectionOf } from '../section';
 import { SharedHarmony } from './shared';
 
-/** Writes a section type's material, drawing on the part's own stream. */
+/**
+ * Writes a section type's material, drawing on the part's own stream.
+ * Like every function here that takes an Rng, it owns the stream it is
+ * given: a caller hands on a fork, and never draws from it again.
+ */
 export type Writer<T extends SectionType> = (sec: SectionOf<T>, ctx: WriteContext, rng: Rng) => MaterialOf<T>;
 export type Writers = { [T in SectionType]: Writer<T> };
 
@@ -27,7 +31,7 @@ export class WriteContext {
     private readonly rng: Rng,
     private readonly writers: Writers,
   ) {
-    this.shared = new SharedHarmony(this, rng);
+    this.shared = new SharedHarmony(this, rng.fork('shared'));
   }
 
   /** A section's material: its part's, written on first use. */
@@ -72,20 +76,20 @@ export class WriteContext {
 
   /** A template's progression, `bars` long, in a key (the song's unless given). */
   progress(template: string, bars: number, rng: Rng, key = this.key): Bar[] {
-    return new Harmonizer(key, rng.fork('harmony')).progression(template, bars);
+    return new Harmonizer(key, rng).progression(template, bars);
   }
 
   /** Four bars of one of the key's vamp or riff templates. */
   loop(kind: 'vamp' | 'riff', rng: Rng): Bar[] {
-    return this.progress(rng.pick(this.templates[kind]), 4, rng);
+    return this.progress(rng.pick(this.templates[kind]), 4, rng.fork('harmony'));
   }
 
   melody(kind: MelodyKind, key: Key, bars: Bar[], rng: Rng, style?: PreMelody): Melody {
-    return new MelodyWriter(key, kind, rng.fork('melody'), style).write(bars);
+    return new MelodyWriter(key, kind, rng, style).write(bars);
   }
 
   /** A section's chords in a key, with drums and a bass line to play them. */
   band<T extends PlayedType>(type: T, key: Key, bars: Bar[], plan: GroovePlan, rng: Rng) {
-    return { type, key, bars, ...writeGroove(plan, bars, key, rng.fork('groove')) };
+    return { type, key, bars, ...writeGroove(plan, bars, key, rng) };
   }
 }

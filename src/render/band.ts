@@ -1,12 +1,12 @@
 // The instruments: a song's sounds as Strudel patterns. Harmony parts
-// take a chord pattern; lines take degrees against a scale. The band
-// notes which of its parts each section type asks for (`uses`).
+// take a chord pattern; lines take degrees against a scale. A band plays
+// one section, and notes which of its parts that section asks for (`uses`).
 
 import './strudel-setup';
 import { chord, n, noteToMidi, rand, stack, type Pattern } from '@strudel/core';
 import { mini } from '@strudel/mini';
 import { level, voiceGain, type Instruments, type PartPath, type SoundPath, type Sounds } from '../model';
-import { BAND, KIT_GAPS, MAX_SHIFT, SOUND_TOPS, type PickedPart, type SectionType } from '../style';
+import { BAND, KIT_GAPS, MAX_SHIFT, SOUND_TOPS, type PickedPart } from '../style';
 import type { Bar, Key } from '../theory';
 import { COMP, FIGURES } from './figures';
 import { chordSeq, scaleSeq, seq } from './notation';
@@ -34,25 +34,21 @@ export const scales = (bars: readonly Bar[], key: Key): Pattern => mini(scaleSeq
 
 export class Band {
   readonly sounds: Sounds;
-  /** The section types each part plays in, in the order they first asked for it. */
-  readonly uses = new Map<PartPath, Set<SectionType>>();
   private readonly kit: string | null;
-  private section?: SectionType;
+  private readonly used = new Set<PartPath>();
 
   constructor({ sounds, kit }: Instruments) {
     this.sounds = sounds;
     this.kit = kit;
   }
 
-  /** The type of section the parts asked for next play in. */
-  playing(type: SectionType): void {
-    this.section = type;
+  /** The parts asked for so far, in the order they first were. */
+  get uses(): ReadonlySet<PartPath> {
+    return new Set(this.used);
   }
 
   private use(path: PartPath): void {
-    if (!this.section) return;
-    const types = this.uses.get(path) ?? new Set();
-    this.uses.set(path, types.add(this.section));
+    this.used.add(path);
   }
 
   /**

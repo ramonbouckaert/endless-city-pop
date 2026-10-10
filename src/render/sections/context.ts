@@ -46,12 +46,13 @@ export class PlayedContext<T extends PlayedType = PlayedType> extends SectionCon
     return this.mat as PlayedMaterial;
   }
 
-  // The band's chords, scales and bass, built on first use.
+  // The section's chords and scales, and the band's bass line over them,
+  // each built on first use (so the band notes the bass only if it plays).
   private readonly harmony = lazy(() => {
-    const { bars, key, bass } = this.played;
-    const S = scales(bars, key);
-    return { C: chords(bars, key), S, B: this.band.bass(perBar(bassDegrees(bass)), S) };
+    const { bars, key } = this.played;
+    return { C: chords(bars, key), S: scales(bars, key) };
   });
+  private readonly bassLine = lazy(() => this.band.bass(perBar(bassDegrees(this.played.bass)), this.S));
 
   /** The section's chords. */
   get C(): Pattern {
@@ -63,7 +64,7 @@ export class PlayedContext<T extends PlayedType = PlayedType> extends SectionCon
   }
   /** The bass line. */
   get B(): Pattern {
-    return this.harmony().B;
+    return this.bassLine();
   }
 
   /** The section's key's scale, from octave 4: melodies count up from its tonic. */

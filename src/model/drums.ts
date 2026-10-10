@@ -75,7 +75,9 @@ export class DrumWriter {
       parts.push({ sound: 'oh', role: 'hat', bars: [empty(), empty(), empty(), at({ 14: DRUMS.openOnFour.gain })] });
     }
     const fills = fill
-      ? Array.from({ length: FILLS.count }, () => new FillWriter(this.rng, !!this.recipe.quiet).write())
+      ? Array.from({ length: FILLS.count }, (_, i) =>
+          new FillWriter(this.rng.fork(`fill/${i}`), !!this.recipe.quiet).write(),
+        )
       : [];
     return { feel: this.feel, parts, fills, crash, fill };
   }
@@ -225,7 +227,7 @@ class FillWriter {
         // Everything stops, then a snare pickup.
         this.hit(rng.pick([14, 15]), 'sd', 0.35 * level);
     }
-    return { start, stop: this.kind === 'stop', hits: this.hits };
+    return { start, stop: this.kind === 'stop', hits: [...this.hits] };
   }
 
   private hit(step: number, sound: string, gain: number): void {

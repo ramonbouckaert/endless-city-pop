@@ -8,7 +8,7 @@ import type { WriteContext } from './context';
 export function breakdown(sec: SectionOf<'breakdown'>, ctx: WriteContext, rng: Rng): MaterialOf<'breakdown'> {
   const bars = ctx.shared.chorusBars().slice(0, sec.bars);
   return {
-    ...ctx.band('breakdown', ctx.key, bars, RHYTHM.breakdown, rng),
+    ...ctx.band('breakdown', ctx.key, bars, RHYTHM.breakdown, rng.fork('groove')),
     melody: ctx.shared.hook().take(bars.length),
   };
 }

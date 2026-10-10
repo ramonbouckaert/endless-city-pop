@@ -18,36 +18,48 @@ export interface Arrangement {
   uses: ReadonlyMap<PartPath, ReadonlySet<SectionType>>;
 }
 
-export class Arranger {
-  private readonly band: Band;
+// A section as played: its bars, its pattern, and the parts its band used.
+interface Played {
+  type: SectionType;
+  bars: number;
+  pattern: Pattern;
+  uses: ReadonlySet<PartPath>;
+}
 
+export class Arranger {
   /** `instruments`: to play the song with in place of its own. */
   constructor(
     private readonly song: Song,
-    instruments: Instruments = song.instruments,
-  ) {
-    this.band = new Band(instruments);
-  }
+    private readonly instruments: Instruments = song.instruments,
+  ) {}
 
   arrange(): Arrangement {
     const { song } = this;
     const cps = song.bpm / 4 / 60;
-    const sections = song.form.map((sec, index): [number, Pattern] => {
+    const played = song.form.map((sec, index): Played => {
       const repeat = song.form.slice(0, index).filter((x) => x.part === sec.part).length;
-      this.band.playing(sec.type);
-      const { drums, pitched } = sectionParts(song, sec, this.band, repeat);
+      const band = new Band(this.instruments);
+      const { drums, pitched } = sectionParts(song, sec, band, repeat);
       const tonal = pitched.filter((p): p is Pattern => !!p);
       const tonalPart = sec.shift ? [stack(...tonal).transpose(sec.shift)] : tonal;
-      return [sec.bars, stack(...drums, ...tonalPart).swingBy(song.swing, 8)];
+      const pattern = stack(...drums, ...tonalPart).swingBy(song.swing, 8);
+      return { type: sec.type, bars: sec.bars, pattern, uses: band.uses };
     });
     // The tail is a fraction of a bar. Coming last, it shifts no bar line
     // but the loop's own: the next time round starts a second later.
     const tail = TAIL_SECONDS * cps;
     return {
-      pattern: arrange(...sections, [tail, silence]),
+      pattern: arrange(...played.map((p): [number, Pattern] => [p.bars, p.pattern]), [tail, silence]),
       cps,
       cycles: song.bars + tail,
-      uses: this.band.uses,
+      uses: partUses(played),
     };
   }
+}
+
+// The section types each part plays in: parts in the order a section
+// first used them, types in form order.
+function partUses(played: readonly Played[]): Map<PartPath, ReadonlySet<SectionType>> {
+  const paths = [...new Set(played.flatMap((p) => [...p.uses]))];
+  return new Map(paths.map((path) => [path, new Set(played.filter((p) => p.uses.has(path)).map((p) => p.type))]));
 }

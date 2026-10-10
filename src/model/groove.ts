@@ -12,7 +12,7 @@ export function writeDrums(plan: DrumPlan, rng: Rng): Drums {
   const feel = rng.pick(plan.feels);
   const crash = rng.chance(plan.crash);
   const fill = rng.chance(plan.fill);
-  return new DrumWriter(feel, rng).write(crash, fill);
+  return new DrumWriter(feel, rng.fork('writer')).write(crash, fill);
 }
 
 /** Drums from a plan, and a bass line for `bars` in `key` that suits them. */

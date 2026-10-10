@@ -30,7 +30,7 @@ export function joinAside(aside: string, join: TitleParts['join']): string {
 }
 
 export function writeTitle(rng: Rng): TitleParts {
-  const [mod, noun] = pickWords(rng);
+  const [mod, noun] = pickWords(rng.fork('words'));
   const en = `${mod.en} ${noun.en}`;
   const { ja, kana, reading } = japanese(mod, noun);
   const kanaPairs: string[][] = kana
