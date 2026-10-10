@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/lib/random';
-import { Harmonizer } from '../src/model';
+import { Harmonizer } from '../src/engine';
 import { PALETTE, PRE_FLAVOURS, TONALITIES } from '../src/style';
 import { CHORDS, Key, MODES, parseChordSpec, Template, type Mode } from '../src/theory';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Song } from '../src/model';
+import { Song } from '../src/engine';
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => `seed${i}`);
 

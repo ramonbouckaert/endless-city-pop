@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Song } from '../src/model';
+import { Song } from '../src/engine';
 
 describe('titles', () => {
   it('titles songs in Japanese and English, one after the other', () => {

@@ -1,6 +1,6 @@
 // Saves a song's MIDI file, named for its title.
 
-import type { Song } from '../model';
+import type { Song } from '../engine';
 
 export function downloadMidi(song: Song, midi: Uint8Array, onError: (msg: string) => void): void {
   try {

@@ -2,7 +2,7 @@
 // and headset buttons): what is playing, how far through it is, and what
 // the controls do.
 
-import type { Song } from '../model';
+import type { Song } from '../engine';
 import { seconds } from './time';
 
 /** What the media controls do: the page's own actions. */

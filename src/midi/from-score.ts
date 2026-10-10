@@ -5,8 +5,7 @@
 // app plays this file; the MIDI download saves it.
 
 import { programName, type Program } from '../lib/general-midi';
-import type { Instruments, Kit, Song } from '../model';
-import { ScoreArranger, type Score } from '../score';
+import { ScoreArranger, type Instruments, type Kit, type Score, type Song } from '../engine';
 import {
   CC,
   DRUM_CHANNEL,

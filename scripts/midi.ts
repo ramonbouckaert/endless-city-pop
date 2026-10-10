@@ -2,7 +2,7 @@
 // Usage: scripts/run-node.sh scripts/midi.ts [seed] [out.mid]
 import { writeFileSync } from 'node:fs';
 import { songToMidi } from '../src/midi/from-score';
-import { Song } from '../src/model';
+import { Song } from '../src/engine';
 
 const [seed = 'demo', out = `${seed}.mid`] = process.argv.slice(2);
 const song = Song.generate(seed);

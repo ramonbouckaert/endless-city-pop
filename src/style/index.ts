@@ -1,5 +1,5 @@
 // The style as data: everything that makes a song city pop rather than
-// some other music. model/ writes songs from these tables; nothing here
+// some other music. engine/ writes songs from these tables; nothing here
 // rolls dice.
 
 export * from './bass';

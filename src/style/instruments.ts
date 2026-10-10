@@ -24,7 +24,7 @@ export type BandPart =
 export type PickedPart = Exclude<BandPart, 'clav'>;
 // ---- The band ---------------------------------------------------------
 
-// Each part's default sound: the one its levels in score/mix.ts were
+// Each part's default sound: the one its levels in engine/mix.ts were
 // set for. A picked part plays louder or quieter by its sound's level
 // over this one's.
 export const BAND: Readonly<Record<BandPart, Program>> = {
@@ -74,7 +74,7 @@ export const PICKS: Readonly<Record<PickedPart, readonly Program[]>> = {
 // ---- Melody voices ----------------------------------------------------
 
 // Each song picks its lead, the lead's octave double and its soloists
-// from `pool`, none twice. Their levels in score/mix.ts are set for the
+// from `pool`, none twice. Their levels in engine/mix.ts are set for the
 // alto sax (level 1).
 export const VOICES: { readonly pool: readonly Program[]; readonly soloists: number } = {
   pool: [

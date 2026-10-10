@@ -3,7 +3,7 @@
 // playhead. Clicking the strip, or dragging the line, seeks: the strip
 // says where to (`onSeek`, in bars) and the page does the rest.
 
-import type { Form, Playhead } from '../model';
+import type { Form, Playhead } from '../engine';
 import { SECTION_TYPES } from '../style';
 
 export class FormStrip {

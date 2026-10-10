@@ -4,8 +4,7 @@
 // section playing something.
 // Usage: scripts/run-node.sh scripts/sweep.ts [count]
 import { songToMidi } from '../src/midi/from-score';
-import { Song } from '../src/model';
-import { ScoreArranger } from '../src/score';
+import { ScoreArranger, Song } from '../src/engine';
 import { PERCUSSION, programName } from '../src/lib/general-midi';
 
 const count = Number(process.argv[2] ?? 100);

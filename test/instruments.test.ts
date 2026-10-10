@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Song } from '../src/model';
+import { Song } from '../src/engine';
 import { GM, type Program } from '../src/lib/general-midi';
 import { BAND, KITS, PICKS, SOUND_LEVELS, VOICES, type PickedPart } from '../src/style';
 import { defined } from './helpers';

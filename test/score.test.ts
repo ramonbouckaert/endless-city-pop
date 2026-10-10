@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { songToMidi } from '../src/midi/from-score';
-import { Song } from '../src/model';
-import { ScoreArranger } from '../src/score';
+import { ScoreArranger, Song } from '../src/engine';
 import { PERCUSSION } from '../src/lib/general-midi';
 import { Chord, voice, voicingNote } from '../src/theory';
 import { defined } from './helpers';

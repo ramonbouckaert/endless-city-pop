@@ -4,7 +4,7 @@
 
 import { randomSeed } from '../lib/random';
 import { songToMidi } from '../midi/from-score';
-import { Song } from '../model';
+import { Song } from '../engine';
 import type { Player } from './player';
 import { seconds } from './time';
 

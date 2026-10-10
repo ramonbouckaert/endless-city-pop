@@ -1,6 +1,6 @@
 // The ways a section type can be played. A section picks one of its
 // type's variants by weight (a lift or a later solo never the way the
-// one before it was), and its recipe in score/sections/ gives each a
+// one before it was), and its recipe in engine/sections/ gives each a
 // texture of its own. A variant with a groove plays it in place of its
 // type's in RHYTHM.
 

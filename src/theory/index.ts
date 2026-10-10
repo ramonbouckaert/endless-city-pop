@@ -1,5 +1,5 @@
 // Music theory as values: scales, keys, chords and roman numerals. No
-// style, no randomness: style/ and model/ build on it.
+// style, no randomness: style/ and engine/ build on it.
 
 export { Chord, BASS_LOW, chordAt, type Bar } from './chord';
 export { Key } from './key';

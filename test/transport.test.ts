@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Player } from '../src/app/player';
 import { TAIL_SECONDS, Transport } from '../src/app/transport';
-import { Song } from '../src/model';
+import { Song } from '../src/engine';
 
 // A player whose clock the test moves.
 class FakePlayer implements Player {

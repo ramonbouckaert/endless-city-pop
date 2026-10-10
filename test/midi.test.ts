@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Key } from '../src/theory';
 import { channelsFor, songToMidi } from '../src/midi/from-score';
 import { CC, DRUM_CHANNEL, keySignature, PPQ, vlq, writeMidi, type MidiSong } from '../src/midi/writer';
-import { Song } from '../src/model';
+import { Song } from '../src/engine';
 import { defined } from './helpers';
 
 // A small Standard MIDI File reader: each track's events with absolute ticks.

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Song, type Grace } from '../src/model';
-import { ScoreArranger } from '../src/score';
+import { isSection, ScoreArranger, Song, type Grace } from '../src/engine';
 import {
   FINALE_STYLES,
   INTRO,
@@ -36,7 +35,7 @@ describe('section materials', () => {
     const minorHalfDiminished: number[] = [];
     for (const song of songs) {
       for (const [i, sec] of song.form.ofType('solo').entries()) {
-        const mat = song.material(sec);
+        const mat = sec.material;
         // The first over the band, the next never over what the one before had.
         expect(mat.variant).toBe(i % 2 ? 'bossa' : 'band');
         // The changes and the line fill the section: nothing loops.
@@ -129,7 +128,7 @@ describe('section materials', () => {
       // Each lift goes up from the key before it, never past the cap.
       let shift = 0;
       for (const [i, sec] of song.form.sections.entries()) {
-        if (sec.type === 'lift') {
+        if (isSection('lift')(sec)) {
           expect(sec.liftTo).toBeGreaterThan(shift);
           expect(sec.liftTo).toBeLessThanOrEqual(MAX_SHIFT);
           expect(song.form.at(i + 1)).toMatchObject({ type: 'chorus', shift: sec.liftTo });
@@ -169,7 +168,7 @@ describe('section materials', () => {
     for (const song of songs) {
       const sec = song.form.first('outro');
       if (!sec) continue;
-      const mat = song.material(sec);
+      const mat = sec.material;
       styles.add(mat.variant);
       expect(mat.variant).toBe(sec.variant);
       expect(sec.bars).toBe(OUTRO_STYLES[mat.variant].bars);

@@ -2,7 +2,7 @@
 // its space scrolls slowly past like a CD player's display: a pause, then
 // a glide left, with a copy following so the loop has no seam.
 
-import { joinAside, type TitleParts } from '../model';
+import { joinAside, type TitleParts } from '../engine';
 
 const MARQUEE = { speed: 40, gap: 64, pause: 0.2 }; // px a second, px, share of each loop held still
 

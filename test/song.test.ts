@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Song } from '../src/model';
+import { Song } from '../src/engine';
 import { TONALITIES } from '../src/style';
 import { CHORDS, MODES, type Mode } from '../src/theory';
 import { defined } from './helpers';
