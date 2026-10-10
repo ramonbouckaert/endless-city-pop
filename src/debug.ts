@@ -212,14 +212,14 @@ export function createDebugPanel(root: HTMLElement, sounds: Promise<SoundInfo[]>
       list
         .filter((s) => s.type === type && test(s.name))
         .map((s) => s.name)
-        .sort();
+        .sort((a, b) => a.localeCompare(b));
     groups = [
       ['General MIDI soundfonts', names('soundfont')],
       ['Synths', names('synth')],
       ['Samples', names('sample')],
     ];
     // Drum machines: banks of samples named bank_bd, bank_sd, ...
-    banks = [...new Set(names('sample', (n) => /_bd$/.test(n)).map((n) => n.replace(/_bd$/, '')))].filter((b) =>
+    banks = [...new Set(names('sample', (n) => n.endsWith('_bd')).map((n) => n.replace(/_bd$/, '')))].filter((b) =>
       list.some((s) => s.name === `${b}_sd`),
     );
     for (const path of selects.keys()) fill(path);
@@ -237,7 +237,8 @@ export function createDebugPanel(root: HTMLElement, sounds: Promise<SoundInfo[]>
         else set(sounds, path, value);
       }
       const kit = choices[KIT];
-      return kit === undefined ? { sounds } : { sounds, kit: kit === 'default' ? null : kit };
+      if (kit === undefined) return { sounds };
+      return { sounds, kit: kit === 'default' ? null : kit };
     },
     showSong(next) {
       song = next;

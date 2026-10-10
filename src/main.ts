@@ -1,5 +1,5 @@
 import type { Pattern } from '@strudel/core';
-import { randomSeed, Song, type SectionType } from './engine';
+import { randomSeed, Song, titleParts, type SectionType } from './engine';
 // The engine's index leaves out Arranger, so it loads no Strudel.
 // noinspection ES6PreferShortImport
 import { Arranger } from './engine/arranger';
@@ -9,11 +9,19 @@ import { createPlayer } from './strudel';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
+const titleEl = $('title');
+const positionEl = $('position');
+const formEl = $('form');
+const errorEl = $('error');
+const midiBtn = $<HTMLButtonElement>('midi');
+
 const player = createPlayer({
   onUpdate: (state) => {
     document.body.classList.toggle('playing', !!state.started);
-    if (state.error)
-      showError(`Strudel: ${typeof state.error === 'string' ? state.error : (state.error.message ?? state.error)}`);
+    if (state.error) {
+      const msg = typeof state.error === 'string' ? state.error : (state.error.message ?? JSON.stringify(state.error));
+      showError(`Strudel: ${msg}`);
+    }
   },
 });
 
@@ -72,7 +80,7 @@ async function play(from?: number) {
 // a spinner, drawn before the work starts, until the file is ready.
 function exportMidi() {
   const { song, pattern } = current;
-  const button = $<HTMLButtonElement>('midi');
+  const button = midiBtn;
   if (button.disabled) return;
   button.disabled = true;
   button.classList.add('busy');
@@ -109,8 +117,8 @@ function followPlayhead() {
   const pos = now === undefined || now < start ? -1 : (now - start) % current.cycles;
   // The time played, held at the end through the silence after the final chord.
   const played = clock(seconds(Math.min(Math.max(pos, 0), current.song.bars), current.song.bpm));
-  if ($('position').textContent !== played) $('position').textContent = played;
-  const items = [...$('form').children] as HTMLElement[];
+  if (positionEl.textContent !== played) positionEl.textContent = played;
+  const items = [...formEl.children] as HTMLElement[];
   let bar = 0;
   let at: { item: HTMLElement; through: number } | undefined;
   current.song.form.forEach((s, i) => {
@@ -119,7 +127,7 @@ function followPlayhead() {
     if (here && items[i]) at = { item: items[i], through: (pos - bar) / s.bars };
     bar += s.bars;
   });
-  if (pos >= bar && items.length) at = { item: items[items.length - 1], through: 1 };
+  if (pos >= bar && items.length) at = { item: items.at(-1)!, through: 1 };
   const line = $('playhead');
   line.hidden = !at;
   if (at) {
@@ -136,14 +144,15 @@ function showSong(song: Song) {
   showTitle(song);
   $('meta').textContent = `${info.key} · ${info.bpm} BPM`;
   $('length').textContent = clock(seconds(info.bars, song.bpm));
-  $('position').textContent = clock(0);
-  const list = $('form');
+  positionEl.textContent = clock(0);
+  const list = formEl;
   list.replaceChildren();
   for (const s of song.form) {
     const li = document.createElement('li');
     li.className = `sec sec-${s.type}`;
     li.style.flexGrow = String(s.bars);
-    li.title = `${s.type}, ${s.bars} bars${s.opts.shift ? `, up ${s.opts.shift}` : ''}`;
+    const shiftNote = s.opts.shift ? `, up ${s.opts.shift}` : '';
+    li.title = `${s.type}, ${s.bars} bars${shiftNote}`;
     const label = (text: string, className: string) =>
       Object.assign(document.createElement('span'), { className, textContent: text });
     li.append(label(s.type === 'drumBreak' ? 'drums' : s.type, 'full'), label(SECTION_SHORT[s.type], 'short'));
@@ -174,10 +183,10 @@ const SECTION_SHORT: Readonly<Record<SectionType, string>> = {
 // playing (a tenth wider), else the short one, else none: its colour and
 // tooltip still say what it is.
 function fitSections() {
-  for (const li of $('form').children as HTMLCollectionOf<HTMLElement>) {
+  for (const li of formEl.children as HTMLCollectionOf<HTMLElement>) {
     li.classList.remove('short', 'bare');
     const style = getComputedStyle(li);
-    const room = li.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const room = li.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
     const fits = (label: string) => li.querySelector(label)!.getBoundingClientRect().width * 1.1 <= room;
     if (fits('.full')) continue;
     li.classList.add('short');
@@ -191,23 +200,26 @@ function fitSections() {
 const MARQUEE = { speed: 40, gap: 64, pause: 0.2 }; // px a second, px, share of each loop held still
 
 function showTitle(song: Song) {
-  const { title: main, aside, join } = Song.titleParts(song.seed);
+  const { title: main, aside, join } = titleParts(song.seed);
   const span = (className: string, ...kids: (Node | string)[]) => {
     const el = Object.assign(document.createElement('span'), { className });
     el.append(...kids);
     return el;
   };
-  const second = join === 'brackets' ? `(${aside})` : join === 'dash' ? `– ${aside}` : aside;
+  let second: string;
+  if (join === 'brackets') second = `(${aside})`;
+  else if (join === 'dash') second = `– ${aside}`;
+  else second = aside;
   const text = () => span('marquee-text', main, ' ', span('title-aside', second));
   const copy = text();
   copy.setAttribute('aria-hidden', 'true');
-  $('title').replaceChildren(span('marquee-track', text(), copy));
+  titleEl.replaceChildren(span('marquee-track', text(), copy));
   fitTitle();
 }
 
 // Scrolls the title if it doesn't fit.
 function fitTitle() {
-  const box = $('title');
+  const box = titleEl;
   const track = box.querySelector<HTMLElement>('.marquee-track');
   const text = track?.firstElementChild as HTMLElement | null;
   if (!track || !text) return;
@@ -232,9 +244,8 @@ function clock(time: number): string {
 
 // Something went wrong (empty: nothing has). There's no other status line.
 function showError(text: string) {
-  const error = $('error');
-  error.textContent = text;
-  error.hidden = !text;
+  errorEl.textContent = text;
+  errorEl.hidden = !text;
 }
 
 // Autoplay: when a song's final chord has played, a new song takes over
@@ -271,14 +282,15 @@ $('generate').addEventListener('click', () => {
 });
 
 $('play').addEventListener('click', () => (playing() ? player.stop() : void play()));
-$('midi').addEventListener('click', exportMidi);
+midiBtn.addEventListener('click', exportMidi);
 
 // Clear the song links earlier versions put in the URL.
 if (location.hash) history.replaceState(null, '', location.pathname + location.search);
 generate();
 requestAnimationFrame(followPlayhead);
 // The title's room changes with the window, and its width once the serif font loads.
-new ResizeObserver(fitTitle).observe($('title'));
-new ResizeObserver(fitSections).observe($('form'));
-void document.fonts.ready.then(fitTitle);
+new ResizeObserver(fitTitle).observe(titleEl);
+new ResizeObserver(fitSections).observe(formEl);
 document.fonts.addEventListener('loadingdone', fitTitle);
+await document.fonts.ready;
+fitTitle();

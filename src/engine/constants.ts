@@ -1,32 +1,23 @@
-// Every table and tunable the engine uses: music theory facts, the city
-// pop style (jazz-funk harmony), and the shapes of melodies, bass lines
-// and drums. Which sounds play which part is in instruments.ts.
+// Music theory constants, the city pop style, and tonalities. Subsystem
+// constants (drums, bass, melody, form, harmony figures, titles) live in
+// their own modules. Which sounds play which part is in instruments.ts.
 
 import type {
   BassFeel,
-  BassFeelDef,
-  BassToken,
   ChordClass,
   ChordDef,
-  DrumFeel,
-  DrumRecipe,
   DrumEntry,
+  DrumFeel,
   DrumPlan,
-  DrumVoice,
   IntroTexture,
-  MelodyKind,
   Mode,
-  MotifLetter,
   PaletteName,
   PreFlavour,
   PreFlavourDef,
-  PreMelody,
   Range,
+  SectionType,
   Tonality,
   Turnaround,
-  SectionType,
-  StepGains,
-  TitleWord,
   Weighted,
 } from './types';
 
@@ -147,81 +138,21 @@ export const NUMERALS: Readonly<Record<string, number>> = { i: 0, ii: 2, iii: 4,
 // the tonic, domToMinor a dominant resolving to a minor chord (or a
 // minor key's V), susToMinor a minor key's sus V.
 export const PALETTE: Readonly<Record<PaletteName, Weighted<string>>> = {
-  maj: [
-    ['^9', 3],
-    ['^7', 1],
-    ['69', 1],
-  ],
-  majLydian: [
-    ['^9#11', 2],
-    ['^7#11', 2],
-    ['^9', 1],
-  ],
-  min: [
-    ['m9', 3],
-    ['m11', 2],
-    ['m7', 1],
-  ],
-  dom: [
-    ['13', 3],
-    ['9', 2],
-    ['9sus', 1],
-  ],
-  domToMinor: [
-    ['7alt', 3],
-    ['7b9', 1],
-    ['13b9', 1],
-  ],
+  maj: [['^9', 3], ['^7', 1], ['69', 1]],
+  majLydian: [['^9#11', 2], ['^7#11', 2], ['^9', 1]],
+  min: [['m9', 3], ['m11', 2], ['m7', 1]],
+  dom: [['13', 3], ['9', 2], ['9sus', 1]],
+  domToMinor: [['7alt', 3], ['7b9', 1], ['13b9', 1]],
   // A minor key's suspended V: phrygian, or the plain 9sus.
-  susToMinor: [
-    ['7b9sus', 2],
-    ['9sus', 1],
-  ],
+  susToMinor: [['7b9sus', 2], ['9sus', 1]],
   hdim: [['m7b5', 1]],
   dim: [['o7', 1]],
-  sus: [
-    ['9sus', 2],
-    ['13', 1],
-  ],
+  sus: [['9sus', 2], ['13', 1]],
   power: [['9sus', 1]],
-  // A minor key's tonic: aeolian m9, dorian m6/9, or the melodic-minor
-  // m(maj9) of a jazz minor ending.
-  minTonic: [
-    ['m9', 3],
-    ['m69', 2],
-    ['m^9', 1],
-    ['m11', 1],
-  ],
-  // A mixolydian key's tonic: a dominant that doesn't resolve, sometimes
-  // the funk #9.
-  domTonic: [
-    ['13', 3],
-    ['9', 2],
-    ['7#9', 1],
-  ],
-};
-
-// Substitution odds (times the style's reharm amount) and colours.
-export const REHARM = {
-  tritone: 0.3, // V7 -> bII13#11
-  relatedII: 0.4, // V7 -> ii V7
-  secondary: 0.35, // a dominant into the next chord
-  secondaryTritone: 0.3, // ... as its tritone sub
-  iiSymbols: ['m9', 'm7', 'm11'],
-  toMinor: ['7alt', '7b9'],
-  toMajor: ['13', '9', '7#9'],
-};
-
-// Solo changes: a mode's pairs (Tonality.solo) in keys `step` semitones
-// apart, the first `starts` semitones above the tonic.
-export const SOLO_CHANGES = {
-  steps: [
-    [3, 3], // up a minor third
-    [-2, 2], // down a whole step
-    [5, 1], // up a fourth (round the circle of fifths)
-    [-1, 1], // down a half step
-  ] as Weighted<number>,
-  starts: [0, 2, 9],
+  // A minor key's tonic: aeolian m9, dorian m6/9, or the melodic-minor m(maj9).
+  minTonic: [['m9', 3], ['m69', 2], ['m^9', 1], ['m11', 1]],
+  // A mixolydian key's tonic: a dominant that doesn't resolve, sometimes the funk #9.
+  domTonic: [['13', 3], ['9', 2], ['7#9', 1]],
 };
 
 // Turnarounds into a lifted major key, relative to that key. Each
@@ -259,519 +190,6 @@ export const LIFT_TURNAROUNDS: Readonly<Record<string, Turnaround>> = {
       ['III:^7', 'V:7'],
     ],
   },
-};
-
-// The intro's planing add9 chords start on bIII or bVI.
-export const PLANING_STARTS = [3, 8];
-
-// =====================================================================
-// Form
-// =====================================================================
-
-export const FORM = {
-  preBars: [0, 2, 4, 4, 6, 8], // 0: no pre-chorus
-  chorusTag: 0.45, // chance of a two-bar tag (10 bars, not 8)
-  rounds: [
-    [1, 2],
-    [2, 5],
-    [3, 2],
-  ] as Weighted<number>,
-  riffChance: [0, 0.4, 0.7],
-  introBars: [4, 4, 8],
-  // An opening vamp, which may come back once later: after a chorus, riff,
-  // bridge, solo or breakdown (`after`), never straight after a verse.
-  vamp: {
-    chance: 0.6,
-    bars: [4, 8],
-    returns: 0.45,
-    after: ['chorus', 'riff', 'bridge', 'solo', 'solo2', 'breakdown'] as SectionType[],
-  },
-  verseBars: [8, 8, 16],
-  bridgeChance: 0.65,
-  soloists: [0, 1, 2, 3],
-  soloCount: [
-    [0, 1],
-    [1, 4],
-    [2, 3],
-  ] as Weighted<number>,
-  soloBars: [8, 8, 16],
-  breakdown: { chance: 0.45, bars: [4, 8] },
-  drumBreakChance: 0.7,
-  // Lifts before the final choruses: always up, each by a step from
-  // `steps`, never past `maxShift` semitones above home.
-  lift: {
-    first: 0.55, // chance the first final chorus lifts
-    again: 0.3, // chance each later one lifts again
-    steps: [
-      [1, 2],
-      [2, 3],
-      [3, 1],
-    ] as Weighted<number>,
-    maxShift: 4,
-  },
-  finalChoruses: [
-    [1, 2],
-    [2, 4],
-    [3, 1],
-  ] as Weighted<number>,
-  outroChance: 0.75,
-};
-
-// =====================================================================
-// Melody
-// =====================================================================
-
-// Rhythm cells on an eighth-note grid: x is a note, - holds it, and . is a rest.
-export const CELLS: Readonly<Record<MelodyKind, Readonly<Record<MotifLetter, readonly string[]>>>> = {
-  chorus: {
-    A: ['.xxxx---', '.x.xx---', 'x-.xx---', '.xx-x---', '..xxx---', '.xxx.x--'],
-    B: ['x-.x.x--', 'x.xxx.x.', '.x.xx.x.', 'x-xx.x--', 'xx.x.x--'],
-    C: ['x---x---', 'x-x-x---', '.x.x----', 'x--x----'],
-    D: ['x-------', '.xx-x---', 'xx-x----'],
-    E: ['.xxxx---', '.x.xx---'],
-  },
-  verse: {
-    A: ['.xx.x.x.', '..xx.xx-', '.x.xxx--', 'x.x.xx--', '.xxxx-..'],
-    B: ['.x.x.x--', 'x-.xx.x-', '..x.xxx-', '.xx.x---'],
-    C: ['x--.xx--', 'x-x-x---', '.x.x----'],
-    D: ['x--x----', 'x-------', '.xx-x---'],
-    E: ['.xx.x---'],
-  },
-  pre: {
-    A: ['.x.xxx--', '.x.xx-x-', 'x.x.xx--'],
-    B: ['x---.x.x', 'x-.x.x--'],
-    C: ['x-------', 'x---x---'],
-    D: ['x---.xx-', 'x-------'],
-    E: ['x---x---'],
-  },
-  bridge: {
-    A: ['x-----xx', 'x-----.x', 'x---x---', 'x-----x-'],
-    B: ['x---.xx-', 'x-x-x---', 'x--x-x--'],
-    C: ['x-------', 'x---x---'],
-    D: ['x-------', 'x-----x-'],
-    E: ['x---x---'],
-  },
-  riff: {
-    A: ['x.xx.x.x', 'x..x.xx.', '.xx.xx.x', 'x.x..xx.'],
-    B: ['.x.xx.x.', 'x.xx.x--', '.x.x.xx-'],
-    C: ['x.x.x---'],
-    D: ['x.xx.x--'],
-    E: ['x.x.x---'],
-  },
-};
-
-// The motif plan of an eight-bar phrase: C is a half cadence, D a full
-// cadence, E a tag figure.
-export const PHRASE: readonly MotifLetter[] = ['A', 'B', 'A', 'C', 'A', 'B', 'A', 'D'];
-
-// Centre and range in key-scale degrees above the tonic.
-export const MELODY_RANGES: Readonly<Record<MelodyKind, { center: number; lo: number; hi: number }>> = {
-  chorus: { center: 4, lo: -1, hi: 9 },
-  verse: { center: 1, lo: -3, hi: 6 },
-  pre: { center: 2, lo: -2, hi: 9 },
-  bridge: { center: 3, lo: -2, hi: 8 },
-  riff: { center: 6, lo: 2, hi: 10 },
-};
-
-// Pre-chorus melodies: how far a repeated motif climbs (in scale
-// degrees) and the rhythm cells it draws on.
-const HOLD_CELLS: Readonly<Record<MotifLetter, readonly string[]>> = {
-  A: ['x-------', 'x-----x-', 'x---x---', '.x------'],
-  B: ['x---x---', 'x-----.x'],
-  C: ['x-------'],
-  D: ['x-------'],
-  E: ['x-------'],
-};
-export const PRE_MELODIES: Readonly<
-  Record<PreMelody, { sequence: number; cells: Readonly<Record<MotifLetter, readonly string[]>> }>
-> = {
-  climb: { sequence: 1, cells: CELLS.pre },
-  question: { sequence: 0, cells: CELLS.pre },
-  hold: { sequence: 1, cells: HOLD_CELLS },
-};
-
-export type ShapeName = 'rise' | 'fall' | 'arch' | 'valley' | 'neighbor' | 'leapFall' | 'zigzag';
-export const SHAPE_CHOICES: Readonly<Record<MotifLetter, Weighted<ShapeName>>> = {
-  A: [
-    ['rise', 4],
-    ['arch', 3],
-    ['leapFall', 2],
-    ['zigzag', 1],
-  ],
-  B: [
-    ['fall', 3],
-    ['valley', 2],
-    ['neighbor', 1],
-    ['arch', 1],
-  ],
-  C: [
-    ['fall', 2],
-    ['neighbor', 1],
-    ['valley', 1],
-  ],
-  D: [
-    ['fall', 3],
-    ['valley', 1],
-  ],
-  E: [
-    ['rise', 2],
-    ['arch', 1],
-  ],
-};
-
-// Answering figures: [offset, length] in eighths after the gap opens.
-export const ANSWER = {
-  figures: [
-    [
-      [0, 1],
-      [1, 2],
-    ],
-    [
-      [0, 1],
-      [1, 1],
-    ],
-    [
-      [0, 1],
-      [1, 1],
-      [2, 1],
-    ],
-    [
-      [0, 2],
-      [2, 1],
-    ],
-  ] as readonly (readonly [number, number])[][],
-  startDegrees: [7, 8, 9],
-  steps: [2, 3, -2],
-};
-
-// Solos: rhythms on a sixteenth grid, in chord-scale degrees from lo to hi.
-export const SOLO = {
-  rhythms: [
-    '..x.xxxxx.x.x...',
-    'x.x.x.xxx.x.....',
-    '..xxxxx.x...x.x.',
-    'x...x.x.xxxxx...',
-    '.xx.x.xxx.x.xx..',
-    'x.xxx.x.x.x.x...',
-    '..x.x.x.xxxxx.x.',
-    'xxxxx.x.....x.x.',
-  ],
-  lo: 6,
-  hi: 18,
-  turn: 0.2, // chance of changing direction on each note
-  leaps: [1, 2, 2, 3],
-};
-
-// =====================================================================
-// Bass
-// =====================================================================
-
-export const BASS_FEELS: Readonly<Record<BassFeel, BassFeelDef>> = {
-  pedal: { grid: 8, density: [0.05, 0.25], sync: [0, 0.3], octave: [0, 0.3], legato: [0.7, 1], approach: 0.6 },
-  funk: { grid: 16, density: [0.35, 0.65], sync: [0.4, 0.9], octave: [0.3, 0.8], legato: [0.1, 0.5], approach: 0.9 },
-  drive: { grid: 8, density: [0.75, 1], sync: [0, 0.2], octave: [0.1, 0.4], legato: [0.5, 0.9], approach: 0.8 },
-  disco: { grid: 8, density: [0.6, 1], sync: [0.1, 0.4], octave: [0.6, 1], legato: [0.2, 0.6], approach: 0.8 },
-  halfTime: { grid: 16, density: [0.1, 0.3], sync: [0.3, 0.7], octave: [0.1, 0.4], legato: [0.6, 1], approach: 0.7 },
-  bossa: {
-    grid: 8,
-    density: [0.1, 0.3],
-    sync: [0.1, 0.3],
-    octave: [0, 0.2],
-    legato: [0.6, 0.9],
-    approach: 0.7,
-    anchors: { 6: 'F', 8: 'F' },
-  },
-};
-
-// Chord-scale degrees: root, third, fifth, seventh, octave, and the
-// steps between them.
-export const BASS_DEGREES: Readonly<Record<BassToken, string>> = {
-  R: '0',
-  T: '2',
-  F: '4',
-  S: '6',
-  O: '7',
-  two: '1',
-  four: '3',
-  six: '5',
-  below: '-1',
-};
-
-// Note weights: [token, base, octave factor]; weight = base + factor * the
-// feel's octave setting.
-type NoteWeights = readonly (readonly [BassToken, number, number])[];
-export const BASS_NOTES: { onBeat: NoteWeights; offBeat: NoteWeights } = {
-  onBeat: [
-    ['R', 3, 0],
-    ['F', 2, 0],
-    ['O', 1, 3],
-    ['T', 1, 0],
-    ['S', 0.5, 0],
-  ],
-  offBeat: [
-    ['O', 0.5, 4],
-    ['R', 1.5, 0],
-    ['F', 1, 0],
-    ['S', 1, 0],
-    ['T', 0.7, 0],
-    ['two', 0.4, 0],
-    ['four', 0.4, 0],
-    ['six', 0.3, 0],
-    ['below', 0.3, 0],
-  ],
-};
-
-export const BASS = {
-  low: 28, // E1: roots sit from here to Eb2, and nothing goes below
-  variety: [0.05, 0.3] as Range, // share of steps re-rolled per bar
-  densityBoost: 1.3,
-  fill: { density: 0.35, sync: 0.3 }, // added for a phrase's last bar
-  // Approach notes, in semitones: around a repeated root, chromatic
-  // into the next root, or diatonic into it.
-  approachSame: [7, 10, -2],
-  approachChromatic: [-1, 1, -1],
-  approachDiatonic: [-2, 2, 7, -5],
-};
-
-// =====================================================================
-// Drums
-// =====================================================================
-
-export const empty = (): StepGains => Array(16).fill(0);
-export const at = (hits: Record<number, number>): StepGains => {
-  const bar = empty();
-  for (const [i, v] of Object.entries(hits)) bar[Number(i)] = v;
-  return bar;
-};
-const steps = (list: readonly number[], gain: number | ((i: number) => number)) =>
-  at(Object.fromEntries(list.map((i) => [i, typeof gain === 'number' ? gain : gain(i)])));
-
-const BEATS = [0, 4, 8, 12];
-export const EIGHTH_OFFS = [2, 6, 10, 14];
-
-// Extra percussion: shaker, tambourine or cowbell.
-const shaker: DrumVoice = { sound: 'sh', role: 'perc', bars: [empty().map((_, i) => (i % 2 ? 0.06 : 0.1))] };
-const PERCUSSION: readonly DrumVoice[] = [
-  shaker,
-  shaker,
-  { sound: 'tb', role: 'perc', bars: [at({ 4: 0.12, 12: 0.12 }), at({ 2: 0.1, 6: 0.1, 10: 0.1, 14: 0.1 })] },
-  { sound: 'cb', role: 'perc', bars: [BEATS, [0, 6, 10], [2, 8, 14]].map((list) => steps(list, 0.08)) },
-];
-const percussion = (chance: number) => ({ op: 'voice', chance, voices: PERCUSSION }) as const;
-
-// The backbeat's sound(s), and how the level scales for each.
-export const BACKBEATS: Weighted<string[]> = [
-  [['sd'], 4],
-  [['sd', 'cp'], 2],
-  [['cp'], 1],
-  [['rim'], 0.5],
-];
-
-// Each feel's groove, as steps rolled in order.
-export const DRUM_FEELS: Readonly<Record<DrumFeel, DrumRecipe>> = {
-  funk: {
-    openOnFour: true,
-    steps: [
-      {
-        op: 'kicks',
-        required: [0],
-        optional: [
-          [3, 0.4],
-          [6, 0.35],
-          [7, 0.2],
-          [8, 0.4],
-          [10, 0.55],
-          [11, 0.3],
-          [14, 0.3],
-          [15, 0.15],
-        ],
-        gain: 0.75,
-      },
-      { op: 'backbeat', steps: [4, 12], gain: 0.5, orElse: { keep: 0.85, steps: [4, 12, 15] } },
-      { op: 'ghosts', density: [0.05, 0.35], avoid: [4, 12] },
-      { op: 'cymbal', sixteenths: 0.7, ride: 0.15, loud: 1 },
-      percussion(0.3),
-    ],
-  },
-  disco: {
-    steps: [
-      {
-        op: 'kicks',
-        required: BEATS,
-        optional: [
-          [3, 0.15],
-          [7, 0.1],
-          [14, 0.15],
-          [15, 0.15],
-        ],
-        gain: 0.78,
-      },
-      { op: 'backbeat', steps: [4, 12], gain: 0.48 },
-      { op: 'cymbal', sixteenths: 0.6, ride: 0.1, loud: 0.8 },
-      { op: 'openHats', chance: 0.75 }, // the disco signature
-      percussion(0.45),
-    ],
-  },
-  halfTime: {
-    quiet: true,
-    steps: [
-      {
-        op: 'kicks',
-        required: [0],
-        optional: [
-          [3, 0.2],
-          [6, 0.3],
-          [10, 0.4],
-          [11, 0.3],
-          [14, 0.25],
-        ],
-        gain: 0.6,
-      },
-      { op: 'backbeat', steps: [8], gain: 0.45 },
-      { op: 'ghosts', density: [0, 0.2], avoid: [8] },
-      { op: 'voice', chance: 0.5, voices: [{ sound: 'rim', role: 'perc', bars: [at({ 4: 0.08, 12: 0.08 })] }] },
-      { op: 'cymbal', sixteenths: 0.3, ride: 0.35, loud: 0.7 },
-      percussion(0.25),
-    ],
-  },
-  bossa: {
-    quiet: true,
-    steps: [
-      {
-        op: 'voice',
-        voices: [
-          {
-            sound: 'bd',
-            role: 'kick',
-            bars: [
-              [0, 6, 8, 14],
-              [0, 3, 4, 7, 8, 11, 12, 15],
-              [0, 8],
-            ].map((list) => steps(list, (i) => (i % 4 ? 0.4 : 0.55))),
-          },
-        ],
-      },
-      // Cross-stick on a clave figure.
-      {
-        op: 'voice',
-        voices: [
-          {
-            sound: 'rim',
-            role: 'snare',
-            bars: [
-              [0, 3, 6, 10, 13],
-              [0, 3, 7, 10, 12],
-              [2, 6, 10, 12],
-              [3, 6, 10, 14],
-            ].map((list) => steps(list, 0.2)),
-          },
-        ],
-      },
-      { op: 'cymbal', sixteenths: 0, ride: 0.6, loud: 0.6 },
-      {
-        op: 'voice',
-        chance: 0.5,
-        voices: [{ sound: 'sh', role: 'perc', bars: [empty().map((_, i) => (i % 2 ? 0 : i % 4 ? 0.06 : 0.1))] }],
-      },
-    ],
-  },
-  introRide: {
-    quiet: true,
-    steady: true,
-    steps: [
-      { op: 'cymbal', sixteenths: 0, ride: 0.75, loud: 0.45 },
-      {
-        op: 'voice',
-        chance: 0.6,
-        voices: [{ sound: 'rim', role: 'snare', bars: [at({ 12: 0.1 }), at({ 4: 0.08, 12: 0.1 })] }],
-      },
-      { op: 'voice', chance: 0.4, voices: [{ sound: 'bd', role: 'kick', bars: [at({ 0: 0.35 })] }] },
-    ],
-  },
-  claps: {
-    steps: [
-      { op: 'kicks', required: BEATS, optional: [], gain: 0.55 },
-      { op: 'voice', voices: [{ sound: 'cp', role: 'snare', bars: [at({ 4: 0.45, 12: 0.45 })] }] },
-      percussion(0.5),
-    ],
-  },
-  build: {
-    steps: [
-      { op: 'kicks', required: BEATS, optional: [], gain: 0.7 },
-      // Snare in eighths or quarters, getting louder.
-      {
-        op: 'voice',
-        voices: [
-          {
-            sound: 'sd',
-            role: 'snare',
-            bars: [2, 4].map((every) => empty().map((_, i) => (i % every ? 0 : 0.18 + (i / 16) * 0.2))),
-          },
-        ],
-      },
-      { op: 'cymbal', sixteenths: 0.3, ride: 0, loud: 0.6 },
-    ],
-  },
-  // Drums alone: a busy funk groove.
-  break: {
-    openOnFour: true,
-    steps: [
-      {
-        op: 'kicks',
-        required: [0, 10],
-        optional: [
-          [3, 0.6],
-          [6, 0.5],
-          [7, 0.4],
-          [8, 0.4],
-          [11, 0.4],
-          [14, 0.4],
-        ],
-        gain: 0.75,
-      },
-      { op: 'backbeat', steps: [4, 12], gain: 0.5 },
-      { op: 'ghosts', density: [0.25, 0.5], avoid: [4, 12] },
-      { op: 'cymbal', sixteenths: 0.85, ride: 0.1, loud: 1.1 },
-    ],
-  },
-};
-
-export const DRUMS = {
-  kickDensity: [0.4, 1] as Range,
-  kickSoft: [0.7, 0.95] as Range, // optional kicks' level, times the gain
-  ghostGain: [0.05, 0.1] as Range,
-  cymbal: { accent: [0.14, 0.24] as Range, mid: [0.4, 0.7] as Range, weak: [0.2, 0.45] as Range, offbeat: 0.25 },
-  rideLevel: 0.7,
-  // Bar four of each phrase: a kick dropped and one added.
-  vary: { chance: 0.7, drop: 0.5, steps: [3, 7, 10, 11, 14, 15], gains: [0.5, 0.6, 0.7] },
-  openOnFour: { chance: 0.6, gain: 0.14 },
-  openHatGain: 0.13,
-};
-
-// Fills: [value, weight, weight in a quiet feel].
-export const FILLS = {
-  count: 3,
-  starts: [
-    [12, 3, 3],
-    [8, 4, 4],
-    [0, 1, 0],
-  ] as readonly (readonly [number, number, number])[],
-  kinds: [
-    ['roll', 3, 3],
-    ['toms', 3, 1],
-    ['mixed', 2, 0.5],
-    ['unison', 1, 1],
-    ['stop', 1, 0.3],
-  ] as readonly (readonly [string, number, number])[],
-  mixed: [
-    ['sd', 3],
-    ['ht', 1],
-    ['mt', 1],
-    ['lt', 1],
-    ['bd', 1],
-  ] as Weighted<string>,
-  sixteenths: 0.65, // else eighths
-  quietLevel: 0.6,
 };
 
 // =====================================================================
@@ -822,10 +240,10 @@ export const STYLE = {
   } as Partial<Record<DrumFeel, BassFeel[]>>,
   // Intro arrangements, with the bass feels each may take and their drums.
   introTextures: {
-    pads: { bass: ['pedal', 'halfTime'], drums: { feels: ['introRide'], crash: 0, fill: 0 } }, // soft keys and strings
-    keys: { bass: ['pedal', 'halfTime'], drums: { feels: ['introRide'], crash: 0, fill: 0 } }, // Rhodes; the rest halfway
-    groove: { bass: ['funk', 'funk', 'disco'], drums: { feels: ['funk', 'disco'], crash: 0, fill: 1 } }, // the band playing
-    bassFirst: { bass: ['funk', 'halfTime'], drums: { feels: ['introRide', 'halfTime'], crash: 0, fill: 1 } }, // keys halfway
+    pads: { bass: ['pedal', 'halfTime'], drums: { feels: ['introRide'], crash: 0, fill: 0 } },
+    keys: { bass: ['pedal', 'halfTime'], drums: { feels: ['introRide'], crash: 0, fill: 0 } },
+    groove: { bass: ['funk', 'funk', 'disco'], drums: { feels: ['funk', 'disco'], crash: 0, fill: 1 } },
+    bassFirst: { bass: ['funk', 'halfTime'], drums: { feels: ['introRide', 'halfTime'], crash: 0, fill: 1 } },
   } as Record<IntroTexture, { bass: BassFeel[]; drums: DrumPlan }>,
   // Bass feels each section may take.
   bassFeels: {
@@ -925,16 +343,15 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
       tag: ['bVImaj7 V7sus', 'bVImaj7 bVII7'],
       bridge: ['IVmaj7 bVIImaj7 ii7 V7 Imaj7 IVmaj7', 'ii7 V7 Imaj7 vi7 ii7 V7', 'Imaj7 vi7 IVmaj7 V7 iii7 vi7'],
       riff: ['ii7 V7', 'vi7 II7'],
-      // Intros besides the chorus tease and the planing add9 chords.
       intro: [
-        'Imaj7 IVmaj7', // tonic vamp
-        'ii7 V7', // ii-V vamp
-        'Imaj7 bVIImaj7', // I to bVII, a funk staple
-        'Imaj7 vi7 ii7 V7', // turnaround
-        'iii7 VI7 ii7 V7', // turnaround from iii
-        'V7sus V7sus V7sus V7', // dominant pedal
-        'bVImaj7 bVII7 Imaj7 [ii7 V7]', // rising backdoor
-        'IVmaj7 iii7 ii7 V7sus', // falling to the dominant
+        'Imaj7 IVmaj7',
+        'ii7 V7',
+        'Imaj7 bVIImaj7',
+        'Imaj7 vi7 ii7 V7',
+        'iii7 VI7 ii7 V7',
+        'V7sus V7sus V7sus V7',
+        'bVImaj7 bVII7 Imaj7 [ii7 V7]',
+        'IVmaj7 iii7 ii7 V7sus',
       ],
     },
     pre: {
@@ -947,7 +364,6 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
       pedal: ['V7sus V7sus V7sus V7', 'IVmaj7 IVmaj7 V7sus V7sus', 'ii7 ii7 V7sus V7sus', 'V7sus V7'],
       drop: ['IVmaj7 iii7 ii7 V7sus', 'vi7 IVmaj7 ii7 V7sus', 'IVmaj7 V7 iii7 vi7 ii7 V7sus'],
       stops: ['IVmaj7 V7 iii7 vi7', 'IVmaj7 V7 [iii7 VI7] [ii7 V7sus]', 'ii7 V7 iii7 VI7 ii7 V7sus'],
-      // Darker colour borrowed from the minor key: iv, bIII, bVI, bVII.
       borrowed: [
         'IVmaj7 iv7 iii7 VI7 ii7 V7sus',
         'bVImaj7 bVII7 IVmaj7 V7sus',
@@ -956,20 +372,15 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
       ],
     },
     bridgeKeys: [
-      { offset: 5, weight: 3, adventurous: false }, // IV: one step round the circle
-      { offset: 7, weight: 2, adventurous: false }, // V
-      { offset: 3, weight: 3, adventurous: true }, // bIII: chromatic mediant
-      { offset: 8, weight: 3, adventurous: true }, // bVI
+      { offset: 5, weight: 3, adventurous: false },
+      { offset: 7, weight: 2, adventurous: false },
+      { offset: 3, weight: 3, adventurous: true },
+      { offset: 8, weight: 3, adventurous: true },
       { offset: 2, weight: 1, adventurous: true },
     ],
-    // ii-V pairs: a jazz blowing chorus.
     solo: {
       pair: [['ii:m9|m11|m7'], ['V:13|9']],
-      shapes: [
-        ['cycle', 3],
-        ['home', 2],
-        ['vamp', 1],
-      ],
+      shapes: [['cycle', 3], ['home', 2], ['vamp', 1]],
     },
     turnarounds: LIFT_TURNAROUNDS,
   },
@@ -984,63 +395,53 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
     tonic: 'min',
     tonicPalette: 'minTonic',
     reharm: 0.9,
-    finale: [
-      ['m69', 'dorian'],
-      ['m^9', 'melodic:minor'],
-    ],
+    finale: [['m69', 'dorian'], ['m^9', 'melodic:minor']],
     approach: [['ii:m7b5'], ['V:7alt|7b9|13b9']],
     templates: {
       vamp: ['i7 IV7', 'iiø V7', 'i7 bVII7', 'i7 [iv7 bVII7]'],
       verse: [
-        'i7 i7 iv7 iv7 iiø V7 i7 V7', // minor blues-ish
-        'i7 iv7 bVII7 bIIImaj7 bVImaj7 iiø V7 i7', // round the aeolian cycle
-        'i7 IV7 i7 IV7 bVImaj7 bVII7 iiø V7', // dorian funk, then a cadence
+        'i7 i7 iv7 iv7 iiø V7 i7 V7',
+        'i7 iv7 bVII7 bIIImaj7 bVImaj7 iiø V7 i7',
+        'i7 IV7 i7 IV7 bVImaj7 bVII7 iiø V7',
         'i7 bVImaj7 iiø V7 i7 bVImaj7 iiø V7',
         'iv7 bVII7 bIIImaj7 bVImaj7 iiø V7 i7 i7',
       ],
       chorus: [
-        'bVImaj7 bVII7 i7 i7 bVImaj7 bVII7 iiø V7', // rising to the tonic
+        'bVImaj7 bVII7 i7 i7 bVImaj7 bVII7 iiø V7',
         'iv7 bVII7 bIIImaj7 bVImaj7 iiø V7 i7 [iiø V7]',
-        'i7 bIIImaj7 bVImaj7 bII7 i7 bIIImaj7 iiø V7', // bII7: V's tritone sub
-        'i7 i7 bVII7 bVII7 bVImaj7 V7 i7 V7', // Andalusian
+        'i7 bIIImaj7 bVImaj7 bII7 i7 bIIImaj7 iiø V7',
+        'i7 i7 bVII7 bVII7 bVImaj7 V7 i7 V7',
       ],
       tag: ['bVImaj7 V7', 'bII7 V7'],
       bridge: ['iv7 bVII7 bIIImaj7 bVImaj7 iiø V7', 'i7 iv7 bVII7 bIIImaj7 iiø V7', 'bVImaj7 bVII7 i7 i7 iiø V7'],
       riff: ['i7 IV7', 'i7 bVII7'],
       intro: [
-        'i7 iv7', // tonic vamp
-        'iiø V7', // minor ii-V vamp
-        'i7 IV7', // dorian vamp
-        'i7 bVII7 bVImaj7 V7', // Andalusian fall
-        'i7 bVImaj7 iiø V7', // minor turnaround
-        'V7sus V7sus V7sus V7', // dominant pedal
-        'bVImaj7 bVII7 i7 [iiø V7]', // rising
+        'i7 iv7',
+        'iiø V7',
+        'i7 IV7',
+        'i7 bVII7 bVImaj7 V7',
+        'i7 bVImaj7 iiø V7',
+        'V7sus V7sus V7sus V7',
+        'bVImaj7 bVII7 i7 [iiø V7]',
       ],
     },
     pre: {
-      // The bass climbs ii, bIII, iv, #iv to the dominant.
       climb: ['iiø bIIImaj7 iv7 V7', 'bIIImaj7 iv7 #iv° V7', 'iv7 #iv° V7sus V7', 'iiø [bIIImaj7 iv7] V7sus V7'],
       pedal: ['V7sus V7sus V7sus V7', 'iv7 iv7 V7sus V7', 'bVImaj7 bVImaj7 V7sus V7sus', 'V7sus V7'],
       drop: ['bVImaj7 bVII7 iiø V7', 'iv7 bVImaj7 iiø V7sus', 'iv7 bVII7 bIIImaj7 bVImaj7 iiø V7'],
       stops: ['iv7 bVII7 bVImaj7 V7', 'bVImaj7 bVII7 [i7 iv7] [iiø V7]', 'iiø V7 i7 iv7 bII7 V7'],
-      // Colour from outside the key: dorian's IV7 and the Neapolitan bII.
       borrowed: ['IV7 iv7 bIImaj7 V7', 'bVImaj7 bIImaj7 V7sus V7', 'i7 IV7 bVImaj7 bIImaj7 V7sus V7', 'bIImaj7 V7'],
     },
     bridgeKeys: [
-      { offset: 3, weight: 3, adventurous: false }, // bIII: the relative major
-      { offset: 8, weight: 3, adventurous: false }, // bVI major
-      { offset: 5, weight: 2, adventurous: false, mode: 'minor' }, // iv minor
-      { offset: 10, weight: 1, adventurous: true }, // bVII major
-      { offset: 1, weight: 1, adventurous: true }, // bII: Neapolitan
+      { offset: 3, weight: 3, adventurous: false },
+      { offset: 8, weight: 3, adventurous: false },
+      { offset: 5, weight: 2, adventurous: false, mode: 'minor' },
+      { offset: 10, weight: 1, adventurous: true },
+      { offset: 1, weight: 1, adventurous: true },
     ],
-    // Minor ii-V pairs: half-diminished ii, altered V.
     solo: {
       pair: [['ii:m7b5'], ['V:7alt|7b9|13b9']],
-      shapes: [
-        ['cycle', 3],
-        ['home', 2],
-        ['vamp', 1],
-      ],
+      shapes: [['cycle', 3], ['home', 2], ['vamp', 1]],
     },
     turnarounds: {
       'ii-V': { weight: 3, bars: [['ii:m7b5'], ['V:7alt|7b9']] },
@@ -1050,7 +451,6 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
       Andalusian: { weight: 2, bars: [['bVII:13|9'], ['bVI:^7#11|^9'], ['V:7alt|7b9']] },
       'sus pedal': { weight: 2, bars: [['V:9sus'], ['V:7alt|13b9']] },
       'truck driver': { weight: 1, bars: [['V:7alt|7b9']] },
-      // iv-bVII-bIII-bVI-ii-V, two chords a bar.
       'long way': {
         weight: 1,
         bars: [
@@ -1071,10 +471,7 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
     tonics: [2, 7, 0, 9, 4, 5], // D G C A E F
     tonic: 'min',
     reharm: 0.5,
-    finale: [
-      ['m11', 'dorian'],
-      ['m69', 'dorian'],
-    ],
+    finale: [['m11', 'dorian'], ['m69', 'dorian']],
     approach: [['bVII:^9|69'], ['IV:13|9']],
     templates: {
       vamp: ['i7 IV7', 'i7 i7', 'i7 bVIImaj7', 'i7 [v7 IV7]'],
@@ -1087,14 +484,14 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
       chorus: [
         'bIIImaj7 IV7 i7 i7 bIIImaj7 IV7 v7 i7',
         'bVIImaj7 bIIImaj7 IV7 i7 bVIImaj7 bIIImaj7 IV7 [v7 IV7]',
-        'i7 bVIImaj7 bVImaj7 bVIImaj7 i7 bVIImaj7 IV7 IV7', // aeolian bVI for shade
+        'i7 bVIImaj7 bVImaj7 bVIImaj7 i7 bVIImaj7 IV7 IV7',
         'IV7 IV7 i7 i7 bVIImaj7 bIIImaj7 IV7 IV7',
       ],
       tag: ['bVIImaj7 IV7', 'bIIImaj7 IV7'],
       riff: ['i7 IV7', 'i7 bVIImaj7'],
       intro: [
-        'i7 IV7', // the dorian vamp
-        'i7 i7 i7 IV7', // one chord, then its IV
+        'i7 IV7',
+        'i7 i7 i7 IV7',
         'i7 bIIImaj7 IV7 i7',
         'i7 bVIImaj7',
         'IV7 IV7 i7 i7',
@@ -1105,7 +502,6 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
       pedal: ['IV7sus IV7sus IV7sus IV7', 'bVIImaj7 bVIImaj7 IV7sus IV7', 'IV7sus IV7'],
       drop: ['bVIImaj7 bIIImaj7 IV7 IV7', 'v7 bVIImaj7 bIIImaj7 IV7', 'i7 bVIImaj7 bVImaj7 bVIImaj7 IV7 IV7'],
       stops: ['bIIImaj7 IV7 v7 IV7', 'bVIImaj7 IV7', 'i7 bIIImaj7 IV7 v7 bVIImaj7 IV7'],
-      // Darker colour from aeolian (bVI) and phrygian (bII).
       borrowed: [
         'bVImaj7 bVIImaj7 IV7 IV7',
         'bIImaj7 bIImaj7 bVIImaj7 IV7',
@@ -1114,31 +510,20 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
       ],
     },
     bridgeKeys: [
-      { offset: 10, weight: 3, adventurous: false }, // bVII: the parent major
-      { offset: 3, weight: 2, adventurous: false }, // bIII major
-      { offset: 5, weight: 2, adventurous: true }, // IV major
-      { offset: 8, weight: 2, adventurous: true }, // bVI major
-      { offset: 1, weight: 1, adventurous: true, mode: 'minor' }, // a half step up, as in So What
+      { offset: 10, weight: 3, adventurous: false },
+      { offset: 3, weight: 2, adventurous: false },
+      { offset: 5, weight: 2, adventurous: true },
+      { offset: 8, weight: 2, adventurous: true },
+      { offset: 1, weight: 1, adventurous: true, mode: 'minor' },
     ],
-    // Modal: the i-IV vamp, moving a half step up as in Impressions, or
-    // more often the song's own vamp.
     solo: {
       pair: [['i:m11|m9'], ['IV:13|9']],
-      steps: [
-        [1, 3],
-        [3, 2],
-        [-2, 1],
-      ],
-      shapes: [
-        ['cycle', 1],
-        ['home', 1],
-        ['vamp', 3],
-      ],
+      steps: [[1, 3], [3, 2], [-2, 1]],
+      shapes: [['cycle', 1], ['home', 1], ['vamp', 3]],
     },
     turnarounds: {
       plagal: { weight: 3, bars: [['bVII:^9|69'], ['IV:13|9']] },
       'ii-V': { weight: 2, bars: [['ii:m9|m11'], ['V:7alt|7b9']] },
-      // The new tonic's chord a half step up, sliding down onto it.
       'side-slip': { weight: 2, bars: [['#i:m11|m9'], ['#i:m11|m9']] },
       aeolian: { weight: 2, bars: [['bVI:^9|^7#11'], ['bVII:^9|69']] },
       'sus pedal': { weight: 1, bars: [['IV:9sus'], ['IV:13|9']] },
@@ -1155,29 +540,26 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
     tonic: 'dom',
     tonicPalette: 'domTonic',
     reharm: 0.6,
-    finale: [
-      ['13', 'mixolydian'],
-      ['9sus', 'mixolydian'],
-    ],
+    finale: [['13', 'mixolydian'], ['9sus', 'mixolydian']],
     approach: [['IV:^9|69'], ['bVII:^9|^7#11|69']],
     templates: {
       vamp: ['I7 bVIImaj7', 'I7 IV7', 'I7 I7', 'I7 [v7 I7]'],
       verse: [
-        'I7 IV7 I7 I7 IV7 IV7 I7 [ii7 V7]', // eight-bar blues
+        'I7 IV7 I7 I7 IV7 IV7 I7 [ii7 V7]',
         'I7 bVIImaj7 I7 bVIImaj7 IVmaj7 IVmaj7 v7 bVIImaj7',
-        'I7 I7 bVIImaj7 IVmaj7 I7 I7 bVIImaj7 IVmaj7', // I-bVII-IV
+        'I7 I7 bVIImaj7 IVmaj7 I7 I7 bVIImaj7 IVmaj7',
         'I7 v7 bVIImaj7 IVmaj7 I7 v7 bVIImaj7 I7',
       ],
       chorus: [
         'IVmaj7 bVIImaj7 I7 I7 IVmaj7 bVIImaj7 v7 I7',
-        'I7 bIIImaj7 IVmaj7 I7 I7 bIIImaj7 IVmaj7 bVIImaj7', // the blues bIII
-        'IV7 IV7 I7 I7 V7 IV7 I7 V7', // the blues' last eight bars
+        'I7 bIIImaj7 IVmaj7 I7 I7 bIIImaj7 IVmaj7 bVIImaj7',
+        'IV7 IV7 I7 I7 V7 IV7 I7 V7',
         'bVIImaj7 IVmaj7 I7 I7 bVIImaj7 IVmaj7 I7 [v7 I7]',
       ],
       tag: ['bVIImaj7 IVmaj7', 'bIIImaj7 IV7'],
       riff: ['I7 bVIImaj7', 'I7 IV7'],
       intro: [
-        'I7 I7', // the band on one chord
+        'I7 I7',
         'I7 bVIImaj7',
         'I7 IV7',
         'bVIImaj7 IVmaj7 I7 I7',
@@ -1193,7 +575,6 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
         'IV7 [bIIImaj7 IV7] bVIImaj7 V7sus',
         'v7 bVIImaj7 IVmaj7 I7 bVIImaj7 IVmaj7',
       ],
-      // Minor colour: dorian's bIII, aeolian's bVI and iv.
       borrowed: [
         'bVImaj7 bVIImaj7 IVmaj7 IVmaj7',
         'IVmaj7 iv7 bIIImaj7 bVIImaj7',
@@ -1202,20 +583,15 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
       ],
     },
     bridgeKeys: [
-      { offset: 5, weight: 3, adventurous: false }, // IV: the parent major
-      { offset: 10, weight: 2, adventurous: false }, // bVII major
-      { offset: 3, weight: 2, adventurous: true }, // bIII major
-      { offset: 8, weight: 2, adventurous: true }, // bVI major
-      { offset: 9, weight: 1, adventurous: true, mode: 'minor' }, // vi minor
+      { offset: 5, weight: 3, adventurous: false },
+      { offset: 10, weight: 2, adventurous: false },
+      { offset: 3, weight: 2, adventurous: true },
+      { offset: 8, weight: 2, adventurous: true },
+      { offset: 9, weight: 1, adventurous: true, mode: 'minor' },
     ],
-    // The I7-bVII vamp moving through keys, or more often the song's own vamp.
     solo: {
       pair: [['I:13|9|7#9'], ['bVII:^9|69']],
-      shapes: [
-        ['cycle', 1],
-        ['home', 1],
-        ['vamp', 3],
-      ],
+      shapes: [['cycle', 1], ['home', 1], ['vamp', 3]],
     },
     turnarounds: {
       mixolydian: { weight: 3, bars: [['IV:^9|69'], ['bVII:^9|^7#11']] },
@@ -1226,119 +602,4 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
       'truck driver': { weight: 1, bars: [['V:7alt|7#9']] },
     },
   },
-};
-
-// =====================================================================
-// Arrangement: the fixed figures instruments play
-// =====================================================================
-
-export const FIGURES = {
-  arp: '[0 1 2 3]*2',
-  clav: '[~ 0 ~ 2] [~ ~ 1 ~] [~ 0 ~ 2] [~ 3 ~ ~]',
-  scratch: '[0 ~ 0 2] [~ 1 ~ 0] [~ 0 2 ~] [1 ~ 0 ~]',
-  stab: 'x ~ ~ ~',
-  stops: '[x ~ ~ x ~ ~ x ~]', // stop-time hits: 3 + 3 + 2 eighths
-  liftLine: '<[0 [~ 1] 2 [~ 3]] [4 [~ 4] 5 ~]>', // rising into the new key
-  pickup: '<~ [~ ~ ~ [-2 -1]]>', // the drum break's bass pickup
-  // The final chord, one instrument at a time: [degree, ...].
-  finaleDegrees: [4, 9, 13, 15, 17, 19],
-};
-
-// The flute doubles the hook an octave up unless that passes E7.
-export const DOUBLE_TOP = 100;
-
-// Silence after the final chord, so a looping song breathes before it
-// starts again.
-export const TAIL_SECONDS = 1;
-
-// =====================================================================
-// Titles
-// =====================================================================
-
-// City pop titles, one language with the other in brackets: a modifier
-// and a noun, each in English, in Japanese, and (where it reads
-// naturally) in katakana English. In Japanese a noun modifier takes の
-// (真夜中のドア), an adjective (`adj`) comes straight before its noun
-// (青いハイウェイ), and katakana words join with ・ (ミッドナイト・ドライブ).
-// A word not written in katakana carries its reading (`romaji`), for
-// titles that give the Japanese in romaji instead of the English.
-
-// The chance a title gives the Japanese in romaji instead of the English.
-export const TITLE_ROMAJI = 0.2;
-
-export const TITLE_WORDS: { modifiers: readonly TitleWord[]; nouns: readonly TitleWord[] } = {
-  modifiers: [
-    { en: 'Midnight', ja: '真夜中', romaji: 'mayonaka', kana: 'ミッドナイト' },
-    { en: 'Summer', ja: '夏', romaji: 'natsu', kana: 'サマー' },
-    { en: 'Midsummer', ja: '真夏', romaji: 'manatsu', kana: 'ミッドサマー' },
-    { en: 'Rainy', ja: '雨', romaji: 'ame', kana: 'レイニー' },
-    { en: 'Blue', ja: '青い', romaji: 'aoi', kana: 'ブルー', adj: true },
-    { en: 'Neon', ja: 'ネオン', kana: 'ネオン' },
-    { en: 'Tokyo', ja: '東京', romaji: 'tokyo', kana: 'トーキョー' },
-    { en: 'Sunset', ja: '夕暮れ', romaji: 'yugure', kana: 'サンセット' },
-    { en: 'Ocean', ja: '海', romaji: 'umi', kana: 'オーシャン' },
-    { en: 'Last', ja: '最後', romaji: 'saigo', kana: 'ラスト' },
-    { en: 'Secret', ja: '秘密', romaji: 'himitsu', kana: 'シークレット' },
-    { en: 'Moonlight', ja: '月明かり', romaji: 'tsukiakari', kana: 'ムーンライト' },
-    { en: 'Starlit', ja: '星降る', romaji: 'hoshifuru', adj: true },
-    { en: 'Lonely', ja: 'ひとりぼっち', romaji: 'hitoribotchi', kana: 'ロンリー' },
-    { en: 'Weekend', ja: '週末', romaji: 'shumatsu', kana: 'ウィークエンド' },
-    { en: 'Morning', ja: '朝', romaji: 'asa', kana: 'モーニング' },
-    { en: 'Endless', ja: '終わらない', romaji: 'owaranai', kana: 'エンドレス', adj: true },
-    { en: 'Silver', ja: '銀色', romaji: 'giniro', kana: 'シルバー' },
-    { en: 'Golden', ja: '金色', romaji: 'kiniro', kana: 'ゴールデン' },
-    { en: 'Glass', ja: 'ガラス', kana: 'グラス' },
-    { en: 'Crystal', ja: 'クリスタル', kana: 'クリスタル' },
-    { en: 'Plastic', ja: 'プラスティック', kana: 'プラスティック' },
-    { en: 'Velvet', ja: 'ビロード', kana: 'ベルベット' },
-    { en: 'Faded', ja: '色あせた', romaji: 'iroaseta', adj: true },
-    { en: 'Distant', ja: '遠い', romaji: 'toi', adj: true },
-    { en: 'Sweet', ja: '甘い', romaji: 'amai', kana: 'スウィート', adj: true },
-    { en: 'Electric', ja: 'エレクトリック', kana: 'エレクトリック' },
-    { en: 'Seaside', ja: '海辺', romaji: 'umibe', kana: 'シーサイド' },
-    { en: 'Downtown', ja: '下町', romaji: 'shitamachi', kana: 'ダウンタウン' },
-    { en: 'Twilight', ja: '黄昏', romaji: 'tasogare', kana: 'トワイライト' },
-  ],
-  nouns: [
-    { en: 'Drive', ja: 'ドライブ', kana: 'ドライブ' },
-    { en: 'City', ja: '街', romaji: 'machi', kana: 'シティ' },
-    { en: 'Love', ja: '恋', romaji: 'koi', kana: 'ラブ' },
-    { en: 'Lover', ja: '恋人', romaji: 'koibito', kana: 'ラヴァー' },
-    { en: 'Door', ja: 'ドア', kana: 'ドア' },
-    { en: 'Highway', ja: 'ハイウェイ', kana: 'ハイウェイ' },
-    { en: 'Station', ja: '駅', romaji: 'eki', kana: 'ステーション' },
-    { en: 'Telephone', ja: '電話', romaji: 'denwa', kana: 'テレフォン' },
-    { en: 'Rendezvous', ja: 'ランデヴー', kana: 'ランデヴー' },
-    { en: 'Breeze', ja: '風', romaji: 'kaze', kana: 'ブリーズ' },
-    { en: 'Rain', ja: '雨', romaji: 'ame', kana: 'レイン' },
-    { en: 'Night', ja: '夜', romaji: 'yoru', kana: 'ナイト' },
-    { en: 'Harbour', ja: '港', romaji: 'minato', kana: 'ハーバー' },
-    { en: 'Resort', ja: 'リゾート', kana: 'リゾート' },
-    { en: 'Dancer', ja: 'ダンサー', kana: 'ダンサー' },
-    { en: 'Memories', ja: '思い出', romaji: 'omoide', kana: 'メモリーズ' },
-    { en: 'Skyline', ja: 'スカイライン', kana: 'スカイライン' },
-    { en: 'Avenue', ja: '通り', romaji: 'tori', kana: 'アベニュー' },
-    { en: 'Parade', ja: 'パレード', kana: 'パレード' },
-    { en: 'Signal', ja: 'シグナル', kana: 'シグナル' },
-    { en: 'Lights', ja: '灯り', romaji: 'akari', kana: 'ライツ' },
-    { en: 'Window', ja: '窓', romaji: 'mado', kana: 'ウィンドウ' },
-    { en: 'Waltz', ja: 'ワルツ', kana: 'ワルツ' },
-    { en: 'Kiss', ja: 'キス', kana: 'キス' },
-    { en: 'Shoreline', ja: '海岸線', romaji: 'kaigansen', kana: 'ショアライン' },
-    { en: 'Dream', ja: '夢', romaji: 'yume', kana: 'ドリーム' },
-    { en: 'Romance', ja: 'ロマンス', kana: 'ロマンス' },
-    { en: 'Cocktail', ja: 'カクテル', kana: 'カクテル' },
-    { en: 'Paradise', ja: 'パラダイス', kana: 'パラダイス' },
-    { en: 'Moon', ja: '月', romaji: 'tsuki', kana: 'ムーン' },
-    { en: 'Summer', ja: '夏', romaji: 'natsu', kana: 'サマー' },
-    { en: 'Cruising', ja: 'クルージング', kana: 'クルージング' },
-    { en: 'Flight', ja: '飛行', romaji: 'hiko', kana: 'フライト' },
-    { en: 'Groove', ja: 'グルーヴ', kana: 'グルーヴ' },
-    { en: 'Heartbeat', ja: '鼓動', romaji: 'kodo', kana: 'ハートビート' },
-    { en: 'Girl', ja: '少女', romaji: 'shojo', kana: 'ガール' },
-    { en: 'Boulevard', ja: '大通り', romaji: 'odori', kana: 'ブールバード' },
-    { en: 'Island', ja: '島', romaji: 'shima', kana: 'アイランド' },
-    { en: 'Sunrise', ja: '夜明け', romaji: 'yoake', kana: 'サンライズ' },
-    { en: 'Mirage', ja: '蜃気楼', romaji: 'shinkiro', kana: 'ミラージュ' },
-  ],
 };

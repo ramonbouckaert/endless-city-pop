@@ -5,9 +5,37 @@
 // soloists, a bridge, a breakdown and a key change. Every instance of a
 // type plays the same material; a section longer than it loops it.
 
-import { FORM } from './constants';
 import type { Rng } from './random';
-import type { SectionOpts, SectionType, Turnaround } from './types';
+import type { SectionOpts, SectionType, Turnaround, Weighted } from './types';
+
+export const FORM = {
+  preBars: [0, 2, 4, 4, 6, 8],
+  chorusTag: 0.45,
+  rounds: [[1, 2], [2, 5], [3, 2]] as Weighted<number>,
+  riffChance: [0, 0.4, 0.7],
+  introBars: [4, 4, 8],
+  vamp: {
+    chance: 0.6,
+    bars: [4, 8],
+    returns: 0.45,
+    after: ['chorus', 'riff', 'bridge', 'solo', 'solo2', 'breakdown'] as SectionType[],
+  },
+  verseBars: [8, 8, 16],
+  bridgeChance: 0.65,
+  soloists: [0, 1, 2, 3],
+  soloCount: [[0, 1], [1, 4], [2, 3]] as Weighted<number>,
+  soloBars: [8, 8, 16],
+  breakdown: { chance: 0.45, bars: [4, 8] },
+  drumBreakChance: 0.7,
+  lift: {
+    first: 0.55,
+    again: 0.3,
+    steps: [[1, 2], [2, 3], [3, 1]] as Weighted<number>,
+    maxShift: 4,
+  },
+  finalChoruses: [[1, 2], [2, 4], [3, 1]] as Weighted<number>,
+  outroChance: 0.75,
+};
 
 export class Section {
   constructor(
@@ -24,7 +52,8 @@ export class Section {
   describe(): string {
     const { liftTo, turnaround } = this.opts;
     if (liftTo) return `${this.type} (to +${liftTo}, ${turnaround}) ${this.bars}`;
-    return `${this.type}${this.shift ? ` (+${this.shift})` : ''} ${this.bars}`;
+    const shiftPart = this.shift ? ` (+${this.shift})` : '';
+    return `${this.type}${shiftPart} ${this.bars}`;
   }
 }
 

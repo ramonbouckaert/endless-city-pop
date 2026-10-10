@@ -4,38 +4,112 @@
 // Strong beats land on chord tones; weak beats move by step. Solos are
 // bebop-ish runs in chord-scale degrees.
 
-import { ANSWER, CELLS, MELODY_RANGES, PHRASE, PRE_MELODIES, SHAPE_CHOICES, SOLO, type ShapeName } from './constants';
+import { Line } from './line';
 import type { Chord, Key } from './music';
 import type { Rng } from './random';
-import type { Bar, MelodyKind, MelodyNote, MotifLetter, Note, PreMelody, SoloNote } from './types';
+import type { Bar, MelodyKind, MelodyNote, MotifLetter, Note, PreMelody, SoloNote, Weighted } from './types';
 
-/** Notes per bar on a grid of `grid` slots. */
-export class Line<N extends Note> {
-  constructor(
-    readonly bars: N[][],
-    readonly grid: number,
-  ) {}
+export { Line };
 
-  /** One bar as mini-notation, held notes weighted: "[~ 0 2 4 5@4]". */
-  static renderBar<N extends Note>(notes: N[], grid: number, token: (n: N) => string): string {
-    if (!notes.length) return '~';
-    const weighted = (tok: string, len: number) => (len > 1 ? `${tok}@${len}` : tok);
-    const tokens: string[] = [];
-    let t = 0;
-    for (const n of [...notes].sort((a, b) => a.start - b.start)) {
-      if (n.start > t) tokens.push(weighted('~', n.start - t));
-      const end = Math.min(n.start + n.len, grid);
-      tokens.push(weighted(token(n), end - n.start));
-      t = end;
-    }
-    if (t < grid) tokens.push(weighted('~', grid - t));
-    return `[${tokens.join(' ')}]`;
-  }
+export type ShapeName = 'rise' | 'fall' | 'arch' | 'valley' | 'neighbor' | 'leapFall' | 'zigzag';
 
-  protected renderWith(token: (n: N) => string): string[] {
-    return this.bars.map((notes) => Line.renderBar(notes, this.grid, token));
-  }
-}
+const CELLS: Readonly<Record<MelodyKind, Readonly<Record<MotifLetter, readonly string[]>>>> = {
+  chorus: {
+    A: ['.xxxx---', '.x.xx---', 'x-.xx---', '.xx-x---', '..xxx---', '.xxx.x--'],
+    B: ['x-.x.x--', 'x.xxx.x.', '.x.xx.x.', 'x-xx.x--', 'xx.x.x--'],
+    C: ['x---x---', 'x-x-x---', '.x.x----', 'x--x----'],
+    D: ['x-------', '.xx-x---', 'xx-x----'],
+    E: ['.xxxx---', '.x.xx---'],
+  },
+  verse: {
+    A: ['.xx.x.x.', '..xx.xx-', '.x.xxx--', 'x.x.xx--', '.xxxx-..'],
+    B: ['.x.x.x--', 'x-.xx.x-', '..x.xxx-', '.xx.x---'],
+    C: ['x--.xx--', 'x-x-x---', '.x.x----'],
+    D: ['x--x----', 'x-------', '.xx-x---'],
+    E: ['.xx.x---'],
+  },
+  pre: {
+    A: ['.x.xxx--', '.x.xx-x-', 'x.x.xx--'],
+    B: ['x---.x.x', 'x-.x.x--'],
+    C: ['x-------', 'x---x---'],
+    D: ['x---.xx-', 'x-------'],
+    E: ['x---x---'],
+  },
+  bridge: {
+    A: ['x-----xx', 'x-----.x', 'x---x---', 'x-----x-'],
+    B: ['x---.xx-', 'x-x-x---', 'x--x-x--'],
+    C: ['x-------', 'x---x---'],
+    D: ['x-------', 'x-----x-'],
+    E: ['x---x---'],
+  },
+  riff: {
+    A: ['x.xx.x.x', 'x..x.xx.', '.xx.xx.x', 'x.x..xx.'],
+    B: ['.x.xx.x.', 'x.xx.x--', '.x.x.xx-'],
+    C: ['x.x.x---'],
+    D: ['x.xx.x--'],
+    E: ['x.x.x---'],
+  },
+};
+
+const PHRASE: readonly MotifLetter[] = ['A', 'B', 'A', 'C', 'A', 'B', 'A', 'D'];
+
+const MELODY_RANGES: Readonly<Record<MelodyKind, { center: number; lo: number; hi: number }>> = {
+  chorus: { center: 4, lo: -1, hi: 9 },
+  verse: { center: 1, lo: -3, hi: 6 },
+  pre: { center: 2, lo: -2, hi: 9 },
+  bridge: { center: 3, lo: -2, hi: 8 },
+  riff: { center: 6, lo: 2, hi: 10 },
+};
+
+const HOLD_CELLS: Readonly<Record<MotifLetter, readonly string[]>> = {
+  A: ['x-------', 'x-----x-', 'x---x---', '.x------'],
+  B: ['x---x---', 'x-----.x'],
+  C: ['x-------'],
+  D: ['x-------'],
+  E: ['x-------'],
+};
+
+const PRE_MELODIES: Readonly<Record<PreMelody, { sequence: number; cells: Readonly<Record<MotifLetter, readonly string[]>> }>> = {
+  climb: { sequence: 1, cells: CELLS.pre },
+  question: { sequence: 0, cells: CELLS.pre },
+  hold: { sequence: 1, cells: HOLD_CELLS },
+};
+
+const SHAPE_CHOICES: Readonly<Record<MotifLetter, Weighted<ShapeName>>> = {
+  A: [['rise', 4], ['arch', 3], ['leapFall', 2], ['zigzag', 1]],
+  B: [['fall', 3], ['valley', 2], ['neighbor', 1], ['arch', 1]],
+  C: [['fall', 2], ['neighbor', 1], ['valley', 1]],
+  D: [['fall', 3], ['valley', 1]],
+  E: [['rise', 2], ['arch', 1]],
+};
+
+const ANSWER = {
+  figures: [
+    [[0, 1], [1, 2]],
+    [[0, 1], [1, 1]],
+    [[0, 1], [1, 1], [2, 1]],
+    [[0, 2], [2, 1]],
+  ] as readonly (readonly [number, number])[][],
+  startDegrees: [7, 8, 9],
+  steps: [2, 3, -2],
+};
+
+const SOLO = {
+  rhythms: [
+    '..x.xxxxx.x.x...',
+    'x.x.x.xxx.x.....',
+    '..xxxxx.x...x.x.',
+    'x...x.x.xxxxx...',
+    '.xx.x.xxx.x.xx..',
+    'x.xxx.x.x.x.x...',
+    '..x.x.x.xxxxx.x.',
+    'xxxxx.x.....x.x.',
+  ],
+  lo: 6,
+  hi: 18,
+  turn: 0.2,
+  leaps: [1, 2, 2, 3],
+};
 
 /** A line in semitones above a key's tonic, on an eighth-note grid. */
 export class Melody extends Line<MelodyNote> {
@@ -66,7 +140,10 @@ export class Melody extends Line<MelodyNote> {
         // In a gap at the end of the bar, or over a held note.
         const lastEnd = notes.length ? Math.max(...notes.map((n) => n.start + n.len)) : 0;
         const lastNote = notes.at(-1);
-        const at = lastEnd <= 6 ? lastEnd : lastNote && lastNote.len >= 3 ? lastNote.start + 1 : null;
+        let at: number | null;
+        if (lastEnd <= 6) at = lastEnd;
+        else if (lastNote && lastNote.len >= 3) at = lastNote.start + 1;
+        else at = null;
         if (at === null) return [];
         // Figures cut at the barline, keeping those with two notes left.
         const fitting = ANSWER.figures.map((f) => f.filter(([o, l]) => at + o + l <= 8)).filter((f) => f.length > 1);
@@ -94,7 +171,7 @@ export class Solo extends Line<SoloNote> {
 
   /** An improvised solo. Chord tones are the even degrees, and beats land on them. */
   static improvise(bars: Bar[], rng: Rng): Solo {
-    const { lo, hi } = SOLO;
+    const { lo } = SOLO;
     let deg = rng.int(lo + 2, lo + 6);
     let dir = 1;
     return new Solo(
@@ -105,16 +182,30 @@ export class Solo extends Line<SoloNote> {
         const notes: SoloNote[] = [];
         for (let s = 0; s < 16; s++) {
           if (rhythm[s] !== 'x') continue;
-          if (rng.chance(SOLO.turn)) dir = -dir;
-          deg += dir * (rhythm[s + 1] === 'x' ? 1 : rng.pick(SOLO.leaps));
-          if (deg > hi) [deg, dir] = [hi - 1, -1];
-          if (deg < lo) [deg, dir] = [lo + 1, 1];
-          if (s % 4 === 0 && deg % 2 !== 0) deg += dir;
-          notes.push({ start: s, len: rhythm[s + 1] === '.' ? 2 : 1, degree: deg });
+          const r = Solo.advance(rhythm, s, deg, dir, rng);
+          deg = r.deg;
+          dir = r.dir;
+          notes.push(r.note);
         }
         return notes;
       }),
     );
+  }
+
+  private static advance(
+    rhythm: string,
+    s: number,
+    deg: number,
+    dir: number,
+    rng: Rng,
+  ): { note: SoloNote; deg: number; dir: number } {
+    const { lo, hi } = SOLO;
+    if (rng.chance(SOLO.turn)) dir = -dir;
+    deg += dir * (rhythm[s + 1] === 'x' ? 1 : rng.pick(SOLO.leaps));
+    if (deg > hi) [deg, dir] = [hi - 1, -1];
+    if (deg < lo) [deg, dir] = [lo + 1, 1];
+    if (s % 4 === 0 && deg % 2 !== 0) deg += dir;
+    return { note: { start: s, len: rhythm[s + 1] === '.' ? 2 : 1, degree: deg }, deg, dir };
   }
 }
 
@@ -130,30 +221,24 @@ function walk(n: number, step: (i: number) => number): number[] {
   for (let i = 1; i < n; i++) out.push(out[i - 1] + step(i));
   return out;
 }
-const SHAPES: Record<ShapeName, (n: number, rng: Rng) => number[]> = {
-  rise: (n, rng) =>
-    walk(n, () =>
-      rng.weighted([
-        [1, 2],
-        [2, 3],
-        [3, 1],
-      ]),
-    ),
-  fall: (n, rng) =>
-    walk(
-      n,
-      () =>
-        -rng.weighted([
-          [1, 3],
-          [2, 2],
-        ]),
-    ),
-  arch: (n, rng) => walk(n, (i) => (i < n / 2 ? rng.pick([1, 2, 2]) : -rng.pick([1, 1, 2]))),
-  valley: (n, rng) => walk(n, (i) => (i < n / 2 ? -rng.pick([1, 2]) : rng.pick([1, 2, 2]))),
-  neighbor: (n) => Array.from({ length: n }, (_, i) => [0, 1, 0, -1][i % 4]),
-  leapFall: (n, rng) => walk(n, (i) => (i === 1 ? rng.pick([3, 4]) : -1)),
-  zigzag: (n, rng) => walk(n, (i) => (i % 2 ? rng.pick([2, 3]) : -1)),
-};
+function shapeOffsets(name: ShapeName, n: number, rng: Rng): number[] {
+  switch (name) {
+    case 'rise':
+      return walk(n, () => rng.weighted([[1, 2], [2, 3], [3, 1]]));
+    case 'fall':
+      return walk(n, () => -rng.weighted([[1, 3], [2, 2]]));
+    case 'arch':
+      return walk(n, (i) => (i < n / 2 ? rng.pick([1, 2, 2]) : -rng.pick([1, 1, 2])));
+    case 'valley':
+      return walk(n, (i) => (i < n / 2 ? -rng.pick([1, 2]) : rng.pick([1, 2, 2])));
+    case 'neighbor':
+      return Array.from({ length: n }, (_, i) => [0, 1, 0, -1][i % 4]);
+    case 'leapFall':
+      return walk(n, (i) => (i === 1 ? rng.pick([3, 4]) : -1));
+    case 'zigzag':
+      return walk(n, (i) => (i % 2 ? rng.pick([2, 3]) : -1));
+  }
+}
 
 interface Motif {
   notes: (Note & { offset: number })[];
@@ -171,7 +256,7 @@ export class MelodyWriter {
   private readonly motifs: Partial<Record<MotifLetter, Motif>> = {};
   private readonly seen: Partial<Record<MotifLetter, number>> = {};
   private prevDeg: number;
-  private prevSemis?: number;
+  private prevSemis = 0;
 
   constructor(
     private readonly key: Key,
@@ -191,14 +276,29 @@ export class MelodyWriter {
     const each = (f: (i: number) => MotifLetter) => Array.from({ length: n }, (_, i) => f(i));
     if (kind === 'pre') {
       // All end on a half cadence into the chorus.
-      if (style === 'question') return each((i) => (i === n - 1 ? 'C' : i % 2 ? 'B' : 'A'));
+      if (style === 'question')
+        return each((i) => {
+          if (i === n - 1) return 'C';
+          return i % 2 ? 'B' : 'A';
+        });
       if (style === 'hold') return each((i) => (i === n - 1 ? 'C' : 'A'));
-      return each((i) => (i === n - 1 ? 'C' : i === n - 2 && n >= 3 ? 'B' : 'A'));
+      return each((i) => {
+        if (i === n - 1) return 'C';
+        if (i === n - 2 && n >= 3) return 'B';
+        return 'A';
+      });
     }
-    if (kind === 'riff') return each((i) => (i % 2 ? (i === n - 1 ? 'D' : 'B') : 'A'));
+    if (kind === 'riff')
+      return each((i) => {
+        if (i % 2 === 0) return 'A';
+        return i === n - 1 ? 'D' : 'B';
+      });
     if (n === 4) return ['A', 'B', 'A', 'D'];
     if (n <= 8) return PHRASE.slice(8 - n);
-    return each((i) => (i < 8 ? PHRASE[i] : i === n - 1 ? 'D' : 'E'));
+    return each((i) => {
+      if (i < 8) return PHRASE[i];
+      return i === n - 1 ? 'D' : 'E';
+    });
   }
 
   write(bars: Bar[]): Melody {
@@ -227,7 +327,7 @@ export class MelodyWriter {
       this.prevSemis = semis;
       return { start: n.start, len: n.len, semis };
     });
-    this.prevDeg = parseInt(scale.degree(this.prevSemis!), 10);
+    this.prevDeg = Number.parseInt(scale.degree(this.prevSemis), 10);
     return notes;
   }
 
@@ -236,7 +336,7 @@ export class MelodyWriter {
   private motif(letter: MotifLetter): Motif {
     const { rng, range } = this;
     const rhythm = parseRhythm(rng.pick(this.cells[letter]));
-    const offsets = SHAPES[rng.weighted(SHAPE_CHOICES[letter])](rhythm.length, rng);
+    const offsets = shapeOffsets(rng.weighted(SHAPE_CHOICES[letter]), rhythm.length, rng);
     const top = Math.max(...offsets);
     const startDeg =
       letter === 'A'
@@ -248,7 +348,9 @@ export class MelodyWriter {
 
 // "x-.x" -> notes with lengths: x = note, - = held, . = rest.
 const parseRhythm = (cell: string): Note[] =>
-  [...cell].flatMap((ch, i) => (ch === 'x' ? [{ start: i, len: 1 + /^-*/.exec(cell.slice(i + 1))![0].length }] : []));
+  [...cell].flatMap((ch, i) =>
+    ch === 'x' ? [{ start: i, len: 1 + (/^-*/.exec(cell.slice(i + 1))?.[0].length ?? 0) }] : [],
+  );
 
 // Into the range lo to hi by thirds, so the note stays a chord-ish tone.
 function clamp(d: number, lo: number, hi: number): number {

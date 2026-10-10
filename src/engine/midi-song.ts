@@ -34,43 +34,47 @@ const num = (f: Fraction) => f.valueOf();
 // its square root spreads those over MIDI velocities.
 const velocity = (v: Record<string, any>) => 127 * Math.sqrt(Math.min(1, (v.gain ?? 1) * (v.velocity ?? 1)));
 
+function trackFor(sound: string, tracks: Map<string, MidiTrack>): MidiTrack {
+  let t = tracks.get(sound);
+  if (t) return t;
+  const drums = sound === 'drums';
+  const melodicCount = [...tracks.values()].filter((x) => x.channel !== DRUM_CHANNEL).length;
+  const melodicChannels = Array.from({ length: 16 }, (_, i) => i).filter((c) => c !== DRUM_CHANNEL);
+  const channel = drums ? DRUM_CHANNEL : melodicChannels[melodicCount % 15];
+  const name = drums ? 'Drums' : sound.replace(/^gm_/, '').replaceAll('_', ' ');
+  t = { name, channel, notes: [] };
+  if (!drums) t.program = GM_PROGRAMS[sound] ?? 0;
+  tracks.set(sound, t);
+  return t;
+}
+
+function noteFromHap(hap: Hap): { sound: string; note: MidiNote } | null {
+  const { whole, part, value: v } = hap;
+  if (!whole || num(whole.begin) !== num(part.begin)) return null;
+  const sound: string | undefined = v.s ?? v.sound;
+  if (!sound) return null;
+  const tick = num(whole.begin) * TICKS_PER_BAR;
+  const base: MidiNote = { tick, dur: DRUM_TICKS, pitch: 0, velocity: velocity(v) };
+  if (v.note === undefined) {
+    const pitch = DRUM_KEYS[sound];
+    if (pitch === undefined) return null;
+    return { sound: 'drums', note: { ...base, pitch } };
+  }
+  const pitch = typeof v.note === 'number' ? v.note : noteToMidi(v.note);
+  if (!Number.isFinite(pitch)) return null;
+  const dur = (num(whole.end) - num(whole.begin)) * TICKS_PER_BAR * (v.clip ?? v.legato ?? 1);
+  return { sound, note: { ...base, pitch, dur } };
+}
+
 /** The song as a MIDI file. `pattern` is the Arranger's pattern for it. */
 export function songToMidi(song: Song, pattern: Pattern): Uint8Array {
   const tracks = new Map<string, MidiTrack>();
-  const track = (sound: string): MidiTrack => {
-    let t = tracks.get(sound);
-    if (!t) {
-      const drums = sound === 'drums';
-      // Melodic tracks take the channels other than the drums', in turn.
-      const melodic = [...tracks.values()].filter((x) => x.channel !== DRUM_CHANNEL).length;
-      const channel = drums ? DRUM_CHANNEL : [...Array(16).keys()].filter((c) => c !== DRUM_CHANNEL)[melodic % 15];
-      t = { name: drums ? 'Drums' : sound.replace(/^gm_/, '').replace(/_/g, ' '), channel, notes: [] };
-      if (!drums) t.program = GM_PROGRAMS[sound] ?? 0;
-      tracks.set(sound, t);
-    }
-    return t;
-  };
-
   for (let bar = 0; bar < song.bars; bar++) {
     for (const hap of pattern.queryArc(bar, bar + 1) as unknown as Hap[]) {
-      const { whole, part, value: v } = hap;
-      if (!whole || num(whole.begin) !== num(part.begin)) continue; // count each note once, at its onset
-      const sound: string | undefined = v.s ?? v.sound;
-      if (!sound) continue;
-      const tick = num(whole.begin) * TICKS_PER_BAR;
-      const note: MidiNote = { tick, dur: DRUM_TICKS, pitch: 0, velocity: velocity(v) };
-      if (v.note === undefined) {
-        if (DRUM_KEYS[sound] === undefined) continue;
-        track('drums').notes.push({ ...note, pitch: DRUM_KEYS[sound] });
-      } else {
-        const pitch = typeof v.note === 'number' ? v.note : noteToMidi(v.note);
-        if (!Number.isFinite(pitch)) continue;
-        const dur = (num(whole.end) - num(whole.begin)) * TICKS_PER_BAR * (v.clip ?? v.legato ?? 1);
-        track(sound).notes.push({ ...note, pitch, dur });
-      }
+      const result = noteFromHap(hap);
+      if (result) trackFor(result.sound, tracks).notes.push(result.note);
     }
   }
-
   let bar = 0;
   const markers = song.form.map((s) => {
     const marker = { tick: bar * TICKS_PER_BAR, text: s.describe() };

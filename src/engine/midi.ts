@@ -66,8 +66,10 @@ function trackEvents(track: MidiTrack): TrackEvent[] {
     events.push({ tick: 0, data: [0xc0 | ch, track.program & 0x7f] });
   for (const n of separate(track.notes)) {
     const pitch = clamp(Math.round(n.pitch), 0, 127);
-    events.push({ tick: n.tick, data: [0x90 | ch, pitch, clamp(Math.round(n.velocity), 1, 127)] });
-    events.push({ tick: n.tick + n.dur, data: [0x80 | ch, pitch, 0], off: true });
+    events.push(
+      { tick: n.tick, data: [0x90 | ch, pitch, clamp(Math.round(n.velocity), 1, 127)] },
+      { tick: n.tick + n.dur, data: [0x80 | ch, pitch, 0], off: true },
+    );
   }
   return events;
 }
@@ -108,7 +110,7 @@ function trackChunk(events: TrackEvent[]): number[] {
 
 const meta = (type: number, data: number[]) => [0xff, type, ...vlq(data.length), ...data];
 const text = (s: string) => [...new TextEncoder().encode(s)];
-const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
+const ascii = (s: string) => [...s].map((c) => c.codePointAt(0) ?? 0);
 const u16 = (n: number) => [(n >> 8) & 0xff, n & 0xff];
 const u32 = (n: number) => [(n >>> 24) & 0xff, (n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));

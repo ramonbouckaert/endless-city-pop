@@ -12,6 +12,7 @@ import {
   Song,
   Template,
   TONALITIES,
+  titleParts,
   BAND,
   GM_PROGRAMS,
   KIT_GAPS,
@@ -104,7 +105,7 @@ describe('Song', () => {
     const joins = new Set<string>();
     let romaji = 0;
     titles.forEach((title, i) => {
-      const { title: main, aside, join, romanised } = Song.titleParts(`title${i}`);
+      const { title: main, aside, join, romanised } = titleParts(`title${i}`);
       if (romanised) romaji++;
       joins.add(join);
       expect(title).toBe(
@@ -348,6 +349,59 @@ describe('instruments', () => {
       expect(kits).toContain(kit);
       for (const g of gaps)
         expect(['bd', 'sd', 'hh', 'oh', 'rd', 'cr', 'rim', 'cp', 'lt', 'mt', 'ht', 'sh', 'tb', 'cb']).toContain(g);
+    }
+  });
+});
+
+describe('rhythm', () => {
+  const songs = SEEDS.map((seed) => Song.generate({ seed }));
+
+  it('gives every playing section drums with at least one part', () => {
+    for (const song of songs) {
+      for (const mat of Object.values(song.materials)) {
+        if (mat.type === 'finale') continue;
+        expect(mat.drums, mat.type).toBeDefined();
+        expect(mat.drums!.parts.length, mat.type).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('gives each drum part exactly 4 bars of 16 steps', () => {
+    for (const song of songs) {
+      for (const mat of Object.values(song.materials)) {
+        if (mat.type === 'finale') continue;
+        for (const part of mat.drums!.parts) {
+          expect(part.bars).toHaveLength(4);
+          for (const bar of part.bars) expect(bar).toHaveLength(16);
+        }
+      }
+    }
+  });
+
+  it('produces fills iff the fill flag is set', () => {
+    for (const song of songs) {
+      for (const mat of Object.values(song.materials)) {
+        if (mat.type === 'finale') continue;
+        const { fill, fills } = mat.drums!;
+        expect(fills.length > 0).toBe(fill);
+        for (const f of fills) {
+          expect(f.start).toBeGreaterThanOrEqual(0);
+          expect(f.start).toBeLessThan(16);
+          expect(f.hits.length).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it('gives every section with chords a non-empty bass pattern', () => {
+    for (const song of songs) {
+      for (const mat of Object.values(song.materials)) {
+        // finale has bars (the final chord) but no rhythm — skip it like rhythm() does.
+        if (mat.type === 'finale' || !mat.bars) continue;
+        expect(mat.bass, mat.type).toBeDefined();
+        expect(mat.bass!.pattern.trim(), mat.type).not.toBe('');
+        expect(mat.bass!.scales.trim(), mat.type).not.toBe('');
+      }
     }
   });
 });

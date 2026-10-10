@@ -2,7 +2,6 @@
 // Pitch classes are integers 0-11 (C = 0).
 
 import {
-  BASS,
   CHORDS,
   CHURCH_MODES,
   DEGREE_OF_OFFSET,
@@ -18,7 +17,7 @@ import {
   SHARP_NAMES,
   SYMBOL_SCALES,
 } from './constants';
-import type { ChordClass, Mode } from './types';
+import type { ChordClass, Mode, Range } from './types';
 
 export const mod12 = (n: number): number => ((n % 12) + 12) % 12;
 export const pcName = (pc: number, flats = true): string => (flats ? FLAT_NAMES : SHARP_NAMES)[mod12(pc)];
@@ -213,7 +212,7 @@ export class Chord {
   snap(
     semis: number,
     key: Key,
-    { prev, dir = 0, diatonic = false }: { prev?: number | undefined; dir?: number; diatonic?: boolean } = {},
+    { prev, dir = 0, diatonic = false }: { prev?: number; dir?: number; diatonic?: boolean } = {},
   ): number {
     const near = this.tonesNear(semis, key, diatonic);
     const best = near[0];
@@ -257,7 +256,10 @@ export class Roman {
     if (!m) throw new Error(`Not a roman numeral: ${text}`);
     const [, acc, numeral, suffix] = m;
     const upper = numeral === numeral.toUpperCase();
-    const offset = NUMERALS[numeral.toLowerCase()] + (acc === 'b' ? -1 : acc === '#' ? 1 : 0);
+    let accOffset = 0;
+    if (acc === 'b') accOffset = -1;
+    else if (acc === '#') accOffset = 1;
+    const offset = NUMERALS[numeral.toLowerCase()] + accOffset;
     return new Roman(mod12(offset), Roman.family(suffix, upper), text);
   }
 
@@ -273,5 +275,41 @@ export class Roman {
 
   root(key: Key): number {
     return mod12(key.tonic + this.offset);
+  }
+}
+
+export const BASS = {
+  low: 28, // E1: roots sit from here to Eb2, and nothing goes below
+  variety: [0.05, 0.3] as Range,
+  densityBoost: 1.3,
+  fill: { density: 0.35, sync: 0.3 },
+  approachSame: [7, 10, -2],
+  approachChromatic: [-1, 1, -1],
+  approachDiatonic: [-2, 2, 7, -5],
+};
+
+/** A progression template, such as `I vi [ii7 V7] IV`: one token per bar, with brackets around two chords sharing a bar. */
+export class Template {
+  readonly bars: Roman[][];
+
+  constructor(text: string) {
+    this.bars = (text.trim().match(/\[[^\]]+]|\S+/g) ?? []).map((bar) =>
+      bar.replace(/[[\]]/g, '').trim().split(/\s+/).map(Roman.parse),
+    );
+  }
+
+  get length(): number {
+    return this.bars.length;
+  }
+
+  /** `n` bars of the template, repeating it as needed. */
+  fit(n: number): Roman[][] {
+    return Array.from({ length: n }, (_, i) => this.bars[i % this.bars.length]);
+  }
+
+  /** `n` bars that end where the template ends, on its cadence. */
+  fitEnding(n: number): Roman[][] {
+    const len = this.bars.length;
+    return Array.from({ length: n }, (_, i) => this.bars[(((i - n) % len) + len) % len]);
   }
 }

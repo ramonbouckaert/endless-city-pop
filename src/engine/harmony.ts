@@ -3,40 +3,36 @@
 // key's mode decides its tonality (TONALITIES): its tonic chord, how it
 // cadences, where its bridges go and how it lifts.
 
-import { PALETTE, PLANING_STARTS, REHARM, SOLO_CHANGES, TONALITIES } from './constants';
-
-// A bar on a mode's tonic chord, as a template.
-const TONIC_CHORDS: Readonly<Record<string, string>> = { maj: 'Imaj7', min: 'i7', dom: 'I7' };
-import { Chord, Key, Roman } from './music';
+import { PALETTE, TONALITIES } from './constants';
+import { Chord, Key, Roman, Template } from './music';
 import type { Rng } from './random';
-import type { Bar, ChordSpec, Tonality } from './types';
+import type { Bar, ChordSpec, PaletteName, Tonality, Weighted } from './types';
 
-/** A progression template, such as `I vi [ii7 V7] IV`: one token per bar, with brackets around two chords sharing a bar. */
-export class Template {
-  readonly bars: Roman[][];
+export { Template };
 
-  constructor(text: string) {
-    this.bars = text
-      .trim()
-      .match(/\[[^\]]+]|\S+/g)!
-      .map((bar) => bar.replace(/[[\]]/g, '').trim().split(/\s+/).map(Roman.parse));
-  }
+const TONIC_CHORDS: Readonly<Record<string, string>> = { maj: 'Imaj7', min: 'i7', dom: 'I7' };
 
-  get length(): number {
-    return this.bars.length;
-  }
+const REHARM = {
+  tritone: 0.3,
+  relatedII: 0.4,
+  secondary: 0.35,
+  secondaryTritone: 0.3,
+  iiSymbols: ['m9', 'm7', 'm11'],
+  toMinor: ['7alt', '7b9'],
+  toMajor: ['13', '9', '7#9'],
+};
 
-  /** `n` bars of the template, repeating it as needed. */
-  fit(n: number): Roman[][] {
-    return Array.from({ length: n }, (_, i) => this.bars[i % this.bars.length]);
-  }
+const SOLO_CHANGES = {
+  steps: [
+    [3, 3],
+    [-2, 2],
+    [5, 1],
+    [-1, 1],
+  ] as Weighted<number>,
+  starts: [0, 2, 9],
+};
 
-  /** `n` bars that end where the template ends, on its cadence. */
-  fitEnding(n: number): Roman[][] {
-    const len = this.bars.length;
-    return Array.from({ length: n }, (_, i) => this.bars[(((i - n) % len) + len) % len]);
-  }
-}
+const PLANING_STARTS = [3, 8];
 
 /** Writes harmony in a key, drawing on one random stream. */
 export class Harmonizer {
@@ -71,16 +67,12 @@ export class Harmonizer {
       const { tonic, tonicPalette } = this.tonality;
       // A minor key's V is altered wherever it goes, even into the next section.
       const minorV = this.key.minor && rn.offset === 7;
-      const palette =
-        rn.offset === 0 && cls === tonic && tonicPalette
-          ? tonicPalette
-          : cls === 'dom' && ((down5 && (next.cls === 'min' || next.cls === 'hdim')) || minorV)
-            ? 'domToMinor'
-            : cls === 'sus' && minorV
-              ? 'susToMinor'
-              : cls === 'maj' && this.key.modeAt(root) !== 'major'
-                ? 'majLydian' // major chords take #11 unless they are the key's ionian chord
-                : cls;
+      let palette: PaletteName;
+      if (rn.offset === 0 && cls === tonic && tonicPalette) palette = tonicPalette;
+      else if (cls === 'dom' && ((down5 && (next.cls === 'min' || next.cls === 'hdim')) || minorV)) palette = 'domToMinor';
+      else if (cls === 'sus' && minorV) palette = 'susToMinor';
+      else if (cls === 'maj' && this.key.modeAt(root) !== 'major') palette = 'majLydian'; // major chords take #11 unless they are the key's ionian chord
+      else palette = cls;
       return new Chord(root, this.rng.weighted(PALETTE[palette]));
     });
     let i = 0;
@@ -92,7 +84,7 @@ export class Harmonizer {
     const out = bars.map((bar) => [...bar]);
     out.forEach((bar, b) => {
       const target = out[(b + 1) % out.length][0];
-      const last = bar[bar.length - 1];
+      const last = bar.at(-1)!;
       if (
         last.dominant &&
         last.fallsFifthTo(target) &&

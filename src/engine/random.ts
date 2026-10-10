@@ -6,7 +6,7 @@ import type { Range, Weighted } from './types';
 function hashSeed(text: string): number {
   let h = 1779033703 ^ text.length;
   for (let i = 0; i < text.length; i++) {
-    h = Math.imul(h ^ text.charCodeAt(i), 3432918353);
+    h = Math.imul(h ^ (text.codePointAt(i) ?? 0), 3432918353);
     h = (h << 13) | (h >>> 19);
   }
   h = Math.imul(h ^ (h >>> 16), 2246822507);
@@ -17,8 +17,8 @@ function hashSeed(text: string): number {
 // mulberry32: small, fast and good enough for music.
 function mulberry32(a: number): () => number {
   return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
+    a = Math.trunc(a);
+    a = Math.trunc(a + 0x6d2b79f5);
     let t = Math.imul(a ^ (a >>> 15), 1 | a);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -45,7 +45,9 @@ export class Rng {
   // Certain outcomes (p of 0 or 1, a single choice) don't draw from the
   // stream, so they can't shift the rolls after them.
   chance(p: number): boolean {
-    return p <= 0 ? false : p >= 1 ? true : this.next() < p;
+    if (p <= 0) return false;
+    if (p >= 1) return true;
+    return this.next() < p;
   }
 
   pick<T>(items: readonly T[]): T {
@@ -57,7 +59,7 @@ export class Rng {
     const total = entries.reduce((sum, [, w]) => sum + w, 0);
     let r = this.next() * total;
     for (const [item, w] of entries) if ((r -= w) < 0) return item;
-    return entries[entries.length - 1][0];
+    return entries.at(-1)![0];
   }
 
   shuffle<T>(items: readonly T[]): T[] {
