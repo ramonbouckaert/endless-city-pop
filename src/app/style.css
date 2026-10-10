@@ -1,3 +1,5 @@
+/* ---- Colours ------------------------------------------------------------ */
+
 :root {
   --bg: #f6f4ef;
   --panel: #ffffff;
@@ -8,6 +10,8 @@
   --accent-text: #ffffff;
   --error: #b91c1c;
   --playhead: #dc2626;
+  /* The form strip's blocks, light in either scheme, with dark text. */
+  --sec-text: #1c1917;
   --sec-intro: #a8a29e;
   --sec-verse: #60a5fa;
   --sec-pre: #818cf8;
@@ -34,6 +38,8 @@
     color-scheme: dark;
   }
 }
+
+/* ---- Page --------------------------------------------------------------- */
 
 * {
   box-sizing: border-box;
@@ -68,26 +74,61 @@ main {
   padding-top: 8px;
 }
 
-button {
+footer {
+  margin-top: 16px;
+  padding-bottom: 32px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* The song card and the debug panel. */
+.song,
+.debug {
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.error {
+  margin: 12px 0 0;
+  color: var(--error);
+  font-size: 13px;
+}
+
+.playhead[hidden],
+.error[hidden] {
+  display: none;
+}
+
+/* ---- Controls ----------------------------------------------------------- */
+
+button,
+.debug select {
   font: inherit;
   font-size: 14px;
   color: var(--text);
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 7px 10px;
-  min-height: 36px;
 }
 
 button {
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 36px;
+  padding: 7px 10px;
+  cursor: pointer;
 }
 
 button:hover {
   border-color: var(--muted);
+}
+
+button:disabled {
+  cursor: progress;
+  opacity: 0.75;
 }
 
 .primary {
@@ -97,12 +138,51 @@ button:hover {
   font-weight: 600;
 }
 
+/* A square button holding an icon drawn in lines. */
+.icon-button {
+  justify-content: center;
+  width: 36px;
+  padding: 0;
+}
+
+/* Icons drawn in lines, in the button's text colour. */
+.line-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The export button's icon, a spinner while the file is written. */
+.icon {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+}
+
+.busy .icon svg {
+  display: none;
+}
+
+.busy .icon {
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* ---- The song: title, meta and buttons --------------------------------- */
+
 .song {
   margin: 20px 0;
-  padding: 16px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 12px;
 }
 
 /* The title takes what room the buttons leave, wrapping within it; the
@@ -125,60 +205,6 @@ button:hover {
   line-height: 1.3;
 }
 
-/* The title stays on one line; scrolling (main.ts) when it won't fit,
-   fading out at the right edge. */
-#title {
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.marquee-track {
-  display: inline-flex;
-  gap: var(--gap, 0);
-}
-
-.marquee-text + .marquee-text {
-  display: none;
-}
-
-#title.scrolling {
-  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
-}
-
-#title.scrolling .marquee-text + .marquee-text {
-  display: inline;
-}
-
-#title.scrolling .marquee-track {
-  animation: marquee var(--duration) linear infinite;
-}
-
-/* Held still for the first fifth (MARQUEE.pause), then one copy's width left. */
-@keyframes marquee {
-  0%,
-  20% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(calc(-1 * var(--distance)));
-  }
-}
-
-/* No motion: cut a long title short instead. */
-@media (prefers-reduced-motion: reduce) {
-  #title.scrolling {
-    mask-image: none;
-    text-overflow: ellipsis;
-  }
-  #title.scrolling .marquee-track {
-    display: inline;
-    animation: none;
-  }
-  #title.scrolling .marquee-text + .marquee-text {
-    display: none;
-  }
-}
-
 .title-aside {
   color: var(--muted);
   font-weight: 500;
@@ -197,10 +223,10 @@ button:hover {
 /* The buttons stay on one line at any width (narrow screens below). */
 .actions {
   display: flex;
-  flex-wrap: nowrap;
   flex: 0 1 auto;
-  gap: 8px;
+  flex-wrap: nowrap;
   align-items: flex-start;
+  gap: 8px;
   white-space: nowrap;
 }
 
@@ -230,6 +256,15 @@ button:hover {
   min-width: 84px;
 }
 
+.when-playing,
+body.playing .when-stopped {
+  display: none;
+}
+
+body.playing .when-playing {
+  display: inline;
+}
+
 /* Narrow screens: Export as MIDI shows just its icon, and the row tightens. */
 @media (max-width: 520px) {
   .actions {
@@ -248,55 +283,64 @@ button:hover {
   }
 }
 
-.when-playing,
-body.playing .when-stopped {
+/* ---- Title marquee (title-marquee.ts) ---------------------------------- */
+
+/* The title stays on one line, scrolling when it won't fit, fading out at
+   the right edge. */
+#title {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+#title.scrolling {
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+}
+
+/* title-marquee.ts sets the gap between the title and its copy, how far
+   the track moves (a copy's width and the gap) and how long a loop takes,
+   when the title scrolls. */
+.marquee-track {
+  --gap: 0px;
+  --distance: 0px;
+  --duration: 0s;
+  display: inline-flex;
+  gap: var(--gap);
+}
+
+#title.scrolling .marquee-track {
+  animation: marquee var(--duration) linear infinite;
+}
+
+/* The copy that follows the title round only shows while it scrolls. */
+.marquee-text + .marquee-text {
   display: none;
 }
 
-body.playing .when-playing {
+#title.scrolling .marquee-text + .marquee-text {
   display: inline;
 }
 
-/* A square button holding an icon drawn in lines. */
-.icon-button {
-  justify-content: center;
-  width: 36px;
-  padding: 0;
+/* Held still for the first fifth (MARQUEE.pause), then one copy's width left. */
+@keyframes marquee {
+  0%,
+  20% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(calc(-1 * var(--distance)));
+  }
 }
 
-/* Icons drawn in lines, in the button's text colour. */
-.line-icon {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
+/* ---- Form strip and playhead (form-strip.ts) --------------------------- */
 
 /* Padded (and the margin pulled in to match) so the glow isn't clipped. */
 .form {
   display: flex;
   gap: 3px;
-  list-style: none;
   margin: 8px -8px -8px;
   padding: 8px;
+  list-style: none;
   overflow: hidden;
-}
-
-/* A block shows its section's full name, or its short one (main.ts) when
-   that won't fit. */
-.sec .short,
-.sec.short .full {
-  display: none;
-}
-
-.sec.short .short {
-  display: inline;
-}
-
-/* Too narrow for any name. */
-.sec.bare .short {
-  display: none;
 }
 
 .sec {
@@ -305,14 +349,15 @@ body.playing .when-playing {
   padding: 6px 4px;
   border-radius: 4px;
   font-size: 11px;
-  color: #1c1917;
+  color: var(--sec-text);
   background: var(--c, var(--sec-quiet));
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-align: center;
 }
 
+/* Each section type's colour. */
 .sec-intro,
 .sec-outro,
 .sec-finale {
@@ -340,6 +385,42 @@ body.playing .when-playing {
 }
 .sec-drumBreak {
   --c: var(--sec-break);
+}
+
+/* A block shows its section's full name, its short one when that won't
+   fit, or none when even that won't. */
+.sec .short,
+.sec.short .full,
+.sec.bare .short {
+  display: none;
+}
+
+.sec.short:not(.bare) .short {
+  display: inline;
+}
+
+/* The section playing now. */
+.sec.now {
+  position: relative;
+  font-weight: 600;
+  filter: brightness(1.12) saturate(1.15);
+  box-shadow:
+    0 0 0 2px var(--panel),
+    0 0 10px 3px var(--c, var(--sec-quiet));
+  animation: glow 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    box-shadow:
+      0 0 0 2px var(--panel),
+      0 0 6px 1px var(--c, var(--sec-quiet));
+  }
+  to {
+    box-shadow:
+      0 0 0 2px var(--panel),
+      0 0 14px 5px var(--c, var(--sec-quiet));
+  }
 }
 
 /* The playhead: a line over the strip, moved by transform. */
@@ -370,47 +451,31 @@ body.playing .when-playing {
   border-color: var(--playhead) transparent transparent;
 }
 
-.playhead[hidden] {
-  display: none;
-}
+/* ---- No motion ---------------------------------------------------------- */
 
-/* The section playing now. */
-.sec.now {
-  position: relative;
-  font-weight: 600;
-  filter: brightness(1.12) saturate(1.15);
-  box-shadow:
-    0 0 0 2px var(--panel),
-    0 0 10px 3px var(--c, var(--sec-quiet));
-  animation: glow 1.6s ease-in-out infinite alternate;
-}
-
-@keyframes glow {
-  from {
-    box-shadow:
-      0 0 0 2px var(--panel),
-      0 0 6px 1px var(--c, var(--sec-quiet));
-  }
-  to {
-    box-shadow:
-      0 0 0 2px var(--panel),
-      0 0 14px 5px var(--c, var(--sec-quiet));
-  }
-}
-
+/* A long title is cut short instead of scrolling, and the section playing
+   holds still. */
 @media (prefers-reduced-motion: reduce) {
+  #title.scrolling {
+    mask-image: none;
+    text-overflow: ellipsis;
+  }
+  #title.scrolling .marquee-track {
+    display: inline;
+    animation: none;
+  }
+  #title.scrolling .marquee-text + .marquee-text {
+    display: none;
+  }
   .sec.now {
     animation: none;
   }
 }
 
-/* The ?debug=true instrument panel. */
+/* ---- The ?debug=true instrument panel (debug/panel.ts) ----------------- */
+
 .debug {
   margin: 0 0 20px;
-  padding: 16px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 12px;
 }
 
 .debug h2,
@@ -433,6 +498,12 @@ body.playing .when-playing {
   font-size: 13px;
 }
 
+.debug-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* One grid for every row, so the columns line up. */
 .debug-rows {
   display: grid;
   grid-template-columns: max-content 1fr minmax(180px, 280px);
@@ -461,19 +532,8 @@ body.playing .when-playing {
 }
 
 .debug select {
-  font: inherit;
-  font-size: 14px;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 5px 8px;
   min-width: 0;
-}
-
-.debug-actions {
-  display: flex;
-  gap: 8px;
+  padding: 5px 8px;
 }
 
 .debug-changes {
@@ -510,51 +570,4 @@ body.playing .when-playing {
   .debug-plays {
     grid-area: plays;
   }
-}
-
-.error {
-  margin: 12px 0 0;
-  color: var(--error);
-  font-size: 13px;
-}
-
-.error[hidden] {
-  display: none;
-}
-
-/* The export button's icon, a spinner while the file is written. */
-.icon {
-  display: inline-grid;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-}
-
-.busy .icon svg {
-  display: none;
-}
-
-.busy .icon {
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-button:disabled {
-  cursor: progress;
-  opacity: 0.75;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(1turn);
-  }
-}
-
-footer {
-  margin-top: 16px;
-  padding-bottom: 32px;
-  color: var(--muted);
-  font-size: 13px;
 }
