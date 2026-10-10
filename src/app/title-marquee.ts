@@ -21,6 +21,10 @@ export class TitleMarquee {
     const text = () => span('marquee-text', title, ' ', span('title-aside', joinAside(aside, join)));
     const copy = text();
     copy.setAttribute('aria-hidden', 'true');
+    // A new title starts still: were it to start with the last one's
+    // scrolling on, it would be animated before fit() gave it its own
+    // distance and duration, and some browsers keep that empty animation.
+    this.box.classList.remove('scrolling');
     this.box.replaceChildren(span('marquee-track', text(), copy));
     this.fit();
   }
@@ -32,12 +36,15 @@ export class TitleMarquee {
     const text = track?.firstElementChild as HTMLElement | null;
     if (!track || !text) return;
     const width = text.getBoundingClientRect().width;
-    const scrolling = width > box.clientWidth + 1;
-    box.classList.toggle('scrolling', scrolling);
-    if (!scrolling) return;
+    if (width <= box.clientWidth + 1) {
+      box.classList.remove('scrolling');
+      return;
+    }
+    // Its distance and duration first, then the scrolling that uses them.
     const distance = width + MARQUEE.gap;
     track.style.setProperty('--distance', `${distance}px`);
     track.style.setProperty('--gap', `${MARQUEE.gap}px`);
     track.style.setProperty('--duration', `${distance / MARQUEE.speed / (1 - MARQUEE.pause)}s`);
+    box.classList.add('scrolling');
   }
 }
