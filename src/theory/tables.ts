@@ -101,7 +101,8 @@ export const SYMBOL_SCALES: Readonly<Record<string, string>> = {
 };
 
 // A chromatic chord's usual chord-scale, by family. A dominant
-// resolving to a minor chord takes DOM_TO_MINOR_SCALE instead.
+// resolving to a minor chord takes DOM_TO_MINOR_SCALE instead, and one
+// falling a half step TRITONE_SUB_SCALE.
 export const FAMILY_SCALES: Readonly<Record<ChordClass, string>> = {
   maj: 'lydian',
   min: 'dorian',
@@ -112,5 +113,7 @@ export const FAMILY_SCALES: Readonly<Record<ChordClass, string>> = {
   power: 'mixolydian',
 };
 export const DOM_TO_MINOR_SCALE = 'phrygian:dominant';
+// A tritone sub's chord-scale: its #11 is the 5th of the chord it stands for.
+export const TRITONE_SUB_SCALE = 'lydian:dominant';
 
 export const NUMERALS: Readonly<Record<string, number>> = { i: 0, ii: 2, iii: 4, iv: 5, v: 7, vi: 9, vii: 11 };

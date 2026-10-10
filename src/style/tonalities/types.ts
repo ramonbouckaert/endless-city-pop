@@ -52,6 +52,7 @@ export interface TonalityDef {
   tonics: readonly number[]; // pitch classes a seed may pick
   tonic: ChordClass; // the tonic chord's family
   tonicPalette?: PaletteName; // its colours, if not the family's own
+  borrowedPalette?: PaletteName; // a major chord off the key's, if not lydian's
   reharm: number; // times the style's reharm amount
   finale: readonly (readonly [symbol: string, scale: string])[];
   approach: readonly (readonly ChordSpec[])[]; // two bars into the tonic

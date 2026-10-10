@@ -138,7 +138,7 @@ export class BuildContext {
     const len = this.plan.first(Chorus)?.bars ?? 8;
     if (len <= 8) return bars;
     const tag = new Template(rng.pick(this.tonality.templates.tag)).fit(len - 8);
-    return [...bars, ...new Harmonizer(this.key, rng.fork('tag')).realize(tag)];
+    return [...bars, ...new Harmonizer(this.key, rng.fork('tag')).realise(tag)];
   });
 
   /** The chorus's melody (the intro's teaser and the breakdown's line too). */

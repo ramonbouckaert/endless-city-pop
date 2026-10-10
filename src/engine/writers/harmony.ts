@@ -34,33 +34,38 @@ export class Harmonizer {
    */
   progression(template: string, bars: number, { ending = false, reharm = true } = {}): Bar[] {
     const t = new Template(template);
-    const realized = this.realize(ending ? t.fitEnding(bars) : t.fit(bars));
+    const realized = this.realise(ending ? t.fitEnding(bars) : t.fit(bars));
     return reharm ? this.reharmonize(realized) : realized;
   }
 
   /** Each numeral as a concrete extended chord. */
-  realize(bars: Roman[][]): Bar[] {
+  realise(bars: Roman[][]): Bar[] {
     const flat = bars.flat();
     const chords = flat.map((rn, i) => {
-      const next = flat[(i + 1) % flat.length];
       const root = rn.root(this.key);
-      const down5 = (root - next.root(this.key) + 12) % 12 === 7;
-      // In jazz harmony an unadorned V is still a dominant.
-      const cls = rn.cls === 'maj' && rn.offset === 7 && down5 ? 'dom' : rn.cls;
-      const { tonic, tonicPalette } = this.tonality;
-      // A minor key's V is altered wherever it goes, even into the next section.
-      const minorV = this.key.minor && rn.offset === 7;
-      let palette: PaletteName;
-      if (rn.offset === 0 && cls === tonic && tonicPalette) palette = tonicPalette;
-      else if (cls === 'dom' && ((down5 && (next.cls === 'min' || next.cls === 'hdim')) || minorV))
-        palette = 'domToMinor';
-      else if (cls === 'sus' && minorV) palette = 'susToMinor';
-      else if (cls === 'maj' && this.key.modeAt(root) !== 'major')
-        palette = 'majLydian'; // major chords take #11 unless they are the key's ionian chord
-      else palette = cls;
+      const palette = this.palette(rn, flat[(i + 1) % flat.length]);
       return new Chord(root, this.rng.weightedKey(PALETTE[palette]));
     });
     return this.scaled(Chord.inBars(chords, bars));
+  }
+
+  // The colours a numeral takes, by its family, where it sits in the key and the numeral after it.
+  private palette(rn: Roman, next: Roman): PaletteName {
+    const root = rn.root(this.key);
+    const down5 = (root - next.root(this.key) + 12) % 12 === 7;
+    // In jazz harmony an unadorned V is still a dominant.
+    const cls = rn.cls === 'maj' && rn.offset === 7 && down5 ? 'dom' : rn.cls;
+    const { tonic, tonicPalette, borrowedPalette } = this.tonality;
+    // A minor key's V is altered wherever it goes, even into the next section.
+    const minorV = this.key.minor && rn.offset === 7;
+    if (rn.offset === 0 && cls === tonic && tonicPalette) return tonicPalette;
+    if (cls === 'dom' && ((down5 && (next.cls === 'min' || next.cls === 'hdim')) || minorV)) return 'domToMinor';
+    if (cls === 'sus' && minorV) return 'susToMinor';
+    if (cls === 'maj' && borrowedPalette && this.key.modeAt(root) === undefined) return borrowedPalette;
+    // Major chords take #11 unless they are the key's ionian chord.
+    if (cls === 'maj' && this.key.modeAt(root) !== 'major') return 'majLydian';
+    if (cls === 'min' && this.key.modeAt(root) === 'phrygian') return 'minPhrygian';
+    return cls;
   }
 
   /** Tritone subs, related ii chords and secondary dominants. */
@@ -201,8 +206,8 @@ export class SoloChangesWriter {
     let lead: Keyed[];
     if (shape === 'cycle') lead = this.pairs(3);
     else if (shape === 'home')
-      lead = [{ bars: harmony.realize(new Template(TONIC_CHORDS[tonic]).fit(2)), key: home }, ...this.pairs(2)];
-    else lead = [{ bars: harmony.realize(new Template(rng.pick(templates.vamp)).fit(6)), key: home }];
+      lead = [{ bars: harmony.realise(new Template(TONIC_CHORDS[tonic]).fit(2)), key: home }, ...this.pairs(2)];
+    else lead = [{ bars: harmony.realise(new Template(rng.pick(templates.vamp)).fit(6)), key: home }];
     return [...lead, { bars: harmony.approach(), key: home }];
   }
 

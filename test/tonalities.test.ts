@@ -44,6 +44,45 @@ describe('tonalities', () => {
     }
   });
 
+  it("keeps the 9th off a minor chord on the key's phrygian degree", () => {
+    const cases: [Mode, string][] = [
+      ['major', 'iii7 vi7'],
+      ['dorian', 'ii7 i7'],
+      ['mixolydian', 'vi7 I7'],
+    ];
+    for (const [mode, template] of cases) {
+      for (let i = 0; i < 20; i++) {
+        const key = new Key(0, mode);
+        const chord = new Harmonizer(key, new Rng(`p${i}`)).progression(template, 2, { reharm: false })[0][0];
+        expect(chord.symbol).toBe('m7');
+        expect(chord.scale).toBe('phrygian');
+      }
+    }
+  });
+
+  it('keeps chords borrowed into a mixolydian key plain', () => {
+    for (let i = 0; i < 20; i++) {
+      const [[bIII], , [bVI]] = new Harmonizer(new Key(7, 'mixolydian'), new Rng(`b${i}`)).progression(
+        'bIIImaj7 IVmaj7 bVImaj7 bVIImaj7',
+        4,
+        { reharm: false },
+      );
+      for (const chord of [bIII, bVI]) expect(symbols('majBorrowed')).toContain(chord.symbol);
+    }
+  });
+
+  it('gives a dorian song modal bridges', () => {
+    const dorian = TONALITIES.dorian;
+    expect(dorian.bridgeKeys.some((k) => k.mode === 'dorian')).toBe(true);
+    for (const text of dorian.bridges) expect(new Template(text).length).toBe(6);
+  });
+
+  it('plays a tritone sub over lydian dominant', () => {
+    const key = new Key(0, 'major');
+    const [[, sub]] = new Harmonizer(key, new Rng('t')).progression('[iii7 bIII7] ii7', 2, { reharm: false });
+    expect(sub.scale).toBe('lydian:dominant');
+  });
+
   it('cadences home in the way of each mode', () => {
     const names = (mode: Mode) => {
       const key = new Key(0, mode);
@@ -52,8 +91,8 @@ describe('tonalities', () => {
         .flat()
         .map((c) => c.name(key));
     };
-    expect(names('minor')[0]).toBe('Dm7b5'); // iiø-V7alt-i
-    expect(names('minor')[1]).toMatch(/^G(7alt|7b9|13b9)$/);
+    expect(names('minor')[0]).toMatch(/^Fm(9|11)$/); // iv-bVII-i
+    expect(names('minor')[1]).toMatch(/^Bb(13|9)$/);
     expect(names('dorian')[1]).toMatch(/^F(13|9)$/); // IV7-i
     expect(names('mixolydian')[1]).toMatch(/^Bb/); // bVII-I7
   });

@@ -46,7 +46,7 @@ describe('section materials', () => {
     let fromHome = 0;
     let notes = 0;
     const graces: Grace[] = [];
-    const minorHalfDiminished: number[] = [];
+    const minorIvBVII: number[] = [];
     for (const song of songs) {
       for (const [i, sec] of song.form.ofType(SoloSection).entries()) {
         const mat = sec.material;
@@ -91,7 +91,13 @@ describe('section materials', () => {
         const first = mat.bars[0][0];
         if (first.root === song.key.tonic && first.cls === TONALITIES[song.key.mode].tonic) fromHome++;
         if (song.key.mode === 'minor') {
-          minorHalfDiminished.push(mat.bars.flat().filter((c) => c.symbol === 'm7b5').length);
+          // A bVII dominant after a minor chord a fourth below it (iv-bVII, in whichever key).
+          const chords = mat.bars.flat();
+          minorIvBVII.push(
+            chords.filter(
+              (c, i) => i > 0 && c.dominant && chords[i - 1].minorish && (c.root - chords[i - 1].root + 12) % 12 === 5,
+            ).length,
+          );
         }
       }
     }
@@ -108,8 +114,8 @@ describe('section materials', () => {
     const slurred = graces.filter((g) => g.slur).length / graces.length;
     expect(slurred).toBeGreaterThan(0.4);
     expect(slurred).toBeLessThan(0.8);
-    // Minor solos move through minor ii-Vs.
-    expect(minorHalfDiminished.filter((n) => n >= 2).length).toBeGreaterThan(minorHalfDiminished.length / 2);
+    // Minor solos move through iv-bVIIs, not dark ii-Vs.
+    expect(minorIvBVII.filter((n) => n >= 2).length).toBeGreaterThan(minorIvBVII.length / 2);
   });
 
   it('varies the pre-chorus', () => {

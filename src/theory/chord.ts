@@ -1,7 +1,7 @@
 import type { Key } from './key';
 import { PitchClass } from './pitch';
 import { Scale } from './scale';
-import { CHORDS, DOM_TO_MINOR_SCALE, FAMILY_SCALES, SYMBOL_SCALES, type ChordClass } from './tables';
+import { CHORDS, DOM_TO_MINOR_SCALE, FAMILY_SCALES, SYMBOL_SCALES, TRITONE_SUB_SCALE, type ChordClass } from './tables';
 
 /** The chords of one bar: one, or two splitting it. */
 export type Bar = readonly Chord[];
@@ -70,6 +70,11 @@ export class Chord {
     return `${key.spell(this.root)}${this.symbol}`;
   }
 
+  /** A tritone substitute's resolution: down a half step. */
+  fallsSemitoneTo(other: Chord): boolean {
+    return PitchClass.of(this.root - other.root) === 1;
+  }
+
   fallsFifthTo(other: Chord): boolean {
     return PitchClass.of(this.root - other.root) === 7;
   }
@@ -87,13 +92,15 @@ export class Chord {
 
   /**
    * The chord-scale in a key: the symbol's own, else the key's mode when
-   * the chord is diatonic, else the usual one for its family.
+   * the chord is diatonic, else lydian dominant for a dominant falling a
+   * half step (a tritone sub), else the usual one for its family.
    */
   fitScale(key: Key, next: Chord): string {
     if (SYMBOL_SCALES[this.symbol]) return SYMBOL_SCALES[this.symbol];
     const mode = key.modeAt(this.root);
     if (mode !== undefined && this.pcs.every((pc) => key.has(pc))) return mode;
     if (this.dominant && this.resolvesToMinor(key, next) && this.fits(DOM_TO_MINOR_SCALE)) return DOM_TO_MINOR_SCALE;
+    if (this.dominant && this.fallsSemitoneTo(next) && this.fits(TRITONE_SUB_SCALE)) return TRITONE_SUB_SCALE;
     return FAMILY_SCALES[this.cls];
   }
 
