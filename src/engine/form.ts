@@ -6,7 +6,7 @@
 // type plays the same material; a section longer than it loops it.
 
 import type { Rng } from './random';
-import type { SectionOpts, SectionType, Turnaround, Weighted } from './types';
+import type { OutroStyle, SectionOpts, SectionType, Turnaround, Weighted } from './types';
 
 export const FORM = {
   preBars: [0, 2, 4, 4, 6, 8],
@@ -34,7 +34,12 @@ export const FORM = {
     maxShift: 4,
   },
   finalChoruses: [[1, 2], [2, 4], [3, 1]] as Weighted<number>,
-  outroChance: 0.75,
+  outro: {
+    chance: 0.75,
+    styles: [['reprise', 1], ['trade', 1]] as Weighted<OutroStyle>,
+    // Trading twos: each soloist gets two turns.
+    bars: { reprise: 4, trade: 8 } as Record<OutroStyle, number>,
+  },
 };
 
 export class Section {
@@ -50,10 +55,11 @@ export class Section {
   }
 
   describe(): string {
-    const { liftTo, turnaround } = this.opts;
+    const { liftTo, turnaround, outro } = this.opts;
     if (liftTo) return `${this.type} (to +${liftTo}, ${turnaround}) ${this.bars}`;
+    const stylePart = outro ? ` ${outro}` : '';
     const shiftPart = this.shift ? ` (+${this.shift})` : '';
-    return `${this.type}${shiftPart} ${this.bars}`;
+    return `${this.type}${stylePart}${shiftPart} ${this.bars}`;
   }
 }
 
@@ -156,7 +162,10 @@ export class FormPlanner {
       const big = i === finals - 1;
       s.push(new Section('chorus', this.chorusBars, { answer: true, big, shift }));
     }
-    if (rng.chance(FORM.outroChance)) s.push(new Section('outro', 4, { shift }));
+    if (rng.chance(FORM.outro.chance)) {
+      const outro = rng.weighted(FORM.outro.styles);
+      s.push(new Section('outro', FORM.outro.bars[outro], { shift, outro }));
+    }
     s.push(new Section('finale', 2, { shift }));
     return s;
   }

@@ -48,7 +48,11 @@ export interface SectionOpts {
   soloist?: number;
   liftTo?: number;
   turnaround?: string;
+  outro?: OutroStyle;
 }
+// How the song winds down before the finale: the intro's chords again,
+// quietly, or the band vamping while two soloists trade lines.
+export type OutroStyle = 'reprise' | 'trade';
 
 // ---- Lines ----------------------------------------------------------
 
@@ -189,6 +193,7 @@ export interface Material {
   entry?: DrumEntry; // vamp only: how the drums start the opening vamp
   lifts?: Lift[]; // lift only: one per lift in the form, in order
   ending?: FinaleStyle; // finale only
+  outro?: OutroStyle; // outro only
   drums?: Drums;
   bass?: Bass;
   // drumBreak: the chord, section and shift it hands over to.

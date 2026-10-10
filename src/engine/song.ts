@@ -139,7 +139,14 @@ function buildMaterials(key: Key, form: Section[], rng: Rng): Materials {
   const { intro, outro, introHarmony, texture } = buildIntro(key, form, rng, chorusBars);
   const bridge = buildBridge(key, form, rng);
   const solos = buildSolos(key, form, rng);
-  let m: Materials = { ...harmony, intro, ...(outro ? { outro } : {}), ...(bridge ? { bridge } : {}), ...solos };
+  const closing = outro ?? buildTrade(key, form, rng, harmony.vamp?.bars);
+  let m: Materials = {
+    ...harmony,
+    intro,
+    ...(closing ? { outro: closing } : {}),
+    ...(bridge ? { bridge } : {}),
+    ...solos,
+  };
   m = buildMelodies(key, rng, m, introHarmony);
   const drumBreakMat = buildDrumBreak(key, form, m);
   if (drumBreakMat) m = { ...m, drumBreak: drumBreakMat };
@@ -230,7 +237,8 @@ function buildIntro(
   else bars = progress(key, introRng.pick(tonality(key).templates.intro), 4, introRng);
   const texture = introRng.pick(Object.keys(STYLE.introTextures) as IntroTexture[]);
   const intro: Material = { type: 'intro', key, bars, harmony: introHarmony, texture };
-  const outro: Material | undefined = has(form, 'outro') ? { type: 'outro', key, bars } : undefined;
+  const reprise = section(form, 'outro')?.opts.outro === 'reprise';
+  const outro: Material | undefined = reprise ? { type: 'outro', key, bars, outro: 'reprise' } : undefined;
   return { intro, outro, introHarmony, texture };
 }
 
@@ -257,6 +265,17 @@ function buildSolos(key: Key, form: Section[], rng: Rng): Partial<Materials> {
     result[type] = { type, key, bars, solo: Solo.improvise(bars, soloRng.fork('line')) };
   }
   return result;
+}
+
+// An outro where two soloists trade lines over the vamp's changes, or a
+// vamp of its own when the song has none.
+function buildTrade(key: Key, form: Section[], rng: Rng, vamp: Bar[] | undefined): Material | null {
+  const sec = section(form, 'outro');
+  if (sec?.opts.outro !== 'trade') return null;
+  const tradeRng = rng.fork('trade');
+  const loop = vamp ?? progress(key, tradeRng.pick(tonality(key).templates.vamp), 4, tradeRng.fork('vamp'));
+  const bars = Array.from({ length: sec.bars }, (_, i) => loop[i % loop.length]);
+  return { type: 'outro', key, bars, outro: 'trade', solo: Solo.improvise(bars, tradeRng.fork('line')) };
 }
 
 function buildMelodies(key: Key, rng: Rng, m: Materials, introHarmony: IntroHarmony): Materials {
@@ -309,6 +328,9 @@ function buildRhythm(rng: Rng, m: Materials, texture: IntroTexture): Materials {
     if (mat.type === 'intro') {
       plan = intro.drums;
       feels = intro.bass;
+    } else if (mat.outro === 'trade') {
+      plan = STYLE.drums.vamp!;
+      feels = STYLE.bassFeels.vamp!;
     } else if (mat.flavour) {
       plan = PRE_FLAVOURS[mat.flavour].drums;
       feels = PRE_FLAVOURS[mat.flavour].bass;

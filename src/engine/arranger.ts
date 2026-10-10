@@ -7,7 +7,7 @@ import { mini } from '@strudel/mini';
 import { Band, DOUBLE_TOP, FIGURES, type Instruments, Mini, TAIL_SECONDS } from './band';
 import { BassWriter } from './bass';
 import { STYLE } from './constants';
-import type { Section } from './form';
+import { FORM, type Section } from './form';
 import { type Melody, Solo } from './melody';
 import { Chord } from './music';
 import type { Song } from './song';
@@ -87,7 +87,7 @@ class SectionArranger {
 
   // The material whose harmony this section plays.
   private get harmony(): Material {
-    return this.sec.type === 'outro' ? this.song.material('intro') : this.mat;
+    return this.mat.outro === 'reprise' ? this.song.material('intro') : this.mat;
   }
   private get C(): Pattern {
     return Mini.chords(this.harmony.bars!, this.harmony.key);
@@ -175,6 +175,7 @@ class SectionArranger {
 
   private outro(): ReturnType<SectionArranger['parts']> {
     const { band, C } = this;
+    if (this.mat.outro === 'trade') return this.trade();
     return { drums: this.drums(), pitched: [band.softKeys(C), band.strings(C), this.B.gain(0.6), this.teaser()] };
   }
 
@@ -330,31 +331,55 @@ class SectionArranger {
   // The first soloist plays over the band; the second over a bossa comp.
   private solo(): ReturnType<SectionArranger['parts']> {
     const { band, C } = this;
-    const { soloists } = band.sounds;
-    const [sound, gain] = soloists[this.sec.opts.soloist! % soloists.length];
     const bossa = this.sec.type === 'solo2';
-    const solo = this.mat.solo!;
     return {
       drums: this.drums(),
       pitched: [
         this.B,
         bossa ? band.keys(C, STYLE.comp.bossa).gain(0.26) : band.keys(C).gain(0.3),
         bossa ? band.strings(C).gain(0.08) : band.clav(C),
-        band
-          .voiced(
-            band
-              .line(Mini.perBar(solo.render()), this.S, 24)
-              .penv(Mini.perBar(solo.slides()))
-              .pattack(Solo.slide),
-            sound,
-          )
-          .gain(gain)
-          .room(0.3)
-          .delay(0.15)
-          .delaytime(0.27)
-          .pan(bossa ? 0.42 : 0.55),
+        this.soloist(this.sec.opts.soloist!, this.soloLine()).pan(bossa ? 0.42 : 0.55),
       ],
     };
+  }
+
+  // The band vamps while two soloists (the song's, if it had solos)
+  // trade two-bar lines.
+  private trade(): ReturnType<SectionArranger['parts']> {
+    const { band, C, len, song } = this;
+    const count = band.sounds.soloists.length;
+    const soloed = song.form.flatMap((s) => (s.opts.soloist === undefined ? [] : [s.opts.soloist]));
+    const [first, second = first] = [...new Set([...soloed, ...FORM.soloists].map((i) => i % count))];
+    const line = this.soloLine();
+    // Two bars each: the first soloist on bars 1-2, 5-6, ...
+    const turns = (mine: number) =>
+      Mini.perBar(Array.from({ length: len }, (_, b) => (Math.floor(b / 2) % 2 === mine ? '1' : '0')));
+    return {
+      drums: this.drums(),
+      pitched: [
+        this.B,
+        band.keys(C).gain(0.3),
+        band.clav(C),
+        this.soloist(first, line.mask(turns(0))).pan(0.4),
+        this.soloist(second, line.mask(turns(1))).pan(0.62),
+      ],
+    };
+  }
+
+  // This section's improvised line, slurs and all.
+  private soloLine(): Pattern {
+    const solo = this.mat.solo!;
+    return this.band
+      .line(Mini.perBar(solo.render()), this.S, 24)
+      .penv(Mini.perBar(solo.slides()))
+      .pattack(Solo.slide);
+  }
+
+  // A line on one of the song's soloists, in the solo room.
+  private soloist(index: number, line: Pattern): Pattern {
+    const { soloists } = this.band.sounds;
+    const [sound, gain] = soloists[index % soloists.length];
+    return this.band.voiced(line, sound).gain(gain).room(0.3).delay(0.15).delaytime(0.27);
   }
 
   // The hook over pads, keys coming in halfway.

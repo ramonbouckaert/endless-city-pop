@@ -272,6 +272,28 @@ describe('Song', () => {
     expect(new Set(intros.map((m) => m.harmony))).toEqual(new Set(STYLE.introHarmony.map(([name]) => name)));
   });
 
+  it('winds down in an outro of either style', () => {
+    const songs = Array.from({ length: 150 }, (_, i) => Song.generate(`outro${i}`));
+    const styles = new Set<string>();
+    for (const song of songs) {
+      const sec = song.form.find((s) => s.type === 'outro');
+      if (!sec) continue;
+      const mat = song.materials.outro!;
+      styles.add(mat.outro!);
+      expect(mat.outro).toBe(sec.opts.outro);
+      expect(sec.bars).toBe(FORM.outro.bars[mat.outro!]);
+      if (mat.outro === 'trade') {
+        // A line for every bar, over a vamp, for the soloists to trade.
+        expect(mat.bars).toHaveLength(sec.bars);
+        expect(mat.solo!.bars).toHaveLength(sec.bars);
+        expect(mat.bass?.pattern).toBeTruthy();
+      } else {
+        expect(mat.bars).toBe(song.materials.intro!.bars);
+      }
+    }
+    expect(styles).toEqual(new Set(['reprise', 'trade']));
+  });
+
   it('varies the finale', () => {
     const endings = Array.from({ length: 100 }, (_, i) => Song.generate(`finale${i}`).materials.finale!.ending);
     expect(new Set(endings)).toEqual(new Set(FINALE_STYLES.map(([name]) => name)));
