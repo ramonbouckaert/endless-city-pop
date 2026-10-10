@@ -1,6 +1,6 @@
 // Print a generated song's outline.
 // Usage: scripts/run-node.sh scripts/generate.ts [seed]
-import { Song } from '../src/engine';
+import { Song } from '../src/model';
 
 const [seed = 'demo'] = process.argv.slice(2);
 const song = Song.generate(seed);

@@ -1,0 +1,17 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Song > writes the same chorus for a seed as it did 1`] = `"G major"`;
+
+exports[`Song > writes the same chorus for a seed as it did 2`] = `
+[
+  "G69",
+  "E7alt",
+  "Am9",
+  "D13",
+  "Bm9",
+  "E7alt",
+  "Am9",
+  "Am9",
+  "D9",
+]
+`;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Key } from '../src/engine';
-import { DRUM_CHANNEL, keySignature, PPQ, vlq, writeMidi, type MidiSong } from '../src/engine/midi';
+import { Key } from '../src/theory';
+import { DRUM_CHANNEL, keySignature, PPQ, vlq, writeMidi, type MidiSong } from '../src/midi/writer';
 
 // A small Standard MIDI File reader: each track's events with absolute ticks.
 function read(bytes: Uint8Array) {
@@ -107,7 +107,14 @@ describe('MIDI', () => {
     const [, track] = read(writeMidi(song([{ name: 'sax', channel: 2, program: 65, notes }]))).tracks;
     const ccs = track.filter((e) => e.status === 0xb2).map((e) => e.data);
     // The bend range reaches the widest slide, three semitones.
-    expect(ccs).toEqual([[101, 0], [100, 0], [6, 3], [38, 0], [101, 127], [100, 127]]);
+    expect(ccs).toEqual([
+      [101, 0],
+      [100, 0],
+      [6, 3],
+      [38, 0],
+      [101, 127],
+      [100, 127],
+    ]);
     const bends = track
       .filter((e) => e.status === 0xe2)
       .map((e) => ({ tick: e.tick, bend: e.data[0] + (e.data[1] << 7) - 8192 }));
