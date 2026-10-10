@@ -1,5 +1,5 @@
 // The soundfont the band plays from: GeneralUser GS (S. Christian
-// Collins; licence in public/soundfonts/), trimmed to what a song can
+// Collins; licence in public/licenses/), trimmed to what a song can
 // play and compressed by scripts/build-soundfont.ts. Vite serves it under
 // a name with its content's hash, so this browser keeps it in Cache
 // Storage until it changes.

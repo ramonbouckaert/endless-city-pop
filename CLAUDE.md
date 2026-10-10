@@ -48,7 +48,8 @@ src/
             TitleMarquee, autoplay, midi-download; storage.ts remembers values in this browser; time.ts holds the
             pure clock helpers
 src/app/soundfont/  the app's soundfont: GeneralUser GS trimmed and compressed by scripts/build-soundfont.ts
-public/soundfonts/  GeneralUser GS's licence
+public/licenses/   the licences of what the app ships (GeneralUser GS, SpessaSynth); vite.config.ts writes
+                    licenses/index.html listing them, linked from the footer
 ```
 
 Dependency rules:

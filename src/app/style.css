@@ -41,12 +41,24 @@
 
 /* ---- Page --------------------------------------------------------------- */
 
+/* Noto Serif JP's fullwidth Roman letters (and the ideographic space),
+   for titles like Ｃｉｔｙ　Ｐｏｐ: just those glyphs, served with the app.
+   A variable font, regular to bold. Licence: public/licenses/. */
+@font-face {
+  font-family: 'Noto Serif JP';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('./fonts/noto-serif-jp-fullwidth.woff2') format('woff2');
+  unicode-range: U+3000, U+FF21-FF3A, U+FF41-FF5A;
+}
+
 * {
   box-sizing: border-box;
 }
 
-/* Noto Serif JP (index.html) has only the fullwidth Roman letters of
-   titles like Ｃｉｔｙ　Ｐｏｐ: a Japanese serif, as on record sleeves. */
+/* Noto Serif JP (above) has only the fullwidth Roman letters of titles
+   like Ｃｉｔｙ　Ｐｏｐ: a Japanese serif, as on record sleeves. */
 body {
   margin: 0;
   background: var(--bg);

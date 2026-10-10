@@ -143,4 +143,6 @@ and presses Play.
 This project is AGPL-3.0-or-later (see `LICENSE`): if you host it, the
 source must stay available to its users. It bundles SpessaSynth
 (Apache-2.0) and serves its own copy of GeneralUser GS by S. Christian
-Collins, whose licence is in `public/soundfonts/GeneralUser-GS-LICENSE.txt`.
+Collins. Their licences are in `public/licenses/`, which the built app
+serves with a page listing them (`licenses/`, linked from the footer;
+`vite.config.ts` writes the list from the folder's files).
