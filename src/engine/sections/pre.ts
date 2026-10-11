@@ -4,7 +4,7 @@
 
 import { PRE_FLAVOURS, RHYTHMS, type PreFlavour } from '../../style';
 import type { Melody } from '../writers';
-import { rise, spans } from '../score';
+import { rise, spans, type NoteSpec } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection, type Plan, type PlayedMaterial } from './section';
@@ -41,6 +41,10 @@ export class PreChorus extends PlayedSection<PreChorusMaterial> {
         melody: ctx.melody(flavour.melody, key, bars, rng.fork('melody')),
       };
     });
+  }
+
+  override melodyOver(ctx: PlayedScoreContext): NoteSpec[] | undefined {
+    return ctx.line(this.material.melody);
   }
 
   protected play(ctx: PlayedScoreContext): Parts {

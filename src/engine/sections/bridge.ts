@@ -6,6 +6,7 @@ import type { Program } from '../../lib/general-midi';
 import { ADVENTUROUS, GROOVES, MELODIES, tonalityOf } from '../../style';
 import type { Sounds } from '../song';
 import { Harmonizer, type Melody } from '../writers';
+import type { NoteSpec } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection, swappedKeys, type Plan, type PlayedMaterial } from './section';
@@ -42,6 +43,10 @@ export class Bridge extends PlayedSection<BridgeMaterial> {
 
   override sounds(song: Sounds): Partial<Sounds> | undefined {
     return swappedKeys(this.material.keys, song);
+  }
+
+  override melodyOver(ctx: PlayedScoreContext): NoteSpec[] | undefined {
+    return ctx.line(this.material.melody);
   }
 
   protected play(ctx: PlayedScoreContext): Parts {

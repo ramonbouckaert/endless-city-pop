@@ -3,6 +3,7 @@
 
 import { FORM, OUTRO_STYLES, type OutroStyle } from '../../style';
 import { SoloWriter, type Melody, type Solo } from '../writers';
+import type { NoteSpec } from '../score';
 import type { BuildContext } from './build-context';
 import { Intro } from './intro';
 import type { Parts, PlayedScoreContext } from './score-context';
@@ -62,6 +63,11 @@ export class Outro extends PlayedSection<OutroMaterial> {
 
   protected override get label(): string {
     return `${super.label} ${this.variant}`;
+  }
+
+  override melodyOver(ctx: PlayedScoreContext): NoteSpec[] | undefined {
+    const mat = this.material;
+    return mat.trade ? undefined : ctx.teaserLine(mat.melody);
   }
 
   protected play(ctx: PlayedScoreContext): Parts {

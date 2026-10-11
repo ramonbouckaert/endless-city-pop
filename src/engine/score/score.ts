@@ -4,7 +4,7 @@
 
 import type { Program } from '../../lib/general-midi';
 import { loopBars } from '../../lib/steps';
-import type { Figure, Rhythm } from '../../style';
+import { MELODY_HELD, type Figure, type Rhythm } from '../../style';
 import type { PartPath } from '../song';
 import type { Bar, Chord } from '../../theory';
 
@@ -188,12 +188,24 @@ interface ChordSpan extends Span {
 export const onChord = (chord: Chord, degree: number, alter = 0): number =>
   chord.bassMidi + chord.chordScale.semis(degree) + alter;
 
-/** A section's chords over time: what plays when. */
+/** A section's chords over time: what plays when, and the melody notes held over them. */
 export class Changes {
   constructor(
     readonly spans: readonly ChordSpan[],
     readonly bars: number,
+    readonly melody: readonly NoteSpec[] = [],
   ) {}
+
+  /** The same chords under a melody: those played over its long notes (MELODY_HELD) make room for them. */
+  under(line: readonly NoteSpec[] | undefined): Changes {
+    const held = (line ?? []).filter((n) => n.dur >= MELODY_HELD);
+    return new Changes(this.spans, this.bars, [...this.melody, ...held]);
+  }
+
+  /** The pitches of the melody's long notes sounding during a span. */
+  heldOver({ time, dur }: Span): number[] {
+    return this.melody.filter((n) => n.time < time + dur && n.time + n.dur > time).map((n) => n.note);
+  }
 
   /** `bars` bars of a material's chords, looping them; two in a bar share it. */
   static of(material: readonly Bar[], bars: number): Changes {

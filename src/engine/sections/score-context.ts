@@ -98,15 +98,15 @@ export class PlayedScoreContext extends ScoreContext {
     return this.sec.material;
   }
 
-  // The section's chords, and the band's bass line over them, each built on first use.
-  private readonly changes = lazy(() => Changes.of(this.played.bars, this.len));
+  // The section's chords under its melody, and the band's bass line over them, each built on first use.
+  private readonly changes = lazy(() => Changes.of(this.played.bars, this.len).under(this.sec.melodyOver(this)));
   private readonly bassLine = lazy(() =>
     this.band.bass(
       this.played.bass.notes(this.len, (n, time) => onChord(this.C.at(time), n.degree.step, n.degree.alter)),
     ),
   );
 
-  /** The section's chords. */
+  /** The section's chords, making room for its melody. */
   get C(): Changes {
     return this.changes();
   }
@@ -167,7 +167,12 @@ export class PlayedScoreContext extends ScoreContext {
 
   /** The intro's line on bells, if it has one: an octave up, if it fits. */
   teaser(melody: Melody | undefined): Part | undefined {
-    return melody && this.band.bell(this.line(melody, this.octaveUp(melody)));
+    const line = this.teaserLine(melody);
+    return line && this.band.bell(line);
+  }
+  /** The teaser's notes. */
+  teaserLine(melody: Melody | undefined): NoteSpec[] | undefined {
+    return melody && this.line(melody, this.octaveUp(melody));
   }
 
   /** The section's drums; `enter` may hold a part back, by role. */

@@ -16,7 +16,7 @@
 import type { Program } from '../../lib/general-midi';
 import { FERMATA, type ClavFigure } from '../../style';
 import type { Bar, Key } from '../../theory';
-import type { ScoreBand } from '../score';
+import type { NoteSpec, ScoreBand } from '../score';
 import type { Sounds } from '../song';
 import type { BassLine, Drums } from '../writers';
 import type { BuildContext } from './build-context';
@@ -179,4 +179,9 @@ export abstract class PlayedSection<M extends PlayedMaterial = PlayedMaterial> e
 
   /** Which instruments play its material, and how. */
   protected abstract play(ctx: PlayedScoreContext): Parts;
+
+  /** The melody its chords make room for (its long notes), if it has one: its lead's line. */
+  melodyOver(_ctx: PlayedScoreContext): readonly NoteSpec[] | undefined {
+    return undefined;
+  }
 }

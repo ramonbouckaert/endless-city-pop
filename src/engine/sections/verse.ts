@@ -2,6 +2,7 @@
 
 import { GROOVES, MELODIES, THEME } from '../../style';
 import type { Melody } from '../writers';
+import type { NoteSpec } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection, type Plan, type PlayedMaterial } from './section';
@@ -37,6 +38,10 @@ export class Verse extends PlayedSection<VerseMaterial> {
         melody: ctx.melody(long ? MELODIES.theme : MELODIES.verse, ctx.key, bars, rng.fork('melody')),
       };
     });
+  }
+
+  override melodyOver(ctx: PlayedScoreContext): NoteSpec[] | undefined {
+    return ctx.line(this.material.melody);
   }
 
   protected play(ctx: PlayedScoreContext): Parts {

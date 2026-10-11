@@ -99,13 +99,14 @@ export class ScoreBand {
   }
 
   // Chords voiced on a part's sound (or one note of each voicing), at a
-  // level in the mix, topping out at its anchor.
-  private chords(part: ChordPart, hits: readonly ChordHit[], mix: MixName): Part {
+  // level in the mix, topping out at its anchor, each making room for the
+  // melody's long notes over it.
+  private chords(part: ChordPart, changes: Changes, hits: readonly ChordHit[], mix: MixName): Part {
     const level: Level = MIX[mix];
     const { anchor } = level;
     const style = SUSTAINED.has(part) ? this.voicings.sustain : this.voicings.comp;
     const specs = hits.flatMap(({ time, dur, chord, n }) => {
-      const voicing = Voicing.of(chord, anchor, style);
+      const voicing = Voicing.of(chord, anchor, style, changes.heldOver({ time, dur }));
       const notes = n === undefined ? voicing.notes : [voicing.note(n)];
       return notes.map((note) => ({ time, dur, note }));
     });
@@ -124,7 +125,7 @@ export class ScoreBand {
 
   // Chords on the keys at one of their levels, on a rhythm, each at its own velocity.
   private keysAt(mix: 'keys' | 'keysUnder' | 'comp', changes: Changes, rhythm: readonly Span[]): Part {
-    return this.chords('keys', this.on(changes, rhythm), mix).velocity(this.varied(0.8, 1));
+    return this.chords('keys', changes, this.on(changes, rhythm), mix).velocity(this.varied(0.8, 1));
   }
 
   // A velocity between `lo` and `hi`, different for each note.
@@ -144,13 +145,13 @@ export class ScoreBand {
     return this.keysAt('comp', changes, rhythm);
   }
   softKeys(changes: Changes): Part {
-    return this.chords('keys', changes.spans, 'softKeys');
+    return this.chords('keys', changes, changes.spans, 'softKeys');
   }
   softKeysUnder(changes: Changes): Part {
-    return this.chords('keys', changes.spans, 'softKeysUnder');
+    return this.chords('keys', changes, changes.spans, 'softKeysUnder');
   }
   arp(changes: Changes): Part {
-    return this.chords('keys', this.figure(changes, FIGURES.arp), 'arp');
+    return this.chords('keys', changes, this.figure(changes, FIGURES.arp), 'arp');
   }
   /** A sixteenth-note broken chord on the bells, doubled an octave up. */
   ostinato(changes: Changes): Part {
@@ -158,35 +159,37 @@ export class ScoreBand {
     const specs = this.figure(changes, FIGURES.ostinato).map(({ time, dur, chord, n = 0 }) => ({
       time,
       dur,
-      note: Voicing.of(chord, anchor).note(n),
+      note: Voicing.of(chord, anchor, 'close', changes.heldOver({ time, dur })).note(n),
     }));
     return Part.stack(this.play('bell', specs, MIX.ostinato), this.double(specs, 12, 'bell', MIX.ostinatoDouble));
   }
   /** The final chord, held on the keys. */
   finaleKeys(changes: Changes): Part {
-    return this.chords('keys', changes.spans, 'finaleKeys');
+    return this.chords('keys', changes, changes.spans, 'finaleKeys');
   }
   /** A line on the keys' sound, for the finale's run. */
   keysRun(specs: readonly NoteSpec[]): Part {
     return this.play('keys', specs, MIX.keysRun);
   }
   clav(changes: Changes, figure: Figure<number>): Part {
-    return this.chords('clav', this.figure(changes, figure), 'clav').velocity(this.varied(0.7, 1));
+    return this.chords('clav', changes, this.figure(changes, figure), 'clav').velocity(this.varied(0.7, 1));
   }
   scratch(changes: Changes): Part {
-    return this.chords('guitar', this.figure(changes, FIGURES.scratch), 'scratch').velocity(this.varied(0.7, 1));
+    return this.chords('guitar', changes, this.figure(changes, FIGURES.scratch), 'scratch').velocity(
+      this.varied(0.7, 1),
+    );
   }
   pad(changes: Changes): Part {
-    return this.chords('pad', changes.spans, 'pad');
+    return this.chords('pad', changes, changes.spans, 'pad');
   }
   strings(changes: Changes): Part {
-    return this.chords('strings', changes.spans, 'strings');
+    return this.chords('strings', changes, changes.spans, 'strings');
   }
   choir(changes: Changes): Part {
-    return this.chords('choir', changes.spans, 'choir');
+    return this.chords('choir', changes, changes.spans, 'choir');
   }
   stabs(changes: Changes, rhythm: readonly Span[] = spans(RHYTHMS.stab, changes.bars)): Part {
-    return this.chords('stabs', this.on(changes, rhythm), 'stabs');
+    return this.chords('stabs', changes, this.on(changes, rhythm), 'stabs');
   }
   /** A bass line, kept at or above the bass's lowest note. */
   bass(specs: readonly NoteSpec[]): Part {

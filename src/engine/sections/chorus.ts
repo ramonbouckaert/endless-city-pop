@@ -8,7 +8,7 @@ import { AnswerWriter, type Melody } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection, type Plan, type PlayedMaterial } from './section';
-import { spans } from '../score';
+import { spans, type NoteSpec } from '../score';
 
 export interface ChorusFields {
   /** Later choruses answer the hook. */
@@ -66,6 +66,10 @@ export class Chorus extends PlayedSection<ChorusMaterial> {
     const mat = this.material;
     if (this.big || mat.variant === 'line') return mat.answer;
     return mat.melody.bars.some((notes) => !notes.length) ? mat.answer.where(mat.melody.rests) : mat.answer.alternate;
+  }
+
+  override melodyOver(ctx: PlayedScoreContext): NoteSpec[] | undefined {
+    return ctx.line(this.material.melody);
   }
 
   protected play(ctx: PlayedScoreContext): Parts {

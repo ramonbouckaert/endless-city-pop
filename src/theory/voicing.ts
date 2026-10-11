@@ -23,16 +23,44 @@ export class Voicing {
   /** `notes`: its notes (MIDI, lowest first), the top one at or below the anchor. */
   private constructor(readonly notes: readonly number[]) {}
 
-  /** A chord voiced in a style (close position unless given another) under an anchor. */
-  static of(chord: Chord, anchor = Voicing.DEFAULT_ANCHOR, style: VoicingStyle = 'close'): Voicing {
+  /** The fewest notes a voicing keeps when it makes room for a melody. */
+  static readonly MIN_NOTES = 3;
+
+  /**
+   * A chord voiced in a style (close position unless given another) under
+   * an anchor, making room for `melody`: pitches (MIDI) a melody holds
+   * over it.
+   */
+  static of(
+    chord: Chord,
+    anchor = Voicing.DEFAULT_ANCHOR,
+    style: VoicingStyle = 'close',
+    melody: readonly number[] = [],
+  ): Voicing {
+    return new Voicing(Voicing.around(Voicing.voiced(chord, anchor, style), melody));
+  }
+
+  private static voiced(chord: Chord, anchor: number, style: VoicingStyle): number[] {
     switch (style) {
       case 'close':
-        return new Voicing(Voicing.close(Voicing.pcs(chord), anchor));
+        return Voicing.close(Voicing.pcs(chord), anchor);
       case 'quartal':
-        return new Voicing(Voicing.quartal(chord, anchor));
+        return Voicing.quartal(chord, anchor);
       case 'spread':
-        return new Voicing(Voicing.spread(chord, anchor));
+        return Voicing.spread(chord, anchor);
     }
+  }
+
+  // A voicing making room for a melody: a note a semitone or a minor
+  // ninth from a melody note (the 7th under a melody on the root, the
+  // 9th under one on a minor 3rd) drops out, while at least MIN_NOTES
+  // are left, the top note's clash first.
+  private static around(notes: readonly number[], melody: readonly number[]): number[] {
+    const clashes = (note: number) => melody.some((m) => [1, 13].includes(Math.abs(m - note)));
+    return notes.reduceRight<number[]>(
+      (kept, note) => (clashes(note) && kept.length > Voicing.MIN_NOTES ? kept.filter((n) => n !== note) : kept),
+      [...notes],
+    );
   }
 
   /** Note `n`, counting up from the lowest; past the top, the voicing an octave up. */

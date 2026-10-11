@@ -5,7 +5,7 @@ import type { Melody } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection, type Plan, type PlayedMaterial } from './section';
-import { spans } from '../score';
+import { spans, type NoteSpec } from '../score';
 
 export interface BreakdownMaterial extends PlayedMaterial {
   melody: Melody;
@@ -27,6 +27,10 @@ export class Breakdown extends PlayedSection<BreakdownMaterial> {
         melody: ctx.hook().take(bars.length),
       };
     });
+  }
+
+  override melodyOver(ctx: PlayedScoreContext): NoteSpec[] | undefined {
+    return ctx.line(this.material.melody);
   }
 
   protected play(ctx: PlayedScoreContext): Parts {

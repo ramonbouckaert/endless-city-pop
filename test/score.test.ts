@@ -129,6 +129,24 @@ describe('voicing', () => {
     }
   });
 
+  it('makes room for a melody, keeping at least three notes', () => {
+    for (const chord of chords) {
+      for (const style of ['close', 'quartal', 'spread'] as const) {
+        const plain = Voicing.of(chord, 72, style).notes;
+        for (const melody of [60, 63, 67, 68, 71, 74]) {
+          const notes = Voicing.of(chord, 72, style, [melody]).notes;
+          expect(plain).toEqual(expect.arrayContaining([...notes]));
+          expect(notes.length).toBeGreaterThanOrEqual(Math.min(plain.length, Voicing.MIN_NOTES));
+          if (notes.length > Voicing.MIN_NOTES) {
+            for (const n of notes) expect([1, 13]).not.toContain(Math.abs(melody - n));
+          }
+        }
+      }
+    }
+    // Cmaj7 under a melody on C: the B a semitone under it drops out.
+    expect(Voicing.of(new Chord(0, '^9'), 72, 'close', [72]).notes).not.toContain(71);
+  });
+
   it('counts past the top of a voicing an octave up', () => {
     const chord = new Chord(2, 'm9');
     const notes = Voicing.of(chord).notes;

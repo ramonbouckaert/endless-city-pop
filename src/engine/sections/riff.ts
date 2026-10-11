@@ -2,6 +2,7 @@
 
 import { GROOVES, MELODIES } from '../../style';
 import type { Melody } from '../writers';
+import type { NoteSpec } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection, type Plan, type PlayedMaterial } from './section';
@@ -26,6 +27,11 @@ export class Riff extends PlayedSection<RiffMaterial> {
         melody: ctx.melody(MELODIES.riff, ctx.key, bars, rng.fork('melody')),
       };
     });
+  }
+
+  // The chords make room for the horns' line, both its voices.
+  override melodyOver(ctx: PlayedScoreContext): NoteSpec[] | undefined {
+    return ctx.harmonized(this.material.melody, 2);
   }
 
   protected play(ctx: PlayedScoreContext): Parts {

@@ -3,7 +3,7 @@
 
 import { INTRO, INTRO_TEXTURES, MELODIES, RUN_INTO, type IntroHarmony, type IntroTexture } from '../../style';
 import type { Melody } from '../writers';
-import type { Part } from '../score';
+import type { NoteSpec, Part } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection, type Plan, type PlayedMaterial } from './section';
@@ -39,6 +39,13 @@ export class Intro extends PlayedSection<IntroMaterial> {
         run: rng.fork('run').chance(RUN_INTO),
       };
     });
+  }
+
+  override melodyOver(ctx: PlayedScoreContext): NoteSpec[] | undefined {
+    // The fanfare's horns play it as written; the bells, the teaser.
+    const { melody, variant } = this.material;
+    if (variant === 'ostinato') return undefined;
+    return melody && (variant === 'fanfare' ? ctx.line(melody) : ctx.teaserLine(melody));
   }
 
   protected play(ctx: PlayedScoreContext): Parts {
