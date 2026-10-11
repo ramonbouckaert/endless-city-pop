@@ -19,8 +19,19 @@ export const MIXOLYDIAN: TonalityDef = {
   templates: {
     // A verse's two-chord vamp (the approach home follows).
     verseVamp: ['I7 bVII/I', 'bVIImaj7 IV/V', 'I7 IV7', 'IV/I I7'],
-    vamp: ['I7 bVIImaj7', 'I7 IV7', 'I7 I7', 'I7 [v7 I7]', 'I7 v7', 'IV7 I7', 'I7 [bVIImaj7 IVmaj7]', 'I7 bIIImaj7'],
+    vamp: [
+      'I7 bVII/I',
+      'I7 bVIImaj7',
+      'I7 IV7',
+      'I7 I7',
+      'I7 [v7 I7]',
+      'I7 v7',
+      'IV7 I7',
+      'I7 [bVIImaj7 IVmaj7]',
+      'I7 bIIImaj7',
+    ],
     verse: [
+      'I7 bVII/I I7 bVII/I IVmaj7 IV/V I7 I7',
       'I7 IV7 I7 I7 IV7 IV7 I7 [ii7 V7]',
       'I7 bVIImaj7 I7 bVIImaj7 IVmaj7 IVmaj7 v7 bVIImaj7',
       'I7 I7 bVIImaj7 IVmaj7 I7 I7 bVIImaj7 IVmaj7',
@@ -30,6 +41,7 @@ export const MIXOLYDIAN: TonalityDef = {
       'IVmaj7 IVmaj7 I7 I7 v7 bVIImaj7 I7 I7',
     ],
     chorus: [
+      'bVIImaj7 IV/V I7 I7 bVIImaj7 IV/V v7 I7',
       'IVmaj7 bVIImaj7 I7 I7 IVmaj7 bVIImaj7 v7 I7',
       'I7 bIIImaj7 IVmaj7 I7 I7 bIIImaj7 IVmaj7 bVIImaj7',
       'IV7 IV7 I7 I7 V7 IV7 I7 V7',
@@ -47,6 +59,7 @@ export const MIXOLYDIAN: TonalityDef = {
       'IV7 [bIIImaj7 IV7]',
     ],
     riff: [
+      'I7 bVII/I',
       'I7 bVIImaj7',
       'I7 IV7',
       'I7 v7',

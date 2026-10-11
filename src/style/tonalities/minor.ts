@@ -2,9 +2,11 @@ import type { TonalityDef } from './types';
 
 // Bright funky minor (Just the Two of Us, Plastic Love, minor city pop):
 // the royal road bVImaj7-bVII7-v7-i7, bVI-bVII-i, the dorian IV7 of
-// minor funk, and iv7-bVII7 leading home in place of a dark V. The
-// iiø-V7alt of jazz minor turns up, but rarely. The tonic is a m9, m11
-// or m6/9.
+// minor funk, and iv7-bVII7 leading home in place of a dark V; the
+// iv7-bVII7-v7-i7 loop (ii-V-iii-vi of the relative major: ANRI's, Plastic
+// Love's), the line cliché down from the tonic (i, i/7, i/b7, i/6),
+// I7sus, and V+ as the dominant. The iiø-V7alt of jazz minor turns up,
+// but rarely. The tonic is a m9, m11 or m6/9.
 export const MINOR: TonalityDef = {
   tonics: [2, 7, 0, 5, 9, 4, 6, 11], // D G C F A E F# B
   tonic: 'min',
@@ -19,6 +21,8 @@ export const MINOR: TonalityDef = {
     // A verse's two-chord vamp (the approach home follows).
     verseVamp: ['iv7 v7', 'bVImaj7 bVII7', 'i7 IV7', 'iv7 bVII7', 'i7 i/b7'],
     vamp: [
+      'iv7 bVII7 v7 i7',
+      'i i/b7',
       'i7 IV7',
       'i7 bVII7',
       'i7 [iv7 bVII7]',
@@ -31,6 +35,10 @@ export const MINOR: TonalityDef = {
       'i7 i7 bVImaj7 bVImaj7',
     ],
     verse: [
+      'i i/7 i/b7 i/6 bVImaj7 bVII7 i7 i7',
+      'iv7 bVII7 v7 i7 iv7 bVII7 v7 i7',
+      'i i/7 i/b7 i/6 iv7 bVII7 bIIImaj7 V+',
+      'i7 i7 iv7 iv7 bVII7 bVII7 I7sus I7sus',
       'i7 IV7 i7 IV7 bVImaj7 bVII7 i7 i7',
       'i7 iv7 bVII7 bIIImaj7 bVImaj7 bVII7 i7 i7',
       'i7 bVII7 bVImaj7 bVII7 i7 bVII7 iv7 bVII7',
@@ -39,6 +47,9 @@ export const MINOR: TonalityDef = {
       'i7 I+ iv7 bVII7 bVImaj7 bVII7 i7 i7',
     ],
     chorus: [
+      'iv7 bVII7 v7 i7 iv7 bVII7 v7 i7',
+      'i i/7 i/b7 i/6 iv7 bVII7 bIIImaj7 V+',
+      'bVImaj7 bVII7 v7 i7 iv7 bVII7 I7sus I7sus',
       'bVImaj7 bVII7 i7 i7 bVImaj7 bVII7 i7 i7',
       'bVImaj7 bVII7 v7 i7 bVImaj7 bVII7 iv7 bVII7',
       'iv7 bVII7 bIIImaj7 bVImaj7 iv7 bVII7 i7 i7',
@@ -47,6 +58,8 @@ export const MINOR: TonalityDef = {
       'iv7 v7 bVImaj7 bVII7 iv7 v7 i7 i7',
     ],
     tag: [
+      'iv7 bVII7 v7 i7',
+      'iv7 I7sus',
       'bVImaj7 bVII7',
       'iv7 bVII7',
       'bVImaj7 V7sus',
@@ -64,6 +77,8 @@ export const MINOR: TonalityDef = {
       'IV7sus V7sus IV7sus V7sus bvi7 bII7',
     ],
     riff: [
+      'iv7 bVII7 v7 i7',
+      'i i/b7 i/6 bVImaj7',
       'i7 IV7',
       'i7 bVII7',
       'i7 v7',
@@ -75,6 +90,8 @@ export const MINOR: TonalityDef = {
       'i7 i7 bVImaj7 bVImaj7',
     ],
     intro: [
+      'iv7 bVII7 v7 i7',
+      'i i/7 i/b7 i/6',
       'i7 iv7',
       'i7 IV7',
       'i7 bVII7',
@@ -87,18 +104,26 @@ export const MINOR: TonalityDef = {
   },
   pre: {
     climb: [
+      'iv7 v7 bVImaj7 V+',
       'iv7 v7 bVImaj7 bVII7',
       'bIIImaj7 iv7 v7 bVII7',
       'iv7 [v7 bVImaj7] bVII7sus bVII7',
       'ii7 bIIImaj7 iv7 bVII7',
     ],
     pedal: [
+      'iv7 iv7 I7sus I7sus',
       'bVII7sus bVII7sus bVII7sus bVII7',
       'iv7 iv7 bVII7sus bVII7',
       'bVImaj7 bVImaj7 bVII7sus bVII7',
       'V7sus V7sus',
     ],
-    drop: ['bVImaj7 bVII7 iv7 bVII7', 'iv7 bVImaj7 ii7 V7sus', 'iv7 bVII7 bIIImaj7 bVImaj7 iv7 bVII7'],
+    drop: [
+      'i i/7 i/b7 i/6',
+      'i i/7 i/b7 i/6 bVImaj7 V7sus',
+      'bVImaj7 bVII7 iv7 bVII7',
+      'iv7 bVImaj7 ii7 V7sus',
+      'iv7 bVII7 bIIImaj7 bVImaj7 iv7 bVII7',
+    ],
     stops: ['iv7 bVII7 bVImaj7 bVII7', 'bVImaj7 bVII7 [i7 iv7] [v7 bVII7]', 'iv7 bVII7 i7 IV7 bVImaj7 bVII7'],
     borrowed: [
       'IV7 iv7 bVImaj7 bVII7',

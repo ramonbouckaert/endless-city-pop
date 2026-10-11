@@ -31,11 +31,13 @@ describe('music', () => {
     const key = new Key(0);
     const c = new Chord(0, '^7');
     const am = new Chord(9, 'm7');
-    // A plain 3 or 7 is the chord's own: E under Cmaj7, G under Am7.
+    // A plain 3 is the chord's own: E under Cmaj7, C under Am7; a 7 is a major seventh, a b7 a minor one.
     expect(Roman.parse('I/3').bassOf(key, c)).toBe(4);
-    expect(Roman.parse('I/7').bassOf(key, c)).toBe(11);
-    expect(Roman.parse('vi/7').bassOf(key, am)).toBe(7);
     expect(Roman.parse('vi/3').bassOf(key, am)).toBe(0);
+    expect(Roman.parse('I/7').bassOf(key, c)).toBe(11);
+    expect(Roman.parse('vi/7').bassOf(key, am)).toBe(8); // the line cliché's G# under Am
+    expect(Roman.parse('vi/b7').bassOf(key, am)).toBe(7);
+    expect(Roman.parse('vi/6').bassOf(key, am)).toBe(6);
     expect(Roman.parse('I/b7').bassOf(key, c)).toBe(10);
     expect(Roman.parse('I/5').bassOf(key, c)).toBe(7);
     // A numeral after the slash is a degree of the key: F/G, D/C.

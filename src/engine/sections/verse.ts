@@ -4,7 +4,7 @@
 import type { Rng } from '../../lib/random';
 import { GROOVES, MELODIES, THEME, VERSE, type VerseHarmony } from '../../style';
 import type { Bar } from '../../theory';
-import { Harmonizer, type Melody } from '../writers';
+import type { Melody } from '../writers';
 import type { NoteSpec } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
@@ -62,7 +62,7 @@ export class Verse extends PlayedSection<VerseMaterial> {
       case 'vamp':
         return [
           ...ctx.progress(rng.pick(templates.verseVamp), 6, rng.fork('vamp')),
-          ...new Harmonizer(ctx.key, rng.fork('approach')).approach(),
+          ...ctx.harmonizer(rng.fork('approach')).approach(),
         ];
     }
   }

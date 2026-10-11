@@ -4,7 +4,7 @@
 
 import { FIGURES, GROOVES, LIFT_STYLES, RHYTHMS, type LiftStyle } from '../../style';
 import type { Chord } from '../../theory';
-import { Harmonizer } from '../writers';
+
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection, type Plan, type PlayedMaterial } from './section';
@@ -33,7 +33,7 @@ export class Lift extends PlayedSection<LiftMaterial> {
   constructor(plan: Plan<LiftFields>, ctx: BuildContext) {
     super(plan);
     this.material = ctx.material(this, (rng) => {
-      const bars = new Harmonizer(ctx.key, rng.fork('harmony')).turnaround(this.turnaround);
+      const bars = ctx.harmonizer(rng.fork('harmony')).turnaround(this.turnaround);
       const variant = rng.weightedKey(LIFT_STYLES, ctx.previous(this)?.material.variant);
       return {
         ...ctx.band(ctx.key, bars, GROOVES.lift, rng.fork('groove')),

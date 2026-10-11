@@ -8,7 +8,7 @@ import type { Odds, Rng } from '../../lib/random';
 import { COMP, RUN_INTO, SOLO_COMPS, SOLO_OVER, type SoloComp, type SoloOver } from '../../style';
 import type { Bar } from '../../theory';
 import type { Sounds } from '../song';
-import { Harmonizer, SoloChangesWriter, SoloWriter, type Solo } from '../writers';
+import { SoloChangesWriter, SoloWriter, type Solo } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection, swappedKeys, type Plan, type PlayedMaterial } from './section';
@@ -71,10 +71,10 @@ export class SoloSection extends PlayedSection<SoloMaterial> {
   // two bars lead home instead.
   private changes(over: SoloOver, ctx: BuildContext, rng: Rng): Bar[] {
     const source = this.source(over, ctx);
-    if (!source) return new SoloChangesWriter(ctx.key, rng).write(this.bars);
+    if (!source) return new SoloChangesWriter(ctx.key, rng, ctx.colour).write(this.bars);
     const looped = Array.from({ length: this.bars }, (_, b) => source[b % source.length]);
     if (this.bars % source.length === 0) return looped;
-    return [...looped.slice(0, -2), ...new Harmonizer(ctx.key, rng).approach()];
+    return [...looped.slice(0, -2), ...ctx.harmonizer(rng).approach()];
   }
 
   // The song's progression a solo loops, if it loops one.

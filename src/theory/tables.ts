@@ -50,6 +50,7 @@ const CHORD_DEFS = {
   add9: { cls: 'maj', tones: [0, 4, 7, 14] },
   '^7': { cls: 'maj', tones: [0, 4, 7, 11] },
   '^9': { cls: 'maj', tones: [0, 4, 7, 11, 14] },
+  6: { cls: 'maj', tones: [0, 4, 7, 9] },
   69: { cls: 'maj', tones: [0, 4, 7, 9, 14] },
   '^7#11': { cls: 'maj', tones: [0, 4, 7, 11, 18] },
   '^9#11': { cls: 'maj', tones: [0, 4, 7, 11, 14, 18] },
@@ -124,6 +125,14 @@ export const FAMILY_SCALES: Readonly<Record<ChordClass, string>> = {
 export const DOM_TO_MINOR_SCALE = 'phrygian:dominant';
 // A tritone sub's chord-scale: its #11 is the 5th of the chord it stands for.
 export const TRITONE_SUB_SCALE = 'lydian:dominant';
+
+// Numeral suffixes that name their chord exactly, so a template keeps
+// that colour rather than drawing one: an upper-case numeral's, then a
+// lower-case one's ("iv6" is a minor sixth, "Iadd9" a plain add9).
+export const LITERAL_SUFFIXES: Readonly<Record<'upper' | 'lower', Readonly<Record<string, string>>>> = {
+  upper: { '6': '6', add9: 'add9', sus2: 'sus2' },
+  lower: { '6': 'm6', add9: 'madd9' },
+};
 
 export const NUMERALS = { i: 0, ii: 2, iii: 4, iv: 5, v: 7, vi: 9, vii: 11 } as const satisfies Record<string, number>;
 

@@ -150,6 +150,27 @@ describe('section materials', () => {
     expect(overs).toEqual(new Set(['cycle', 'chorus', 'verse', 'intro', 'vamp']));
   });
 
+  it("plays some minor songs' choruses in the relative major", () => {
+    const minor = Array.from({ length: 300 }, (_, i) => Song.generate(`rel${i}`)).filter(
+      (song) => song.key.mode === 'minor' || song.key.mode === 'dorian',
+    );
+    let relative = 0;
+    for (const song of minor) {
+      const chorus = defined(song.part(Chorus), 'a chorus');
+      if (chorus.key.mode !== 'major') {
+        expect(chorus.key).toEqual(song.key);
+        continue;
+      }
+      relative++;
+      expect(chorus.key.tonic).toBe(song.key.majorTonic);
+      // The intro playing the hook is in its key too.
+      const intro = song.part(Intro);
+      if (intro?.harmony === 'hook') expect(intro.key).toEqual(chorus.key);
+    }
+    expect(relative).toBeGreaterThan(5);
+    expect(relative).toBeLessThan(minor.length / 2);
+  });
+
   it('varies the pre-chorus', () => {
     const pres = Array.from({ length: 150 }, (_, i) => Song.generate(`pre${i}`)).flatMap((song) => {
       const [mat, sec] = [song.part(PreChorus), song.form.first(PreChorus)];

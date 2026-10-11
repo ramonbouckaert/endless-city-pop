@@ -54,6 +54,8 @@ export class Finale extends Section<FinaleMaterial> {
     switch (ends) {
       case 'tonic':
         return tonic();
+      case 'picardy':
+        return key.minor ? new Chord(key.tonic, '^9', 'major') : tonic();
       case 'sus':
         return sus();
       case 'ii':

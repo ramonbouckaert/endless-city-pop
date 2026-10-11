@@ -3,14 +3,16 @@
 // key's mode decides its tonality (TONALITIES): its tonic chord, how it
 // cadences, where its bridges go and how it lifts.
 
-import type { Rng } from '../../lib/random';
+import type { Odds, Rng } from '../../lib/random';
 import {
+  COLOURS,
   PALETTE,
   PLANING_STARTS,
   REHARM,
   SOLO_CHANGES,
   tonalityOf,
   TONIC_CHORDS,
+  type Colour,
   type PaletteName,
   type Placing,
   type Tonality,
@@ -19,10 +21,17 @@ import { Chord, Key, PitchClass, Roman, Template, type Bar, type ChordClass, typ
 
 /** Writes harmony in a key, drawing on one random stream. */
 export class Harmonizer {
+  /** `colour`: how lush the song's chords are (COLOURS). */
   constructor(
     readonly key: Key,
     private readonly rng: Rng,
+    readonly colour: Colour = 'lush',
   ) {}
+
+  // A palette's colours in the song's colour.
+  private colours(palette: PaletteName): Odds<string> {
+    return COLOURS[this.colour].palettes[palette] ?? PALETTE[palette];
+  }
 
   get tonality(): Tonality {
     return tonalityOf(this.key.mode);
@@ -45,11 +54,22 @@ export class Harmonizer {
     const chords = flat.map((rn, i) => {
       const root = rn.root(this.key);
       const palette = this.palette(rn, flat[(i + 1) % flat.length]);
-      const chord = new Chord(root, this.rng.weightedKey(PALETTE[palette]));
+      const chord = new Chord(root, rn.symbol ?? this.rng.weightedKey(this.colours(palette)));
       const bass = rn.bassOf(this.key, chord);
-      return bass === undefined ? chord : new Chord(root, chord.symbol, undefined, bass);
+      return bass === undefined ? chord : new Chord(root, Harmonizer.over(chord, bass), undefined, bass);
     });
     return this.scaled(Chord.inBars(chords, bars));
+  }
+
+  // A chord's symbol over a slash bass: a tone a semitone from the bass
+  // (a minor seventh over a line cliché's major one) rubs, so such a
+  // major or minor chord plays its plain triad instead.
+  private static over(chord: Chord, bass: number): string {
+    const rubs = chord.pcs.some((pc) => [1, 11].includes(PitchClass.of(pc - bass)));
+    if (!rubs) return chord.symbol;
+    if (chord.cls === 'maj') return '';
+    if (chord.cls === 'min') return 'm';
+    return chord.symbol;
   }
 
   // The colours a numeral takes, by its family, where it sits in the key and the numeral after it.
@@ -78,7 +98,7 @@ export class Harmonizer {
 
   /** Tritone subs, related ii chords, secondary dominants and diatonic stand-ins. */
   reharmonize(bars: Bar[]): Bar[] {
-    const amount = REHARM.amount * this.tonality.reharm;
+    const amount = REHARM.amount * this.tonality.reharm * COLOURS[this.colour].reharm;
     return this.scaled(
       bars.map((bar, b) => {
         const target = bars[(b + 1) % bars.length][0];
@@ -122,7 +142,7 @@ export class Harmonizer {
     const { root, cls } = rng.pick(choices);
     const next = new Roman(PitchClass.of(target.root - this.key.tonic), target.cls, '');
     const palette = this.palette(new Roman(PitchClass.of(root - this.key.tonic), cls, ''), next);
-    const standIn = new Chord(root, rng.weightedKey(PALETTE[palette]));
+    const standIn = new Chord(root, rng.weightedKey(this.colours(palette)));
     const home = this.tonality.isTonic(only, this.key);
     return this.place(only, standIn, rng.weightedKey(REHARM.standInPlacing, home ? 'whole' : undefined));
   }
@@ -238,8 +258,9 @@ export class SoloChangesWriter {
   constructor(
     private readonly key: Key,
     private readonly rng: Rng,
+    colour: Colour = 'lush',
   ) {
-    this.harmony = new Harmonizer(key, rng.fork('harmony'));
+    this.harmony = new Harmonizer(key, rng.fork('harmony'), colour);
   }
 
   /** Changes `bars` long. */

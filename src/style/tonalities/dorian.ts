@@ -18,6 +18,7 @@ export const DORIAN: TonalityDef = {
     // A verse's two-chord vamp (the approach home follows).
     verseVamp: ['i7 IV7', 'iv7 bVII7', 'i7 ii7', 'bIIImaj7 IV7'],
     vamp: [
+      'i7 IV/3',
       'i7 IV7',
       'i7 i7',
       'i7 bVIImaj7',
@@ -29,6 +30,8 @@ export const DORIAN: TonalityDef = {
       'i7 i7 bVImaj7 bVImaj7',
     ],
     verse: [
+      'i7 IV/3 i7 IV/3 iv7 bVII7 i7 i7',
+      'iv7 bVII7 v7 i7 iv7 bVII7 v7 i7',
       'i7 i7 IV7 IV7 i7 i7 IV7 IV7',
       'i7 IV7 v7 i7 bIIImaj7 IV7 i7 IV7',
       'i7 bVIImaj7 i7 bVIImaj7 bIIImaj7 IV7 v7 i7',
@@ -38,6 +41,7 @@ export const DORIAN: TonalityDef = {
       'i7 v7 bVIImaj7 IV7 i7 v7 bIIImaj7 IV7',
     ],
     chorus: [
+      'iv7 bVII7 v7 i7 iv7 bVII7 v7 i7',
       'bIIImaj7 IV7 i7 i7 bIIImaj7 IV7 v7 i7',
       'bVIImaj7 bIIImaj7 IV7 i7 bVIImaj7 bIIImaj7 IV7 [v7 IV7]',
       'i7 bVIImaj7 bIIImaj7 bVIImaj7 i7 bVIImaj7 IV7 IV7',
@@ -55,6 +59,7 @@ export const DORIAN: TonalityDef = {
       'bIIImaj7 IV7 v7 IV7',
     ],
     riff: [
+      'i7 IV/3',
       'i7 IV7',
       'i7 bVIImaj7',
       'i7 ii7',

@@ -37,7 +37,11 @@ export const LIFT_TURNAROUNDS: Readonly<Record<string, Turnaround>> = {
   },
 };
 
-// Jazz-funk in a major key: ii-V-I, secondary dominants, borrowed iv.
+// Jazz-funk in a major key: ii-V-I, secondary dominants, borrowed iv
+// (and iv6, and the bVII7 backdoor); slash chords (the Pachelbel bass
+// line, IV over I's third, IV/V for a V11, II/I's lydian vamp); dominant
+// chains round the circle, a ii-V to bII, maj7s planing down by
+// semitones, and passing #ivm7, #i° and III7#5.
 export const MAJOR: TonalityDef = {
   tonics: [5, 10, 3, 0, 7, 2, 4, 9], // F Bb Eb C G D E A
   tonic: 'maj',
@@ -48,6 +52,8 @@ export const MAJOR: TonalityDef = {
     // A verse's two-chord vamp (the approach home follows).
     verseVamp: ['IVmaj7 V7sus', 'IVmaj7 I/3', 'II/I Imaj7', 'IVmaj7 iii7', 'ii7 IV/V', 'IVmaj7 IVmaj7 IV/V IV/V'],
     vamp: [
+      'II/I Imaj7',
+      'IVmaj7 I/3',
       'ii7 V7',
       'ii7 [ii7 V7]',
       'vi7 II7',
@@ -58,6 +64,11 @@ export const MAJOR: TonalityDef = {
       'Imaj7 [vi7 II7]',
     ],
     verse: [
+      'Imaj7 V/3 vi7 I/5 IVmaj7 I/3 ii7 IV/V',
+      'Imaj7 VI7 II7 V7 Imaj7 VI7 II7 V7',
+      'Imaj7 I7 IVmaj7 iv6 iii7 VI7 ii7 V7',
+      'IVmaj7 I/3 ii7 IV/V IVmaj7 I/3 ii7 IV/V',
+      'IVmaj7 #iv7 V7sus V7 iii7 VI7 ii7 V7',
       'vi7 II7 vi7 II7 IVmaj7 [iii7 bIII7] ii7 V7',
       'ii7 V7 iii7 VI7 ii7 V7 Imaj7 Imaj7',
       'Imaj7 vi7 ii7 V7 iii7 VI7 ii7 V7',
@@ -68,6 +79,12 @@ export const MAJOR: TonalityDef = {
       'IVmaj7 Imaj7 IVmaj7 Imaj7 vi7 iii7 ii7 V7sus',
     ],
     chorus: [
+      'IVmaj7 I/3 ii7 IV/V IVmaj7 I/3 ii7 IV/V',
+      'Imaj7 V/3 vi7 I/5 IVmaj7 I/3 ii7 V7sus',
+      'IVmaj7 V7 iii7 vi7 ii7 [biii7 bVI7] bIImaj7 V7sus',
+      'Imaj7 VI7 II7 V7 iii7 VI7 [ii7 V7] Imaj7',
+      '[IVmaj7 IIImaj7] [bIIImaj7 IImaj7] Imaj7 VI7 ii7 V+ Imaj7 V7sus',
+      'IVmaj7 III7#5 vi7 [v7 I7] IVmaj7 iv6 iii7 VI7sus',
       'IVmaj7 III7 vi7 [v7 I7] IVmaj7 III7 [vi7 II7] [ii7 V7]',
       'Imaj7 VI7 ii7 V7 iii7 VI7 ii7 V7',
       'IVmaj7 V7 iii7 vi7 ii7 V7 Imaj7 [ii7 V7]',
@@ -77,6 +94,9 @@ export const MAJOR: TonalityDef = {
       'IVmaj7 iv7 iii7 vi7 ii7 bII7 Imaj7 V7sus',
     ],
     tag: [
+      'IV/V IV/V',
+      'VII7 bVII7',
+      'ii7 IV/V',
       'bVImaj7 V7sus',
       'bVImaj7 bVII7',
       'IVmaj7 iv7',
@@ -87,6 +107,7 @@ export const MAJOR: TonalityDef = {
       'bVImaj7 bVII7 IVmaj7 V7sus',
     ],
     bridge: [
+      'Imaj7 VI7 II7 V7 Imaj7 [biii7 bVI7]',
       'IVmaj7 bVIImaj7 ii7 V7 Imaj7 IVmaj7',
       'ii7 V7 Imaj7 vi7 ii7 V7',
       'Imaj7 vi7 IVmaj7 V7 iii7 vi7',
@@ -95,6 +116,8 @@ export const MAJOR: TonalityDef = {
       'IV7sus V7sus IV7sus V7sus bvi7 bII7',
     ],
     riff: [
+      'IVmaj7 I/3',
+      'Imaj7 I7 IVmaj7 iv6',
       'ii7 V7',
       'vi7 II7',
       'Imaj7 IV7',
@@ -105,6 +128,9 @@ export const MAJOR: TonalityDef = {
       'IVmaj7 iii7 ii7 V7sus',
     ],
     intro: [
+      'IVmaj7 I/3 ii7 IV/V',
+      'IVmaj7 IV/V',
+      'Iadd9 Iadd9 IVadd9 IVadd9',
       'Imaj7 IVmaj7',
       'ii7 V7',
       'Imaj7 bVIImaj7',
@@ -121,6 +147,9 @@ export const MAJOR: TonalityDef = {
   },
   pre: {
     climb: [
+      'IVmaj7 [viiø III7#5] vi7 IV/V',
+      'Imaj7 #i° ii7 V7sus',
+      'ii7 iii7 IVmaj7 #iv7 IV/V',
       'ii7 iii7 IVmaj7 V7sus',
       'ii7 iii7 iv7 #iv° V7sus V7',
       'IVmaj7 #iv° V7sus V7',
@@ -128,6 +157,8 @@ export const MAJOR: TonalityDef = {
       'Imaj7 ii7 iii7 IVmaj7 #iv° V7sus',
     ],
     pedal: [
+      'IV/V IV/V IV/V V7',
+      'VI7sus VI7sus II7sus V7sus',
       'V7sus V7sus V7sus V7',
       'IVmaj7 IVmaj7 V7sus V7sus',
       'ii7 ii7 V7sus V7sus',
@@ -136,12 +167,15 @@ export const MAJOR: TonalityDef = {
     ],
     drop: ['IVmaj7 iii7 ii7 V7sus', 'vi7 IVmaj7 ii7 V7sus', 'IVmaj7 V7 iii7 vi7 ii7 V7sus', 'IVmaj7 iv7 ii7 V7sus'],
     stops: [
+      'IVmaj7 V+ iii7 vi7',
       'IVmaj7 V7 iii7 vi7',
       'IVmaj7 V7 [iii7 VI7] [ii7 V7sus]',
       'ii7 V7 iii7 VI7 ii7 V7sus',
       'IVmaj7 [iii7 VI7] ii7 bII7',
     ],
     borrowed: [
+      'IVmaj7 iv6 Imaj7 bVII7',
+      'IVmaj7 iv6 iii7 VI7 ii7 IV/V',
       'IVmaj7 iv7 iii7 VI7 ii7 V7sus',
       'bVImaj7 bVII7 IVmaj7 V7sus',
       'IVmaj7 iv7 iii7 bIIImaj7 ii7 V7sus',

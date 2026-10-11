@@ -3,7 +3,7 @@
 // dominant, over a light groove.
 
 import { GROOVES } from '../../style';
-import { Harmonizer } from '../writers';
+
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection, type Plan, type PlayedMaterial } from './section';
@@ -17,7 +17,7 @@ export class Link extends PlayedSection<PlayedMaterial> {
   constructor(plan: Plan, ctx: BuildContext) {
     super(plan);
     this.material = ctx.material(this, (rng) => {
-      const planing = new Harmonizer(ctx.key, rng.fork('planing')).planing();
+      const planing = ctx.harmonizer(rng.fork('planing')).planing();
       return ctx.band(ctx.key, planing.slice(planing.length - this.bars), GROOVES.link, rng.fork('groove'));
     });
   }

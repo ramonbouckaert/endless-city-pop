@@ -1,14 +1,14 @@
 import { PitchClass } from './pitch';
-import { MODES, NUMERALS, type ChordClass, type ChordSymbol, type NumeralName } from './tables';
+import { LITERAL_SUFFIXES, MODES, NUMERALS, type ChordClass, type ChordSymbol, type NumeralName } from './tables';
 import type { Chord } from './chord';
 import type { Key } from './key';
 
 /**
- * A slash chord's bass: an interval above its root (`I/3`, `i/b7`: in
- * major-scale steps, a plain 3 or 7 being the chord's own third or
- * seventh), or a degree of the key (`IV/V`, `II/I`).
+ * A slash chord's bass: an interval above its root (`I/3`, `i/b7`,
+ * `i/7`: in major-scale steps, but a plain 3 is the chord's own third),
+ * or a degree of the key (`IV/V`, `II/I`).
  */
-export type SlashBass = { interval: number; own?: 3 | 7 } | { offset: number };
+export type SlashBass = { interval: number; ownThird?: true } | { offset: number };
 
 /** A roman numeral: semitones above the tonic and a chord family, perhaps over a bass of its own. */
 export class Roman {
@@ -17,6 +17,8 @@ export class Roman {
     readonly cls: ChordClass,
     readonly text: string,
     readonly bass?: SlashBass,
+    /** The chord symbol it names exactly (LITERAL_SUFFIXES), if it names one. */
+    readonly symbol?: string,
   ) {}
 
   /** "I", "vi", "bVII", "V7", "ii7", "viiø", "#iv°", "IVmaj7", "Isus", "I5", "I+"; over a bass, "I/3", "IV/V". */
@@ -28,7 +30,8 @@ export class Roman {
     const upper = numeral === numeral.toUpperCase();
     const offset = Roman.numeral(acc, numeral);
     const bass = over === undefined ? undefined : Roman.slash(over, text);
-    return new Roman(PitchClass.of(offset), Roman.family(suffix, upper), text, bass);
+    const symbol = LITERAL_SUFFIXES[upper ? 'upper' : 'lower'][suffix];
+    return new Roman(PitchClass.of(offset), Roman.family(suffix, upper), text, bass, symbol);
   }
 
   // Semitones above the tonic of a numeral, sharpened or flattened.
@@ -48,24 +51,20 @@ export class Roman {
     const [, acc, digits] = step;
     const n = Number(digits) - 1;
     const semis = MODES.major[n % 7] + (acc === '#' ? 1 : acc === 'b' ? -1 : 0);
-    const own = acc === '' && (n % 7 === 2 || n % 7 === 6) ? (((n % 7) + 1) as 3 | 7) : undefined;
-    return { interval: PitchClass.of(semis), ...(own ? { own } : {}) };
+    return { interval: PitchClass.of(semis), ...(acc === '' && n % 7 === 2 ? { ownThird: true as const } : {}) };
   }
 
   /**
    * The bass under a chord built on this numeral in a key, if it has a
-   * slash bass: a plain 3 or 7 is the chord's own third or seventh (its
-   * family's, if it has none).
+   * slash bass: a plain 3 is the chord's own third (its family's, if it
+   * has none).
    */
   bassOf(key: Key, chord: Chord): number | undefined {
     const { bass } = this;
     if (!bass) return undefined;
     if ('offset' in bass) return PitchClass.of(key.tonic + bass.offset);
-    const tones = chord.tones.map(PitchClass.of);
-    let interval = bass.interval;
-    if (bass.own === 3) interval = tones.find((t) => t === 3 || t === 4) ?? (chord.minorish ? 3 : 4);
-    if (bass.own === 7) interval = tones.find((t) => t === 10 || t === 11) ?? (chord.cls === 'maj' ? 11 : 10);
-    return PitchClass.of(chord.root + interval);
+    const third = () => chord.tones.map(PitchClass.of).find((t) => t === 3 || t === 4) ?? (chord.minorish ? 3 : 4);
+    return PitchClass.of(chord.root + (bass.ownThird ? third() : bass.interval));
   }
 
   private static family(suffix: string, upper: boolean): ChordClass {

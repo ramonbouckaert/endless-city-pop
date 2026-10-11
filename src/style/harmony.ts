@@ -52,6 +52,55 @@ export const PALETTE: Readonly<Record<PaletteName, Odds<string>>> = {
   slashDom: { '7': 2, '9': 1 },
 };
 
+// How a song colours its chords: lush (PALETTE: ninths, elevenths,
+// thirteenths, altered dominants), plain (seventh chords and add9s, as
+// Dolphin in Town's), or triadic (triads and add9s, as Sparkle's and Sea
+// Line's). A plain or triadic song draws a palette's colours from its
+// own table here where it has one, and is reharmonised less (`reharm`).
+export type Colour = 'lush' | 'plain' | 'triadic';
+export const COLOURS: Readonly<
+  Record<Colour, { palettes: Partial<Record<PaletteName, Odds<string>>>; reharm: number }>
+> = {
+  lush: { palettes: {}, reharm: 1 },
+  plain: {
+    reharm: 0.6,
+    palettes: {
+      maj: { '^7': 3, add9: 1 },
+      majLydian: { '^7': 2, '^7#11': 1, add9: 1 },
+      majBorrowed: { '': 1, add9: 1, '^7': 1 },
+      min: { m7: 3, m9: 1 },
+      minTonic: { m7: 3, m9: 1 },
+      dom: { '7': 3, '9': 1 },
+      domTonic: { '7': 3, '9': 1 },
+      domToMinor: { '7b9': 2, '7': 1 },
+      sus: { '7sus': 1 },
+      susToMinor: { '7sus': 1 },
+      power: { '7sus': 1 },
+    },
+  },
+  triadic: {
+    reharm: 0.3,
+    palettes: {
+      maj: { '': 2, add9: 2 },
+      majLydian: { '': 2, add9: 2 },
+      majBorrowed: { '': 2, add9: 1 },
+      min: { m: 2, madd9: 1, m7: 1 },
+      minTonic: { m: 1, madd9: 2 },
+      minPhrygian: { m: 1 },
+      minPhrygianTonic: { m: 1, m7add11: 1 },
+      dom: { '7': 1 },
+      domTonic: { '7': 1 },
+      domToMinor: { '7': 1, '7b9': 1 },
+      sus: { '7sus': 1, sus: 1 },
+      susToMinor: { '7sus': 1 },
+      power: { '7sus': 1 },
+      slashMaj: { '': 2, add9: 1 },
+      slashMin: { m: 1 },
+      slashDom: { '7': 1 },
+    },
+  },
+};
+
 // Where a substitute goes in a bar its chord had to itself: in its
 // place (`whole`), in the second half after it (`after`: Cmaj7 Em7), or
 // in the first half, resolving into it (`before`: Em7 Cmaj7).

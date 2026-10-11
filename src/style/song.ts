@@ -4,6 +4,7 @@
 
 import type { Odds, Range } from '../lib/random';
 import type { VoicingStyle } from '../theory';
+import type { Colour } from './harmony';
 
 // How a song voices its chords: the keys, clav and stabs (`comp`) close
 // or in fourths, the pad, strings and choir (`sustain`) close or spread.
@@ -37,6 +38,8 @@ export const SONG = {
   swing: [0.06, 0.22] as Range,
   // A tonality may have its own (TonalityDef.voicings).
   voicings: { comp: { close: 4, quartal: 1 }, sustain: { close: 3, spread: 1 } } as VoicingOdds,
+  // How lush its chords are (COLOURS).
+  colour: { lush: 3, plain: 1, triadic: 1 } as Odds<Colour>,
 };
 
 // How an intro gets its harmony: the hook's chords, the chorus's first
@@ -66,3 +69,7 @@ export type VerseHarmony = 'template' | 'chorus' | 'vamp';
 export const VERSE = {
   harmony: { template: 6, chorus: 1.5, vamp: 2 } as Odds<VerseHarmony>,
 };
+
+// How often a minor or dorian song's chorus is in its relative major (a
+// theme's never is).
+export const CHORUS = { relativeMajor: 0.25 };

@@ -198,4 +198,40 @@ describe('tonalities', () => {
       });
     }
   });
+
+  it('keeps a literal colour, and plays a plain triad over a bass that rubs', () => {
+    const key = new Key(0);
+    const [[iv6], [add9], [sus2]] = new Harmonizer(key, new Rng('lit')).progression('iv6 Iadd9 Isus2', 3, {
+      reharm: false,
+    });
+    expect([iv6.symbol, add9.symbol, sus2.symbol]).toEqual(['m6', 'add9', 'sus2']);
+    for (let i = 0; i < 20; i++) {
+      // A minor's line cliché: Am, Am/G#, Am/G, Am/F#.
+      const bars = new Harmonizer(new Key(9, 'minor'), new Rng(`c${i}`)).progression('i i/7 i/b7 i/6', 4);
+      expect(bars.map(([c]) => c.bass)).toEqual([undefined, 8, 7, 6]);
+      expect(bars[1][0].symbol).toBe('m');
+    }
+  });
+
+  it('colours a plain or triadic song plainly', () => {
+    const lush = new Set<string>();
+    const triadic = new Set<string>();
+    for (let i = 0; i < 60; i++) {
+      for (const [colour, seen] of [
+        ['lush', lush],
+        ['triadic', triadic],
+      ] as const) {
+        const bars = new Harmonizer(new Key(0), new Rng(`k${i}`), colour).progression(
+          'Imaj7 vi7 ii7 V7 iii7 VI7 IVmaj7 V7sus',
+          8,
+          { reharm: false },
+        );
+        for (const c of bars.flat()) seen.add(c.symbol);
+      }
+    }
+    expect([...triadic].every((s) => ['', 'add9', 'm', 'madd9', 'm7', '7', '7b9', '7sus', 'sus'].includes(s))).toBe(
+      true,
+    );
+    expect([...lush].some((s) => ['^9', '13', 'm11'].includes(s))).toBe(true);
+  });
 });

@@ -4,7 +4,7 @@
 
 import { FORM, MELODIES, OUTRO_STYLES, type OutroStyle } from '../../style';
 import type { Bar } from '../../theory';
-import { Harmonizer, SoloWriter, type Melody, type Solo } from '../writers';
+import { SoloWriter, type Melody, type Solo } from '../writers';
 import type { NoteSpec } from '../score';
 import type { BuildContext } from './build-context';
 import { Intro } from './intro';
@@ -57,15 +57,15 @@ export class Outro extends PlayedSection<OutroMaterial> {
         // The intro's chords, and its teaser if it had one.
         const intro = ctx.first(Intro);
         if (!intro) throw new Error('A reprise outro needs an intro to play again');
-        const { bars, melody } = intro.material;
-        return { ...ctx.band(ctx.key, bars, groove, rng.fork('groove')), ...(melody ? { melody } : {}) };
+        const { key, bars, melody } = intro.material;
+        return { ...ctx.band(key, bars, groove, rng.fork('groove')), ...(melody ? { melody } : {}) };
       }
       // The song's soloists first, if it had solos.
       const soloists = ctx.plan.ofType(SoloSection).map((s) => s.soloist);
       const [first, second] = [...new Set([...soloists, ...FORM.soloists])];
       if (this.variant === 'coda') {
         // The approach home, over and over, never landing.
-        const bars = this.looped(new Harmonizer(ctx.key, rng.fork('harmony')).approach());
+        const bars = this.looped(ctx.harmonizer(rng.fork('harmony')).approach());
         const solo = new SoloWriter(rng.fork('line')).write(bars);
         return { ...ctx.band(ctx.key, bars, groove, rng.fork('groove')), adLib: { solo, soloist: first } };
       }

@@ -48,7 +48,7 @@ export class Chorus extends PlayedSection<ChorusMaterial> {
     super(plan);
     this.material = ctx.material(this, (rng) => {
       if (this.half) return this.second(ctx);
-      const { key } = ctx;
+      const key = ctx.chorusKey();
       const bars = ctx.chorusBars();
       const hook = ctx.hook();
       const variant = rng.weightedKey(ANSWER_STYLES);

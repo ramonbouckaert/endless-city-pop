@@ -191,11 +191,12 @@ export const OUTRO_STYLES: Variants<OutroStyle, Grooved & { bars: number; ends: 
 export type FinaleStyle = 'cascade' | 'hits' | 'slide' | 'run' | 'fermata';
 export const FINALE_STYLES: Odds<FinaleStyle> = { cascade: 3, hits: 2, slide: 2, run: 2, fermata: 1.5 };
 
-// What the last chord is: the key's own final chord, or one left open:
-// the tonic suspended (sus2, or a 9sus), the ii (add9; in a minor key,
-// the tonic suspended instead), the V suspended, or the first chord of
-// the section before, as if it went round again. Only the tonic slides
-// or ends on a fermata (FINALE_STYLES), whose figures resolve it.
-export type FinaleChord = 'tonic' | 'sus' | 'ii' | 'V' | 'section';
-export const FINALE_CHORDS: Odds<FinaleChord> = { tonic: 6, sus: 1.5, ii: 1, V: 1, section: 1 };
+// What the last chord is: the key's own final chord; in a minor key, a
+// major one (a picardy third, Plastic Love's); or one left open: the
+// tonic suspended (sus2, or a 9sus: J-Cycle's I7sus), the ii (add9; in a
+// minor key, the tonic suspended instead), the V suspended, or the first
+// chord of the section before, as if it went round again. Only the tonic
+// slides or ends on a fermata (FINALE_STYLES), whose figures resolve it.
+export type FinaleChord = 'tonic' | 'picardy' | 'sus' | 'ii' | 'V' | 'section';
+export const FINALE_CHORDS: Odds<FinaleChord> = { tonic: 6, picardy: 0.7, sus: 1.5, ii: 1, V: 1, section: 1 };
 export const RESOLVED_FINALES: readonly FinaleStyle[] = ['slide', 'fermata'];

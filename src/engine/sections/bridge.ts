@@ -5,7 +5,7 @@
 import type { Program } from '../../lib/general-midi';
 import { ADVENTUROUS, GROOVES, MELODIES, tonalityOf } from '../../style';
 import type { Sounds } from '../song';
-import { Harmonizer, type Melody } from '../writers';
+import type { Melody } from '../writers';
 import type { NoteSpec } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
@@ -27,10 +27,10 @@ export class Bridge extends PlayedSection<BridgeMaterial> {
   constructor(plan: Plan, ctx: BuildContext) {
     super(plan);
     this.material = ctx.material(this, (rng) => {
-      const key = new Harmonizer(ctx.key, rng.fork('key')).bridgeKey(ADVENTUROUS);
+      const key = ctx.harmonizer(rng.fork('key')).bridgeKey(ADVENTUROUS);
       const templates = tonalityOf(key.mode).bridges;
       const body = ctx.progress(rng.pick(templates), 6, rng.fork('harmony'), { key });
-      const cadence = new Harmonizer(ctx.key, rng.fork('cadence')).approach();
+      const cadence = ctx.harmonizer(rng.fork('cadence')).approach();
       const bars = [...body, ...cadence];
       const keys = ctx.swap(rng.fork('swap'));
       return {

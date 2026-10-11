@@ -21,6 +21,7 @@ export const PHRYGIAN: TonalityDef = {
     // A verse's two-chord vamp (the approach home follows).
     verseVamp: ['i7 bIImaj7', 'bIImaj7 i7', 'iv7 bIImaj7'],
     vamp: [
+      'bII/I i7',
       'i7 bIImaj7',
       'i7 i7 bIImaj7 bIImaj7',
       'i7 [bIImaj7 i7]',
@@ -46,6 +47,7 @@ export const PHRYGIAN: TonalityDef = {
     ],
     tag: ['bvii7 bIImaj7', 'bVImaj7 bIImaj7', 'iv7 bIImaj7', 'bIImaj7 bIImaj7'],
     riff: [
+      'bII/I i7',
       'i7 bIImaj7',
       'i7 bvii7',
       'i7 [bvii7 bIImaj7]',

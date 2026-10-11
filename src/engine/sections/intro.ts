@@ -31,8 +31,10 @@ export class Intro extends PlayedSection<IntroMaterial> {
       if (harmony === 'hook') melody = ctx.hook().take(4);
       else if (harmony === 'template' && rng.chance(INTRO.melodyChance))
         melody = ctx.melody(MELODIES.riff, ctx.key, bars, rng.fork('melody'));
+      // Playing the hook, it is in the chorus's key.
+      const key = harmony === 'hook' ? ctx.chorusKey() : ctx.key;
       return {
-        ...ctx.band(ctx.key, bars, INTRO_TEXTURES[variant].groove, rng.fork('groove')),
+        ...ctx.band(key, bars, INTRO_TEXTURES[variant].groove, rng.fork('groove')),
         harmony,
         variant,
         ...(melody ? { melody } : {}),

@@ -23,7 +23,7 @@ export class Breakdown extends PlayedSection<BreakdownMaterial> {
     this.material = ctx.material(this, (rng) => {
       const bars = ctx.chorusBars().slice(0, this.bars);
       return {
-        ...ctx.band(ctx.key, bars, GROOVES.breakdown, rng.fork('groove')),
+        ...ctx.band(ctx.chorusKey(), bars, GROOVES.breakdown, rng.fork('groove')),
         melody: ctx.hook().take(bars.length),
       };
     });

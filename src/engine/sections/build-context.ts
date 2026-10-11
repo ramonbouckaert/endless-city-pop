@@ -8,6 +8,7 @@ import { lazy } from '../../lib/lazy';
 import type { Odds, Rng } from '../../lib/random';
 import {
   BASS_WITH,
+  CHORUS,
   CLAV,
   INTRO,
   MELODIES,
@@ -15,13 +16,14 @@ import {
   THEME,
   tonalityOf,
   type BassFeel,
+  type Colour,
   type DrumFeel,
   type GroovePlan,
   type IntroHarmony,
   type MelodyStyle,
   type Tonality,
 } from '../../style';
-import { Template, type Bar, type Chord, type Key } from '../../theory';
+import { Key, Template, type Bar, type Chord } from '../../theory';
 import { BassWriter, DrumWriter, Harmonizer, MelodyWriter, type Melody } from '../writers';
 import { Form } from './form';
 import { Chorus } from './chorus';
@@ -38,13 +40,20 @@ export class BuildContext {
   // For the harmony and lines several parts share, each written once on first use.
   private readonly shared: Rng;
 
+  /** `colour`: how lush the song's chords are. */
   constructor(
     readonly key: Key,
     readonly bpm: number,
     readonly plan: Form<Plan>,
     private readonly rng: Rng,
+    readonly colour: Colour = 'lush',
   ) {
     this.shared = rng.fork('shared');
+  }
+
+  /** A Harmonizer in the song's colour, in a key (the song's unless given). */
+  harmonizer(rng: Rng, key: Key = this.key): Harmonizer {
+    return new Harmonizer(key, rng, this.colour);
   }
 
   /** The song's sections, each built from its plan. */
@@ -122,7 +131,7 @@ export class BuildContext {
    * given), ending on its cadence if `ending`.
    */
   progress(template: string, bars: number, rng: Rng, { key = this.key, ending = false } = {}): Bar[] {
-    return new Harmonizer(key, rng).progression(template, bars, { ending });
+    return this.harmonizer(rng, key).progression(template, bars, { ending });
   }
 
   /** Four bars of one of some templates (the key's vamps or riffs). */
@@ -153,18 +162,32 @@ export class BuildContext {
   }
 
   /**
-   * The chorus's chords (the intro's and breakdown's too): eight bars (a
-   * theme's sixteen), and a tag if the chorus runs longer.
+   * The chorus's key (the intro's, if it plays the hook, and the
+   * breakdown's): the song's, or in a minor or dorian song (but for a
+   * theme's), now and then its relative major (ANRI's chorus).
+   */
+  readonly chorusKey = lazy((): Key => {
+    const { key } = this;
+    if (this.theme || !(key.mode === 'minor' || key.mode === 'dorian')) return key;
+    if (!this.shared.fork('chorusKey').chance(CHORUS.relativeMajor)) return key;
+    return new Key(key.majorTonic, 'major');
+  });
+
+  /**
+   * The chorus's chords (the intro's and breakdown's too), in its key:
+   * eight bars (a theme's sixteen), and a tag if the chorus runs longer.
    */
   readonly chorusBars = lazy((): Bar[] => {
     const rng = this.shared.fork(`${Chorus.id}Harmony`);
+    const key = this.chorusKey();
+    const { templates } = tonalityOf(key.mode);
     const bars = this.theme
       ? this.themeBars(rng.fork('theme'))
-      : this.progress(rng.pick(this.tonality.templates.chorus), 8, rng.fork('harmony'));
+      : this.progress(rng.pick(templates.chorus), 8, rng.fork('harmony'), { key });
     const len = this.plan.first(Chorus)?.bars ?? 8;
     if (len <= bars.length) return bars;
-    const tag = new Template(rng.pick(this.tonality.templates.tag)).fit(len - bars.length);
-    return [...bars, ...new Harmonizer(this.key, rng.fork('tag')).realise(tag)];
+    const tag = new Template(rng.pick(templates.tag)).fit(len - bars.length);
+    return [...bars, ...this.harmonizer(rng.fork('tag'), key).realise(tag)];
   });
 
   // A theme's sixteen bars: the vamp three times and a tag, or the
@@ -173,7 +196,7 @@ export class BuildContext {
     if (rng.weightedKey(THEME.harmony) === 'vamp') {
       const vamp = this.vampBars();
       const tag = new Template(rng.pick(this.tonality.templates.tag)).fit(4);
-      return [...vamp, ...vamp, ...vamp, ...new Harmonizer(this.key, rng.fork('tag')).realise(tag)];
+      return [...vamp, ...vamp, ...vamp, ...this.harmonizer(rng.fork('tag')).realise(tag)];
     }
     const template = rng.pick(this.tonality.templates.chorus);
     return [
@@ -184,7 +207,12 @@ export class BuildContext {
 
   /** The chorus's melody (the intro's teaser and the breakdown's line too): a theme's in four-bar phrases. */
   readonly hook = lazy(() =>
-    this.melody(this.theme ? MELODIES.theme : MELODIES.chorus, this.key, this.chorusBars(), this.shared.fork('hook')),
+    this.melody(
+      this.theme ? MELODIES.theme : MELODIES.chorus,
+      this.chorusKey(),
+      this.chorusBars(),
+      this.shared.fork('hook'),
+    ),
   );
 
   /** The vamp's chords (a trading outro's too). */
@@ -195,7 +223,7 @@ export class BuildContext {
     const rng = this.shared.fork(`${Intro.id}Harmony`);
     const harmony = rng.weightedKey(INTRO.harmony);
     if (harmony === 'hook') return { harmony, bars: this.chorusBars().slice(0, 4) };
-    if (harmony === 'planing') return { harmony, bars: new Harmonizer(this.key, rng.fork('planing')).planing() };
+    if (harmony === 'planing') return { harmony, bars: this.harmonizer(rng.fork('planing')).planing() };
     return { harmony, bars: this.progress(rng.pick(this.tonality.templates.intro), 4, rng.fork('harmony')) };
   });
 }

@@ -4,6 +4,7 @@
 // on its own forked stream.
 
 import type { Rng } from '../../lib/random';
+import type { Colour } from '../../style';
 import type { Key } from '../../theory';
 import type { Form } from './form';
 import { BuildContext } from './build-context';
@@ -46,9 +47,9 @@ export type AnySection = InstanceType<(typeof KINDS)[number]>;
 /** A part's material, of any kind. */
 export type Material = AnySection['material'];
 
-/** A plan's sections, built in a key at a tempo, each with its part's material. */
-export function buildForm(plan: Form<Plan>, key: Key, bpm: number, rng: Rng): Form {
-  return new BuildContext(key, bpm, plan, rng).build();
+/** A plan's sections, built in a key at a tempo (in a colour), each with its part's material. */
+export function buildForm(plan: Form<Plan>, key: Key, bpm: number, rng: Rng, colour?: Colour): Form {
+  return new BuildContext(key, bpm, plan, rng, colour).build();
 }
 
 export { HALF };

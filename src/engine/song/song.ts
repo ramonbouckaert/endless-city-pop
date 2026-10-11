@@ -4,7 +4,7 @@
 
 import { Rng } from '../../lib/random';
 import { Timeline } from '../../lib/timeline';
-import { SONG, TONALITIES, type VoicingOdds, type Voicings } from '../../style';
+import { SONG, TONALITIES, type Colour, type VoicingOdds, type Voicings } from '../../style';
 import { Key } from '../../theory';
 import {
   Bridge,
@@ -27,6 +27,8 @@ export interface SongData {
   seed: string;
   titleParts: TitleParts;
   key: Key;
+  /** How lush its chords are. */
+  colour: Colour;
   bpm: number;
   swing: number;
   voicings: Voicings;
@@ -55,11 +57,13 @@ export class Song {
     const tonality = rng.fork('mode').pick(Object.values(TONALITIES));
     const key = new Key(rng.pick(tonality.tonics), tonality.mode);
     const bpm = rng.int(...SONG.tempo);
+    const colour = rng.fork('colour').weightedKey(SONG.colour);
     const plan = new FormPlanner(rng.fork('form'), tonality.turnarounds, bpm).plan();
-    const form = buildForm(plan, key, bpm, rng.fork('materials'));
+    const form = buildForm(plan, key, bpm, rng.fork('materials'), colour);
     return new Song({
       seed: s,
       key,
+      colour,
       bpm,
       swing: Math.round(rng.range(SONG.swing) * 100) / 100,
       voicings: Song.voicings(tonality.voicings ?? SONG.voicings, rng.fork('voicings')),
@@ -103,6 +107,7 @@ export class Song {
     const intro = this.part(Intro);
     return {
       key: this.key.name,
+      colour: this.colour,
       bpm: this.bpm,
       bars: this.bars,
       voicings: `${this.voicings.comp}/${this.voicings.sustain}`,
