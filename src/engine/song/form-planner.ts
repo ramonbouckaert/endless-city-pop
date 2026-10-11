@@ -37,7 +37,7 @@ export class FormPlanner {
     private readonly turnarounds: Readonly<Record<string, Turnaround>>,
     bpm: number,
   ) {
-    const [slow, fast] = SONG.tempo;
+    const [slow, fast] = SONG.pace;
     const pace = Math.min(1, Math.max(0, (bpm - slow) / (fast - slow)));
     this.sixteens = 1 + (FORM.sixteenAtSpeed - 1) * pace;
     this.preBars = rng.weighted(FORM.preBars);

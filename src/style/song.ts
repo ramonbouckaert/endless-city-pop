@@ -27,7 +27,11 @@ export const MELODY_HELD = 1 / 4;
 export const FERMATA = { ending: 0.5, midSong: 0.9 };
 
 export const SONG = {
-  tempo: [92, 124] as Range, // BPM: city pop's easy end to its brisker one
+  tempo: [92, 134] as Range, // BPM: city pop's easy end to its uptempo disco
+  // The tempos that pace a song's form and bass: from here to there a
+  // song gets busier sixteen-bar sections and a calmer line, and no more
+  // beyond.
+  pace: [92, 124] as Range,
   // How late an eighth's second sixteenth lands, in sixteenths: from a
   // slight lean (0.06, 53:47) to a clear sixteenth shuffle (0.22, 61:39).
   swing: [0.06, 0.22] as Range,

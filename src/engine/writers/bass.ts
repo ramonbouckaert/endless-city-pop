@@ -61,7 +61,7 @@ export class BassWriter {
   ) {
     this.feel = rng.weightedKey(feels);
     this.def = BASS_FEELS[this.feel];
-    const [slow, fast] = SONG.tempo;
+    const [slow, fast] = SONG.pace;
     const pace = Math.min(1, Math.max(0, (bpm - slow) / (fast - slow)));
     this.busy = 1 - BASS.tempoCalm * pace;
     this.density = rng.range(this.calmed(this.def.density));
