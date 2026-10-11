@@ -5,7 +5,6 @@ import type { TonalityDef } from './types';
 // major. Few cadences, so less reharmonisation; it comes home by the
 // plagal IV7-i, not V-i.
 export const DORIAN: TonalityDef = {
-  weight: 3,
   tonics: [2, 7, 0, 9, 4, 5], // D G C A E F
   tonic: 'min',
   reharm: 0.5,

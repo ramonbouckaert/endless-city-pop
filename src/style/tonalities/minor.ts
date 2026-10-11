@@ -6,7 +6,6 @@ import type { TonalityDef } from './types';
 // iiø-V7alt of jazz minor turns up, but rarely. The tonic is a m9, m11
 // or m6/9.
 export const MINOR: TonalityDef = {
-  weight: 1,
   tonics: [2, 7, 0, 5, 9, 4], // D G C F A E
   tonic: 'min',
   tonicPalette: 'minTonic',

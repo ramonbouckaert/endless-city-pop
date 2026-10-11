@@ -52,9 +52,8 @@ export class Song {
   static generate(seed?: string | number): Song {
     const s = String(seed ?? 'demo');
     const rng = new Rng(s);
-    const mode = rng.fork('mode').weightedKey(TONALITIES);
-    const tonality = TONALITIES[mode];
-    const key = new Key(rng.pick(tonality.tonics), mode);
+    const tonality = rng.fork('mode').pick(Object.values(TONALITIES));
+    const key = new Key(rng.pick(tonality.tonics), tonality.mode);
     const bpm = rng.int(...SONG.tempo);
     const plan = new FormPlanner(rng.fork('form'), tonality.turnarounds, bpm).plan();
     const form = buildForm(plan, key, bpm, rng.fork('materials'));

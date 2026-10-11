@@ -1,32 +1,30 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Song > writes the same chorus for a seed as it did 1`] = `"G major"`;
+exports[`Song > writes the same chorus for a seed as it did 1`] = `"A minor"`;
 
 exports[`Song > writes the same chorus for a seed as it did 2`] = `
 [
-  "Em7",
-  "G69",
-  "C^9#11",
+  "F^7#11",
+  "Dm9",
+  "G9",
+  "Dm9",
   "D7#9",
-  "G^9",
-  "C^9",
-  "Em7",
-  "G69",
-  "C^9#11",
+  "G9sus",
+  "F^7#11",
+  "Dm9",
+  "G9",
+  "Dm9",
   "D7#9",
-  "G^9",
-  "C^9",
-  "Em7",
-  "G69",
-  "C^9#11",
+  "G9sus",
+  "F^7#11",
+  "Dm9",
+  "G9",
+  "Dm9",
   "D7#9",
-  "G^9",
-  "C^9",
-  "C^9#11",
-  "Bm7",
-  "E9sus",
-  "C^9",
-  "Bm7",
-  "E13",
+  "G9sus",
+  "Dm9",
+  "G7sus",
+  "Dm7",
+  "G7sus",
 ]
 `;

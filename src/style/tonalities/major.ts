@@ -39,7 +39,6 @@ export const LIFT_TURNAROUNDS: Readonly<Record<string, Turnaround>> = {
 
 // Jazz-funk in a major key: ii-V-I, secondary dominants, borrowed iv.
 export const MAJOR: TonalityDef = {
-  weight: 4,
   tonics: [5, 10, 3, 0, 7, 2],
   tonic: 'maj',
   reharm: 1,

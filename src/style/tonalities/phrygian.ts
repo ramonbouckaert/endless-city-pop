@@ -6,7 +6,6 @@ import type { TonalityDef } from './types';
 // bvii of the parent major. It cadences by the phrygian bII-i, never a
 // dominant (its v is diminished), and it is rarely reharmonised.
 export const PHRYGIAN: TonalityDef = {
-  weight: 1.5,
   tonics: [4, 9, 11, 2, 6], // E A B D F#
   tonic: 'min',
   tonicPalette: 'minPhrygianTonic',

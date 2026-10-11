@@ -6,7 +6,6 @@ import { LIFT_TURNAROUNDS } from './major';
 // home from bVII, the mixolydian cadence. Chords borrowed from the
 // parallel minor (bIII, bVI) are plain triads and add9s.
 export const MIXOLYDIAN: TonalityDef = {
-  weight: 2,
   tonics: [7, 2, 0, 5, 9, 10], // G D C F A Bb
   tonic: 'dom',
   tonicPalette: 'domTonic',
