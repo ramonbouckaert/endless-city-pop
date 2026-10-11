@@ -81,7 +81,7 @@ export const FORM = {
   // How often a song holds one moment of tension mid-song on a fermata:
   // the last bar of a pre-chorus, bridge, breakdown or lift, slowed and
   // held (FERMATA).
-  fermataChance: 0.3,
+  fermataChance: 0.4,
 };
 
 // The furthest the last choruses lift the key, in semitones. Instruments
