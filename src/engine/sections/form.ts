@@ -60,6 +60,11 @@ export class Form<S extends Placed = AnySection> implements Iterable<S> {
     return this.sections[this.sections.indexOf(sec) + 1];
   }
 
+  /** The section just before `sec`, of any kind. */
+  before(sec: S): S | undefined {
+    return this.sections[this.sections.indexOf(sec) - 1];
+  }
+
   /** The last section of `sec`'s kind before it. */
   previous<P extends S>(sec: P): P | undefined {
     return this.sections.slice(0, this.sections.indexOf(sec)).findLast((s): s is P => s.kind === sec.kind);

@@ -25,6 +25,8 @@ export const LIFT_TURNAROUNDS: Readonly<Record<string, Turnaround>> = {
   },
   'sus pedal': { weight: 2, bars: [['V:9sus'], ['V:7alt|13b9']] },
   'truck driver': { weight: 1, bars: [['V:7alt|13']] },
+  // A sus chord a whole step below the new tonic, pivoting up onto it (ANRI's +1).
+  pivot: { weight: 1.5, bars: [['bVII:7sus|9sus']] },
   'long way': { weight: 1, bars: [['iii:m7'], ['VI:7alt|13b9'], ['ii:m9|m11'], ['V:7alt|13']] },
   // Coltrane changes: major thirds round to the new tonic.
   coltrane: {

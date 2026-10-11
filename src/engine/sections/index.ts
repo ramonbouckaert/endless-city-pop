@@ -14,7 +14,7 @@ import { Chorus, HALF } from './chorus';
 import { DrumBreak } from './drum-break';
 import { Finale } from './finale';
 import { Intro } from './intro';
-import { Lift } from './lift';
+import { Lift, OWN } from './lift';
 import { Link } from './link';
 import { Outro } from './outro';
 import { PreChorus } from './pre';
@@ -54,7 +54,7 @@ export function buildForm(plan: Form<Plan>, key: Key, bpm: number, rng: Rng, col
   return new BuildContext(key, bpm, plan, rng, colour).build();
 }
 
-export { HALF };
+export { HALF, OWN };
 export {
   Breakdown,
   Bridge,

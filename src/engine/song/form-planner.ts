@@ -14,6 +14,7 @@ import {
   HALF,
   Lift,
   Link,
+  OWN,
   Outro,
   planned,
   PreChorus,
@@ -225,8 +226,9 @@ export class FormPlanner {
       const step = rng.weighted(lift.steps);
       if (shift + step <= MAX_SHIFT && rng.chance(i ? lift.again : lift.first)) {
         shift += step;
-        const turnaround = rng.weightedKey(this.turnarounds);
-        const bars = this.turnarounds[turnaround].bars.length;
+        const own = rng.chance(lift.own);
+        const turnaround = own ? OWN : rng.weightedKey(this.turnarounds);
+        const bars = own ? 2 : this.turnarounds[turnaround].bars.length;
         s.push(planned(Lift, bars, { turnaround, part: `${Lift.id}:${lifts++}`, shift }));
       }
       // The last chorus has everything; a fading song's last two do. In a

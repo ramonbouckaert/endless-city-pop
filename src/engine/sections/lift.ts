@@ -3,7 +3,8 @@
 // the song's key and played shifted up to the new one.
 
 import { FIGURES, GROOVES, LIFT_STYLES, RHYTHMS, type LiftStyle } from '../../style';
-import type { Chord } from '../../theory';
+import type { Rng } from '../../lib/random';
+import { Chord, type Bar } from '../../theory';
 
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
@@ -11,9 +12,12 @@ import { PlayedSection, type Plan, type PlayedMaterial } from './section';
 import { lastBar, spans, timed } from '../score';
 
 export interface LiftFields {
-  /** The turnaround it takes into its key (a name in the tonality's). */
+  /** The turnaround it takes into its key (a name in the tonality's, or OWN). */
   turnaround: string;
 }
+
+/** The turnaround that bends the chorus's own last two bars onto the new key's V. */
+export const OWN = 'own';
 
 // A turnaround into the chorus after it, whose first chord (`into`) a
 // bass pickup may lead to.
@@ -33,7 +37,10 @@ export class Lift extends PlayedSection<LiftMaterial> {
   constructor(plan: Plan<LiftFields>, ctx: BuildContext) {
     super(plan);
     this.material = ctx.material(this, (rng) => {
-      const bars = ctx.harmonizer(rng.fork('harmony')).turnaround(this.turnaround);
+      const bars =
+        this.turnaround === OWN
+          ? this.own(ctx, rng.fork('own'))
+          : ctx.harmonizer(rng.fork('harmony')).turnaround(this.turnaround);
       const variant = rng.weightedKey(LIFT_STYLES, ctx.previous(this)?.material.variant);
       return {
         ...ctx.band(ctx.key, bars, GROOVES.lift, rng.fork('groove')),
@@ -41,6 +48,18 @@ export class Lift extends PlayedSection<LiftMaterial> {
         into: ctx.firstChordAfter(this).chord,
       };
     });
+  }
+
+  // The chorus's last two bars, the first still in the key it lifts from
+  // (written a step down, as the lift plays in its new key), the last
+  // chord bent onto the new key's V.
+  private own(ctx: BuildContext, rng: Rng): Bar[] {
+    const step = this.shift - (ctx.plan.before(this.plan)?.shift ?? 0);
+    const down = (bar: Bar) => bar.map((c) => c.transpose(-step));
+    const [first, second] = ctx.chorusBars().slice(-2);
+    const v = new Chord(ctx.key.tonic + 7, rng.pick(['13', '7alt', '9sus']));
+    const bars = [down(first), [...down(second).slice(0, -1), v]];
+    return Chord.inBars(Chord.fitScales(bars.flat(), ctx.key), bars);
   }
 
   protected override get details(): string[] {

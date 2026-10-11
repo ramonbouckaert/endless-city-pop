@@ -5,8 +5,17 @@
 
 import type { Program } from '../../lib/general-midi';
 import type { Odds, Rng } from '../../lib/random';
-import { COMP, RUN_INTO, SOLO_COMPS, SOLO_OVER, type SoloComp, type SoloOver } from '../../style';
-import type { Bar } from '../../theory';
+import {
+  ADVENTUROUS,
+  COMP,
+  RUN_INTO,
+  SOLO_COMPS,
+  SOLO_OVER,
+  tonalityOf,
+  type SoloComp,
+  type SoloOver,
+} from '../../style';
+import type { Bar, Key } from '../../theory';
 import type { Sounds } from '../song';
 import { SoloChangesWriter, SoloWriter, type Solo } from '../writers';
 import type { BuildContext } from './build-context';
@@ -46,10 +55,10 @@ export class SoloSection extends PlayedSection<SoloMaterial> {
       const before = ctx.previous(this);
       const variant = before ? rng.weightedKey(SOLO_COMPS, before.material.variant) : 'band';
       const over = rng.fork('over').weightedKey(this.sources(ctx));
-      const bars = this.changes(over, ctx, rng.fork('changes'));
+      const { key, bars } = this.changes(over, ctx, rng.fork('changes'));
       const keys = ctx.swap(rng.fork('swap'));
       return {
-        ...ctx.band(ctx.key, bars, SOLO_COMPS[variant].groove, rng.fork('groove')),
+        ...ctx.band(key, bars, SOLO_COMPS[variant].groove, rng.fork('groove')),
         variant,
         over,
         solo: new SoloWriter(rng.fork('line')).write(bars),
@@ -66,26 +75,33 @@ export class SoloSection extends PlayedSection<SoloMaterial> {
     return rest;
   }
 
-  // Its changes: the mode's solo changes, or a progression of the song's
-  // looped to its length; if the loop doesn't come round whole, its last
-  // two bars lead home instead.
-  private changes(over: SoloOver, ctx: BuildContext, rng: Rng): Bar[] {
+  // Its changes, and their key: the mode's solo changes, an interlude in
+  // a borrowed key, or a progression of the song's looped to its length;
+  // if the loop doesn't come round whole, or the interlude's ends, its
+  // last two bars lead home.
+  private changes(over: SoloOver, ctx: BuildContext, rng: Rng): { key: Key; bars: Bar[] } {
+    const home = ctx.key;
+    if (over === 'cycle') return { key: home, bars: new SoloChangesWriter(home, rng, ctx.colour).write(this.bars) };
+    const approach = () => ctx.harmonizer(rng.fork('home')).approach();
+    if (over === 'interlude') {
+      // A vamp of a key a bridge might go to (Stay With Me's in bIII), then home.
+      const key = ctx.harmonizer(rng.fork('key')).bridgeKey(ADVENTUROUS);
+      const vamp = rng.pick(tonalityOf(key.mode).templates.vamp);
+      return { key, bars: [...ctx.progress(vamp, this.bars - 2, rng.fork('vamp'), { key }), ...approach()] };
+    }
     const source = this.source(over, ctx);
-    if (!source) return new SoloChangesWriter(ctx.key, rng, ctx.colour).write(this.bars);
     const looped = Array.from({ length: this.bars }, (_, b) => source[b % source.length]);
-    if (this.bars % source.length === 0) return looped;
-    return [...looped.slice(0, -2), ...ctx.harmonizer(rng).approach()];
+    if (this.bars % source.length === 0) return { key: home, bars: looped };
+    return { key: home, bars: [...looped.slice(0, -2), ...approach()] };
   }
 
-  // The song's progression a solo loops, if it loops one.
-  private source(over: SoloOver, ctx: BuildContext): readonly Bar[] | undefined {
+  // The song's progression a solo loops.
+  private source(over: Exclude<SoloOver, 'cycle' | 'interlude'>, ctx: BuildContext): readonly Bar[] {
     switch (over) {
-      case 'cycle':
-        return undefined;
       case 'chorus':
         return ctx.chorusBars();
       case 'verse':
-        return ctx.first(Verse)?.material.bars;
+        return ctx.first(Verse)?.material.bars ?? ctx.chorusBars();
       case 'intro':
         return ctx.introBars().bars;
       case 'vamp':

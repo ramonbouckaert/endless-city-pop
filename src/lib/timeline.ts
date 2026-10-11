@@ -52,10 +52,15 @@ export class Timeline {
     return t.seconds + ((q - t.quarter) * 60) / t.bpm;
   }
 
-  /** The time in bars `seconds` in: the inverse of seconds(). */
+  /**
+   * The time in bars `seconds` in: the inverse of seconds() (to a
+   * billionth of a bar, so a time turned into seconds and back is where
+   * it was, despite rounding on the way).
+   */
   timeAt(seconds: number): number {
     const t = this.tempos.findLast((x) => x.seconds <= seconds) ?? this.tempos[0];
-    return (t.quarter + ((seconds - t.seconds) * t.bpm) / 60) / QUARTERS;
+    const time = (t.quarter + ((seconds - t.seconds) * t.bpm) / 60) / QUARTERS;
+    return Math.round(time * 1e9) / 1e9;
   }
 
   // The tempo in force at a quarter note.

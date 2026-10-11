@@ -100,6 +100,9 @@ export const FORM = {
   lift: {
     first: 0.55,
     again: 0.3,
+    // How often a lift bends the chorus's own last two bars onto the new
+    // key's V (Tokai's) instead of taking one of the tonality's turnarounds.
+    own: 0.2,
     steps: [
       [1, 2],
       [2, 3],

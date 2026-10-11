@@ -6,6 +6,7 @@ import {
   Finale,
   Intro,
   Lift,
+  OWN,
   Outro,
   PreChorus,
   ScoreArranger,
@@ -141,13 +142,16 @@ describe('section materials', () => {
       const names = (chords: readonly Bar[]) => chords.map((bar) => bar.map((c) => c.name(song.key)).join(' '));
       overs.add(over);
       if (over === 'verse') expect(song.form.first(Verse)).toBeDefined();
+      // An interlude is in a key of its own, and comes home; the rest are in the song's.
+      if (over === 'interlude') expect(sec.material.key).not.toEqual(song.key);
+      else expect(sec.material.key).toEqual(song.key);
       // A loop of the chorus that comes round whole is the chorus's chords, over and over.
       const chorus = song.part(Chorus);
       if (over === 'chorus' && chorus && sec.bars % chorus.bars.length === 0) {
         expect(names(bars.slice(0, chorus.bars.length))).toEqual(names(chorus.bars));
       }
     }
-    expect(overs).toEqual(new Set(['cycle', 'chorus', 'verse', 'intro', 'vamp']));
+    expect(overs).toEqual(new Set(['cycle', 'chorus', 'verse', 'intro', 'vamp', 'interlude']));
   });
 
   it("plays some minor songs' choruses in the relative major", () => {
@@ -227,7 +231,8 @@ describe('section materials', () => {
       });
     }
     expect(multiple).toBeGreaterThan(10);
-    expect(used).toEqual(new Set(Object.keys(TONALITIES[mode].turnarounds)));
+    // Every one of the tonality's turnarounds, and the chorus's own bent onto the new V.
+    expect(used).toEqual(new Set([...Object.keys(TONALITIES[mode].turnarounds), OWN]));
     expect(styles).toEqual(new Set(Object.keys(LIFT_STYLES)));
   });
 

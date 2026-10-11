@@ -157,6 +157,7 @@ export const MINOR: TonalityDef = {
     tritone: { weight: 1, bars: [['ii:m9|m7'], ['bII:13#11']] },
     'sus pedal': { weight: 2, bars: [['iv:m9'], ['bVII:9sus']] },
     'truck driver': { weight: 1, bars: [['bVII:13|9']] },
+    pivot: { weight: 1.5, bars: [['bVII:7sus|9sus']] },
     'long way': {
       weight: 1,
       bars: [

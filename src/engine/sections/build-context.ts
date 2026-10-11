@@ -104,8 +104,8 @@ export class BuildContext {
 
   /** The section just before `sec`, built, if there is one. */
   before(sec: Section): AnySection | undefined {
-    const index = this.plan.sections.indexOf(sec.plan);
-    return index > 0 ? this.section(this.plan.sections[index - 1]) : undefined;
+    const plan = this.plan.before(sec.plan);
+    return plan && this.section(plan);
   }
 
   /**

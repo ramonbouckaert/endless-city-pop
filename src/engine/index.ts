@@ -20,6 +20,7 @@ export {
   Intro,
   Lift,
   Link,
+  OWN,
   Outro,
   planned,
   PreChorus,
