@@ -68,8 +68,9 @@ export class Chorus extends PlayedSection<ChorusMaterial> {
     return mat.melody.bars.some((notes) => !notes.length) ? mat.answer.where(mat.melody.rests) : mat.answer.alternate;
   }
 
+  // The chords make room for the answer's long notes too.
   override melodyOver(ctx: PlayedScoreContext): NoteSpec[] | undefined {
-    return ctx.line(this.material.melody);
+    return [...ctx.line(this.material.melody), ...(this.answer ? ctx.line(this.answered) : [])];
   }
 
   protected play(ctx: PlayedScoreContext): Parts {
@@ -79,6 +80,8 @@ export class Chorus extends PlayedSection<ChorusMaterial> {
     // A chorus coming back may trill its first long held note, up to the scale step above.
     const above = (semis: number) => key.scale.semis(key.scale.degree(semis).step + 1);
     const melody = ctx.repeat && mat.trill ? mat.melody.trilled(above) : mat.melody;
+    // An echo of the hook plays only in bars the answer rests: they fill the same gaps.
+    const echoed = answer ? melody.where(this.answered.rests) : melody;
     return [
       ctx.drums(),
       B,
@@ -87,7 +90,7 @@ export class Chorus extends PlayedSection<ChorusMaterial> {
       band.pad(C),
       band.lead(ctx.line(melody)),
       band.double(ctx.line(melody), ctx.octaveUp(melody)),
-      mat.echo !== undefined && band.echo(ctx.line(melody), mat.echo).until(len),
+      mat.echo !== undefined && band.echo(ctx.line(echoed), mat.echo).until(len),
       answer && band.counter(ctx.line(this.answered)),
       mat.bells && band.ostinato(C).mask(ctx.from(len / 2)),
       big && band.stabs(C),

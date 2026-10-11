@@ -57,6 +57,12 @@ export class Chord {
     return this.tones.map((t) => PitchClass.of(this.root + t));
   }
 
+  /** Its tones no other is a semitone from, which a note can hold without rubbing. */
+  get clean(): number[] {
+    const { pcs } = this;
+    return pcs.filter((pc) => !pcs.some((o) => [1, 11].includes(PitchClass.of(o - pc))));
+  }
+
   get minorish(): boolean {
     return this.cls === 'min' || this.cls === 'hdim';
   }
@@ -107,25 +113,31 @@ export class Chord {
   /**
    * Move a note (semitones above the key's tonic) onto a chord tone: the
    * nearest, unless that repeats `prev` when the line is moving in `dir`.
-   * `diatonic` keeps to tones in the key.
+   * `diatonic` keeps to tones in the key; `clean` to its clean tones, if any of
+   * those are left.
    */
   snap(
     semis: number,
     key: Key,
-    { prev, dir = 0, diatonic = false }: { prev?: number; dir?: number; diatonic?: boolean } = {},
+    {
+      prev,
+      dir = 0,
+      diatonic = false,
+      clean = false,
+    }: { prev?: number; dir?: number; diatonic?: boolean; clean?: boolean } = {},
   ): number {
-    const near = this.tonesNear(semis, key, diatonic);
+    const allowed = (pcs: number[]) => (diatonic ? pcs.filter((pc) => key.has(pc)) : pcs);
+    const cleanTones = clean ? allowed(this.clean) : [];
+    const near = this.tonesNear(semis, key, cleanTones.length ? cleanTones : allowed(this.pcs));
     const best = near[0];
     if (prev === undefined || best !== prev || dir === 0) return best;
     return near.find((c) => c !== prev && Math.sign(c - prev) === dir && Math.abs(c - semis) <= 4) ?? best;
   }
 
-  // Chord tones within an octave of `semis`, nearest first.
-  private tonesNear(semis: number, key: Key, diatonic: boolean): number[] {
+  // Tones (pitch classes `pcs`) within an octave of `semis`, nearest first.
+  private tonesNear(semis: number, key: Key, pcs: readonly number[]): number[] {
     const base = semis - PitchClass.of(semis);
-    const out = this.pcs
-      .filter((pc) => !diatonic || key.has(pc))
-      .flatMap((pc) => [-12, 0, 12].map((octave) => base + PitchClass.of(pc - key.tonic) + octave));
+    const out = pcs.flatMap((pc) => [-12, 0, 12].map((octave) => base + PitchClass.of(pc - key.tonic) + octave));
     if (!out.length) return [semis];
     return [...new Set(out)].sort((a, b) => Math.abs(a - semis) - Math.abs(b - semis) || a - b);
   }

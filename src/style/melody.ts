@@ -240,10 +240,23 @@ export const SHAPE_CHOICES: Readonly<Record<MotifLetter, Odds<ShapeName>>> = {
   R: { neighbor: 1 }, // none
 };
 
-// The answer to a hook: short figures of [step, length] in sixteenths
-// from where it starts, from a high degree, stepping between notes (a
-// figure's steps all rise, `rise` of the time, or all fall); an echo takes up to `echo` notes
-// of the hook's tail; a held line stays between degrees `line`.
+// The answer to a hook, in four-bar phrases: figures in the gaps it
+// leaves, a riff, an echo of its tail, or a held line.
+//
+// Figures are [step, length] in sixteenths from where an answer starts
+// (on an eighth; it may run on over the barline until the hook comes
+// back). They keep to eighths, a sixteenth only as a pickup into one, but
+// for the dotted 3-3-2s, which start on a beat. A figure starts from a
+// high degree and steps between notes: its first steps all rise (`rise`
+// of the time) or all fall, and a long one's later steps turn back. After
+// a long hook note, an eighth's pickup over its tail leads into it from
+// a tone of the chord.
+//
+// A phrase's third and fourth bars reply to its first and second with
+// their call varied: fills turned the other way, a riff one way for the
+// song (`riffReplies`: turned, begun a third higher, or landing on the
+// chord's root).
+export type Reply = 'turn' | 'lift' | 'land';
 export const ANSWER = {
   figures: [
     [
@@ -280,17 +293,60 @@ export const ANSWER = {
       [4, 2],
     ],
     [
-      [1, 2],
+      [0, 2],
+      [2, 1],
       [3, 1],
       [4, 4],
+    ],
+    // Longer phrases, rising and turning back to land on a held note.
+    [
+      [0, 2],
+      [2, 2],
+      [4, 2],
+      [6, 2],
+      [8, 4],
+    ],
+    [
+      [0, 1],
+      [1, 1],
+      [2, 2],
+      [4, 2],
+      [6, 2],
+      [8, 6],
+    ],
+    [
+      [0, 2],
+      [2, 1],
+      [3, 1],
+      [4, 4],
+      [8, 2],
+      [10, 4],
+    ],
+    [
+      [0, 3],
+      [3, 3],
+      [6, 2],
+      [8, 2],
+      [10, 6],
+    ],
+    [
+      [0, 2],
+      [2, 2],
+      [4, 4],
+      [8, 2],
+      [10, 2],
+      [12, 4],
     ],
   ] as readonly (readonly [step: number, len: number])[][],
   startDegrees: [7, 8, 9],
   rise: 0.65,
   rising: [2, 3, 4],
   falling: [-2, -3],
-  echo: 3,
-  line: [5, 11] as Range,
+  held: 6, // a last note is held on this long at most,
+  breath: 2, // ending this long before the hook comes back
+  riffReplies: { turn: 2, lift: 1, land: 2 } as Odds<Reply>,
+  echo: 3, // the most notes of the hook's tail an echo takes
+  line: [5, 11] as Range, // the degrees a held line stays between
 };
 
 export const SOLO = {

@@ -267,6 +267,24 @@ describe('section materials', () => {
     }
   });
 
+  it('answers a hook in its gaps, one note at a time, until the hook comes back', () => {
+    const choruses = Array.from({ length: 150 }, (_, i) =>
+      defined(Song.generate(`answer${i}`).part(Chorus), 'a chorus'),
+    ).filter((c) => c.variant !== 'line' && c.variant !== 'echo');
+    expect(choruses.length).toBeGreaterThan(0);
+    const spans = (bars: { start: number; len: number }[][]) =>
+      bars.flatMap((notes, b) => notes.map((n) => [b * 16 + n.start, b * 16 + n.start + n.len] as const));
+    for (const { melody, answer } of choruses) {
+      const hook = spans(melody.bars);
+      const notes = spans(answer.bars).sort((a, b) => a[0] - b[0]);
+      notes.forEach(([start, end], i) => {
+        if (i) expect(start).toBeGreaterThanOrEqual(notes[i - 1][1]);
+        const back = hook.find(([s]) => s >= start);
+        if (back) expect(end).toBeLessThanOrEqual(back[0]);
+      });
+    }
+  });
+
   it('now and then holds a moment of tension mid-song on a fermata', () => {
     const tense = [PreChorus, Bridge, Breakdown, Lift];
     const songs = Array.from({ length: 300 }, (_, i) => Song.generate(`tension${i}`));

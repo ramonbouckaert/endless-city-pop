@@ -16,6 +16,17 @@ describe('music', () => {
     }
   });
 
+  it('snaps a held note to a clean tone, in the key if asked', () => {
+    const key = new Key(0);
+    // Cmaj7: B rubs against C, so only E and G are clean.
+    const cmaj7 = new Chord(0, '^7');
+    expect(cmaj7.clean).toEqual([4, 7]);
+    expect(cmaj7.snap(11, key)).toBe(11);
+    expect(cmaj7.snap(11, key, { clean: true })).toBe(7);
+    // Dmaj7 in C: C# rubs against D, so F# and A are clean; only A is in the key.
+    expect(new Chord(2, '^7').snap(6, key, { clean: true, diatonic: true })).toBe(9);
+  });
+
   it('parses roman numerals', () => {
     expect(Roman.parse('IVmaj7')).toMatchObject({ offset: 5, cls: 'maj' });
     expect(Roman.parse('V7')).toMatchObject({ offset: 7, cls: 'dom' });
