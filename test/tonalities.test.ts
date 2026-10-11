@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/lib/random';
 import { Harmonizer } from '../src/engine';
 import { PALETTE, PRE_FLAVOURS, TONALITIES } from '../src/style';
-import { CHORDS, Key, MODES, Roman, Template, type Mode } from '../src/theory';
+import { Chord, CHORDS, Key, MODES, PitchClass, Roman, Template, type Bar, type Mode } from '../src/theory';
 
 describe('tonalities', () => {
   const modes = Object.keys(TONALITIES) as Mode[];
@@ -95,6 +95,74 @@ describe('tonalities', () => {
     expect(names('minor')[1]).toMatch(/^Bb(13|9)$/);
     expect(names('dorian')[1]).toMatch(/^F(13|9)$/); // IV7-i
     expect(names('mixolydian')[1]).toMatch(/^Bb/); // bVII-I7
+  });
+
+  it('reharmonises with tritone subs, related ii chords, secondary dominants and stand-ins', () => {
+    const key = new Key(0, 'major');
+    const runs = 400;
+    const found = { changed: 0, tritone: 0, tritoneAfter: 0, relatedII: 0, secondary: 0 };
+    const standIns = { whole: 0, after: 0, before: 0 };
+    // (Reharmonising refits chord-scales, so chords are compared by name.)
+    const same = (x: Chord, y: Chord) => x.name(key) === y.name(key);
+    const names = (bars: Bar[]) => bars.map((bar) => bar.map((c) => c.name(key)).join(' ')).join(' | ');
+    // The roots a third away that stand in for C, Am and Dm (not Am for C, nor F for Am: the next bar's).
+    const standInRoots = [[4], [0], [5]];
+    for (let i = 0; i < runs; i++) {
+      const harmony = new Harmonizer(key, new Rng(`r${i}`));
+      const plain = harmony.progression('Imaj7 vi7 ii7 V7', 4, { reharm: false });
+      const reharmed = harmony.reharmonize(plain);
+      if (names(reharmed) !== names(plain)) found.changed++;
+      const [v] = plain[3];
+      const last = reharmed[3];
+      // V7 into I: its tritone sub, bII13#11, in its place or after it, or ii-V.
+      const isSub = (c: Chord) => c.root === PitchClass.of(v.root + 6) && c.symbol === '13#11';
+      if (last.length === 1 && isSub(last[0])) found.tritone++;
+      if (last.length === 2 && same(last[0], v) && isSub(last[1])) found.tritoneAfter++;
+      if (last.length === 2 && last[0].root === PitchClass.of(v.root + 7) && last[0].minorish && same(last[1], v))
+        found.relatedII++;
+      expect(last.length === 2 && isSub(last[0])).toBe(false); // never before its chord
+      for (let b = 0; b < 3; b++) {
+        const target = plain[b + 1][0];
+        const [chord] = plain[b];
+        const bar = reharmed[b];
+        // A whole-bar chord with the next bar's dominant (or its sub) in its second half.
+        const [first, second] = bar;
+        if (
+          same(first, chord) &&
+          second?.dominant &&
+          [PitchClass.of(target.root + 7), PitchClass.of(target.root + 1)].includes(second.root)
+        )
+          found.secondary++;
+        // A diatonic chord a third away, in its place, after it or before it.
+        const standIn = (c: Chord) => !c.dominant && standInRoots[b].includes(c.root);
+        if (bar.length === 1 && standIn(first)) standIns.whole++;
+        if (bar.length === 2 && same(first, chord) && standIn(second)) standIns.after++;
+        if (bar.length === 2 && standIn(first) && same(second, chord)) standIns.before++;
+        // The tonic is never left for a whole bar.
+        if (b === 0) expect(bar.some((c) => same(c, chord))).toBe(true);
+      }
+    }
+    expect(found.changed).toBeGreaterThan(runs / 4);
+    expect(found.tritone).toBeGreaterThan(runs / 20);
+    expect(found.tritoneAfter).toBeGreaterThan(runs / 40);
+    expect(found.relatedII).toBeGreaterThan(runs / 20);
+    expect(found.secondary).toBeGreaterThan(runs / 5);
+    expect(standIns.whole).toBeGreaterThan(runs / 40);
+    expect(standIns.after).toBeGreaterThan(runs / 20);
+    expect(standIns.before).toBeGreaterThan(runs / 40);
+  });
+
+  it('reharmonises by how much each mode allows', () => {
+    const changed = (mode: Mode) => {
+      let n = 0;
+      for (let i = 0; i < 400; i++) {
+        const harmony = new Harmonizer(new Key(0, mode), new Rng(`m${i}`));
+        const plain = harmony.progression('i7 iv7 i7 iv7', 4, { reharm: false });
+        n += harmony.reharmonize(plain).filter((bar, b) => bar.length !== plain[b].length).length;
+      }
+      return n;
+    };
+    expect(changed('minor')).toBeGreaterThan(changed('phrygian') * 1.5);
   });
 
   it('fits a pre-chorus template to end on its cadence', () => {

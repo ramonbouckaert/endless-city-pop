@@ -12,9 +12,10 @@ import {
   tonalityOf,
   TONIC_CHORDS,
   type PaletteName,
+  type Placing,
   type Tonality,
 } from '../../style';
-import { Chord, Key, Roman, Template, type Bar, type ChordSpec } from '../../theory';
+import { Chord, Key, PitchClass, Roman, Template, type Bar, type ChordClass, type ChordSpec } from '../../theory';
 
 /** Writes harmony in a key, drawing on one random stream. */
 export class Harmonizer {
@@ -68,7 +69,7 @@ export class Harmonizer {
     return cls;
   }
 
-  /** Tritone subs, related ii chords and secondary dominants. */
+  /** Tritone subs, related ii chords, secondary dominants and diatonic stand-ins. */
   reharmonize(bars: Bar[]): Bar[] {
     const amount = REHARM.amount * this.tonality.reharm;
     return this.scaled(
@@ -82,14 +83,16 @@ export class Harmonizer {
           !this.tonality.isTonic(last, this.key) &&
           this.rng.chance(amount * REHARM.tritone)
         ) {
-          return bar.with(-1, new Chord(last.root + 6, '13#11'));
+          const sub = new Chord(last.root + 6, '13#11');
+          if (bar.length > 1) return bar.with(-1, sub);
+          return this.place(last, sub, this.rng.weightedKey(REHARM.tritonePlacing));
         }
         return (bar.length === 1 && this.substitute(bar[0], target, amount)) || bar;
       }),
     );
   }
 
-  // A whole-bar chord split in two, or nothing.
+  // A whole-bar chord split in two or replaced, or nothing.
   private substitute(only: Chord, target: Chord, amount: number): Bar | undefined {
     const { rng } = this;
     // Related ii: a dominant becomes ii-V.
@@ -100,9 +103,51 @@ export class Harmonizer {
     }
     // Secondary dominant: the bar's second half points at the next
     // chord, sometimes as its tritone sub.
-    if (target.root === only.root || !rng.chance(amount * REHARM.secondary)) return;
-    if (rng.chance(REHARM.secondaryTritone)) return [only, new Chord(target.root + 1, '13#11')];
-    return [only, new Chord(target.root + 7, rng.pick(target.minorish ? REHARM.toMinor : REHARM.toMajor))];
+    if (target.root !== only.root && rng.chance(amount * REHARM.secondary)) {
+      if (rng.chance(REHARM.secondaryTritone)) return [only, new Chord(target.root + 1, '13#11')];
+      return [only, new Chord(target.root + 7, rng.pick(target.minorish ? REHARM.toMinor : REHARM.toMajor))];
+    }
+    // Stand-in: a chord a third away, beside the chord or in its place.
+    const choices = this.standIns(only).filter(({ root }) => root !== target.root);
+    if (!choices.length || !rng.chance(amount * REHARM.standIn)) return;
+    const { root, cls } = rng.pick(choices);
+    const next = new Roman(PitchClass.of(target.root - this.key.tonic), target.cls, '');
+    const palette = this.palette(new Roman(PitchClass.of(root - this.key.tonic), cls, ''), next);
+    const standIn = new Chord(root, rng.weightedKey(PALETTE[palette]));
+    const home = this.tonality.isTonic(only, this.key);
+    return this.place(only, standIn, rng.weightedKey(REHARM.standInPlacing, home ? 'whole' : undefined));
+  }
+
+  // A chord and its substitute in one bar, as `placing` says.
+  private place(chord: Chord, sub: Chord, placing: Placing): Bar {
+    if (placing === 'whole') return [sub];
+    return placing === 'after' ? [chord, sub] : [sub, chord];
+  }
+
+  // The diatonic chords a third above and below a diatonic major or
+  // minor chord that are themselves major or minor (their roots and
+  // families): Em and Am for C in C major, F for Dm (not Bø).
+  private standIns(chord: Chord): { root: number; cls: ChordClass }[] {
+    if (this.diatonicClass(chord.root) !== chord.cls) return [];
+    const { scale, tonic } = this.key;
+    const degree = scale.steps.indexOf(PitchClass.of(chord.root - tonic));
+    return [degree + 2, degree - 2]
+      .map((d) => PitchClass.of(tonic + scale.semis(d)))
+      .flatMap((root) => {
+        const cls = this.diatonicClass(root);
+        return cls ? [{ root, cls }] : [];
+      });
+  }
+
+  // The family of the key's seventh chord on a root, if it is major or minor.
+  private diatonicClass(root: number): 'maj' | 'min' | undefined {
+    const { scale, tonic } = this.key;
+    const degree = scale.steps.indexOf(PitchClass.of(root - tonic));
+    if (degree < 0) return;
+    const [third, fifth, seventh] = [2, 4, 6].map((up) => scale.semis(degree + up) - scale.semis(degree));
+    if (fifth !== 7) return;
+    if (third === 4 && seventh === 11) return 'maj';
+    if (third === 3 && seventh === 10) return 'min';
   }
 
   /** Two bars leading into the key's tonic: ii-V in major, iiø-V7alt in minor, bVII-IV in dorian. */

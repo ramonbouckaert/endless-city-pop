@@ -100,13 +100,13 @@ export class ScoreBand {
 
   // Chords voiced on a part's sound (or one note of each voicing), at a
   // level in the mix, topping out at its anchor, each making room for the
-  // melody's long notes over it.
+  // melody over it (Changes.melodyOver).
   private chords(part: ChordPart, changes: Changes, hits: readonly ChordHit[], mix: MixName): Part {
     const level: Level = MIX[mix];
     const { anchor } = level;
     const style = SUSTAINED.has(part) ? this.voicings.sustain : this.voicings.comp;
     const specs = hits.flatMap(({ time, dur, chord, n }) => {
-      const voicing = Voicing.of(chord, anchor, style, changes.heldOver({ time, dur }));
+      const voicing = Voicing.of(chord, anchor, style, changes.melodyOver({ time, dur }));
       const notes = n === undefined ? voicing.notes : [voicing.note(n)];
       return notes.map((note) => ({ time, dur, note }));
     });
@@ -159,7 +159,7 @@ export class ScoreBand {
     const specs = this.figure(changes, FIGURES.ostinato).map(({ time, dur, chord, n = 0 }) => ({
       time,
       dur,
-      note: Voicing.of(chord, anchor, 'close', changes.heldOver({ time, dur })).note(n),
+      note: Voicing.of(chord, anchor, 'close', changes.melodyOver({ time, dur })).note(n),
     }));
     return Part.stack(this.play('bell', specs, MIX.ostinato), this.double(specs, 12, 'bell', MIX.ostinatoDouble));
   }

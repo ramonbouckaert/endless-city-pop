@@ -132,7 +132,7 @@ export const SOLO_COMPS: Variants<SoloComp, Grooved> = {
 // hits, the drums dropping out, a run up into the chorus, or the drums
 // alone.
 export type LiftStyle = 'horns' | 'stops' | 'drop' | 'run' | 'drums';
-export const LIFT_STYLES: Odds<LiftStyle> = { horns: 3, stops: 2, drop: 2, run: 2, drums: 1 };
+export const LIFT_STYLES: Odds<LiftStyle> = { horns: 3, stops: 2, drop: 2, run: 1, drums: 1 };
 
 // How the song winds down before the finale: the intro's chords again,
 // quietly, or a pared-back vamp (ride or half-time drums) while two

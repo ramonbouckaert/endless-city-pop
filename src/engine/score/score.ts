@@ -188,7 +188,7 @@ interface ChordSpan extends Span {
 export const onChord = (chord: Chord, degree: number, alter = 0): number =>
   chord.bassMidi + chord.chordScale.semis(degree) + alter;
 
-/** A section's chords over time: what plays when, and the melody notes held over them. */
+/** A section's chords over time: what plays when, and the melody over them. */
 export class Changes {
   constructor(
     readonly spans: readonly ChordSpan[],
@@ -196,15 +196,20 @@ export class Changes {
     readonly melody: readonly NoteSpec[] = [],
   ) {}
 
-  /** The same chords under a melody: those played over its long notes (MELODY_HELD) make room for them. */
+  /** The same chords under a melody, which chords played over it make room for (melodyOver). */
   under(line: readonly NoteSpec[] | undefined): Changes {
-    const held = (line ?? []).filter((n) => n.dur >= MELODY_HELD);
-    return new Changes(this.spans, this.bars, [...this.melody, ...held]);
+    return new Changes(this.spans, this.bars, [...this.melody, ...(line ?? [])]);
   }
 
-  /** The pitches of the melody's long notes sounding during a span. */
-  heldOver({ time, dur }: Span): number[] {
-    return this.melody.filter((n) => n.time < time + dur && n.time + n.dur > time).map((n) => n.note);
+  /**
+   * The pitches of the melody a chord over a span makes room for: its long
+   * notes (MELODY_HELD) sounding during the span, and any note struck with it.
+   */
+  melodyOver({ time, dur }: Span): number[] {
+    const struck = (n: NoteSpec) => Math.abs(n.time - time) < 1 / 64;
+    return this.melody
+      .filter((n) => n.time < time + dur && n.time + n.dur > time && (n.dur >= MELODY_HELD || struck(n)))
+      .map((n) => n.note);
   }
 
   /** `bars` bars of a material's chords, looping them; two in a bar share it. */

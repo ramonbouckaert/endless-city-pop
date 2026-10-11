@@ -43,14 +43,26 @@ export const PALETTE: Readonly<Record<PaletteName, Odds<string>>> = {
   domTonic: { '13': 3, '9': 2, '7#9': 1 },
 };
 
+// Where a substitute goes in a bar its chord had to itself: in its
+// place (`whole`), in the second half after it (`after`: Cmaj7 Em7), or
+// in the first half, resolving into it (`before`: Em7 Cmaj7).
+export type Placing = 'whole' | 'after' | 'before';
+
 // `amount`: how much a section is reharmonised (0..1, times the
-// tonality's own reharm); the rest are chances at that amount.
+// tonality's own reharm); the rest are chances at that amount. A
+// stand-in is a diatonic chord a third away sharing most of a chord's
+// notes (iii or vi for I, IV for ii); a tritone sub (a stand-in for a
+// dominant) never comes before its chord, a stand-in for the key's
+// tonic never takes its whole bar.
 export const REHARM = {
   amount: 0.5,
   tritone: 0.3,
+  tritonePlacing: { whole: 2, after: 1 } as Odds<Placing>,
   relatedII: 0.4,
   secondary: 0.35,
   secondaryTritone: 0.3,
+  standIn: 0.35,
+  standInPlacing: { whole: 1, after: 2, before: 1 } as Odds<Placing>,
   iiSymbols: ['m9', 'm7', 'm11'],
   toMinor: ['7alt', '7b9'],
   toMajor: ['13', '9', '7#9'],

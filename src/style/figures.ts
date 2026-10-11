@@ -209,7 +209,7 @@ export const DOUBLE_TOP = 100;
 export const ECHO = { chance: 0.35, delays: [1 / 6, 3 / 16] };
 
 // How often an intro or a solo ends on the horns running up the scale into the next downbeat.
-export const RUN_INTO = 0.3;
+export const RUN_INTO = 0.12;
 
 // How often the bells' ostinato plays under a theme's second half, and under a vamp.
 export const OSTINATO_CHANCE = { theme: 0.5, vamp: 0.3 };

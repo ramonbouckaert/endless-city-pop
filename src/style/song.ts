@@ -16,8 +16,9 @@ export interface VoicingOdds {
   sustain: Odds<Voicings['sustain']>;
 }
 
-// How long a melody note holds (in bars) for the chords under it to make
-// room for it: a quarter note or longer.
+// How long a melody note holds (in bars) for every chord under it to make
+// room for it: a quarter note or longer. (A chord struck with a shorter
+// note makes room for that one.)
 export const MELODY_HELD = 1 / 4;
 
 // A fermata: its bar played at this share of the song's tempo. The
