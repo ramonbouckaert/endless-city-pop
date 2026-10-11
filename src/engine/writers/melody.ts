@@ -522,11 +522,14 @@ function loopPlan({ loop, end }: LoopPlan, n: number): MotifLetter[] {
   return [...Array.from({ length: n - ending.length }, (_, i) => loop[i % loop.length]), ...ending];
 }
 
-// "x-.x" -> notes with lengths, in sixteenths: x = a note on an eighth, - = held, . = rest.
-const parseRhythm = (cell: string): Note[] =>
-  [...cell].flatMap((ch, i) =>
-    ch === 'x' ? [{ start: 2 * i, len: 2 * (1 + (/^-*/.exec(cell.slice(i + 1))?.[0].length ?? 0)) }] : [],
+// "x-.x" -> notes with lengths, in sixteenths: x = a note, - = held, . =
+// rest, each an eighth (in a cell of eight) or a sixteenth (of sixteen).
+const parseRhythm = (cell: string): Note[] => {
+  const unit = 16 / cell.length;
+  return [...cell].flatMap((ch, i) =>
+    ch === 'x' ? [{ start: unit * i, len: unit * (1 + (/^-*/.exec(cell.slice(i + 1))?.[0].length ?? 0)) }] : [],
   );
+};
 
 // Into the range lo to hi by thirds, so the note stays a chord-ish tone.
 function foldByThirds(d: number, lo: number, hi: number): number {

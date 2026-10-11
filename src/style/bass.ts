@@ -3,7 +3,7 @@
 
 import type { Range, Weighted } from '../lib/random';
 
-export type BassFeel = 'pedal' | 'funk' | 'drive' | 'disco' | 'halfTime' | 'bossa' | 'pop' | 'riff';
+export type BassFeel = 'pedal' | 'funk' | 'drive' | 'disco' | 'halfTime' | 'bossa' | 'pop' | 'riff' | 'push' | 'walk';
 // Chord tones by name (Root, Third, Fifth, Seventh, Octave) and the scale steps between.
 export type BassToken = 'R' | 'T' | 'F' | 'S' | 'O' | 'two' | 'four' | 'six' | 'below';
 export interface BassFeelDef {
@@ -19,6 +19,7 @@ export interface BassFeelDef {
   // Fixed one-bar riffs to pick from, in place of a rolled groove: a
   // sixteenth per character, a token (R T F S O) where a note starts, . elsewhere.
   cells?: readonly string[];
+  walk?: boolean; // a walking line, in quarter notes
 }
 
 export const BASS = {
@@ -47,12 +48,50 @@ export const BASS = {
   pushLen: 3,
 };
 
+// The riff feel's riffs (J-Cycle's), and the ones a song plays all through.
+export const BASS_RIFFS: readonly string[] = [
+  'R..F..S...RORFO.',
+  'R..O..F..R.OR.F.',
+  'R..R..F.R..O..F.',
+  'R..F..R..F..O.R.',
+];
+
 export const BASS_FEELS: Readonly<Record<BassFeel, BassFeelDef>> = {
   pedal: { grid: 8, density: [0.05, 0.25], sync: [0, 0.3], octave: [0, 0.3], legato: [0.7, 1], approach: 0.6 },
-  funk: { grid: 16, density: [0.35, 0.65], sync: [0.4, 0.9], octave: [0.3, 0.8], legato: [0.1, 0.5], approach: 0.9 },
+  funk: {
+    grid: 16,
+    density: [0.35, 0.65],
+    sync: [0.4, 0.9],
+    octave: [0.3, 0.8],
+    legato: [0.1, 0.5],
+    approach: 0.9,
+    anticipate: 0.2,
+  },
   drive: { grid: 8, density: [0.75, 1], sync: [0, 0.2], octave: [0.1, 0.4], legato: [0.5, 0.9], approach: 0.8 },
   disco: { grid: 8, density: [0.6, 1], sync: [0.1, 0.4], octave: [0.6, 1], legato: [0.2, 0.6], approach: 0.8 },
-  halfTime: { grid: 16, density: [0.1, 0.3], sync: [0.3, 0.7], octave: [0.1, 0.4], legato: [0.6, 1], approach: 0.7 },
+  halfTime: {
+    grid: 16,
+    density: [0.1, 0.3],
+    sync: [0.3, 0.7],
+    octave: [0.1, 0.4],
+    legato: [0.6, 1],
+    approach: 0.7,
+    anticipate: 0.15,
+  },
+  // Sparse, nearly every root pushed a sixteenth early (Sparkle's).
+  push: {
+    grid: 16,
+    density: [0.12, 0.3],
+    sync: [0.5, 0.9],
+    octave: [0, 0.3],
+    legato: [0.6, 1],
+    approach: 0.4,
+    anticipate: 0.8,
+  },
+  // Walking quarter notes (Tokai's upright): a chord tone on the beat,
+  // stepping on through the chord-scale, the last note approaching the
+  // next chord (BassWriter's walk; the ranges are unused).
+  walk: { grid: 8, density: [1, 1], sync: [0, 0], octave: [0, 0], legato: [1, 1], approach: 1, walk: true },
   bossa: {
     grid: 8,
     density: [0.1, 0.3],
@@ -84,7 +123,7 @@ export const BASS_FEELS: Readonly<Record<BassFeel, BassFeelDef>> = {
     legato: [0.4, 0.8],
     approach: 0.3,
     anticipate: 0.45,
-    cells: ['R..F..S...RORFO.', 'R..O..F..R.OR.F.', 'R..R..F.R..O..F.', 'R..F..R..F..O.R.'],
+    cells: BASS_RIFFS,
   },
 };
 

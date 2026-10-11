@@ -14,7 +14,7 @@
 // section after a key change plays it shifted up (Section.shift).
 
 import type { Program } from '../../lib/general-midi';
-import { FERMATA, type ClavFigure } from '../../style';
+import { FERMATA, WALKING_BASS, type ClavFigure, type GuitarOstinato } from '../../style';
 import type { Bar, Key } from '../../theory';
 import type { NoteSpec, ScoreBand } from '../score';
 import type { Sounds } from '../song';
@@ -89,13 +89,17 @@ export interface TempoMark {
   readonly scale: number;
 }
 
-/** What a section the band plays through has: its chords in a key, groove, bass line and clavinet figure. */
+/**
+ * What a section the band plays through has: its chords in a key, groove,
+ * bass line and clavinet figure, and the song's guitar figure if it plays it.
+ */
 export interface PlayedMaterial {
   key: Key;
   bars: Bar[];
   drums: Drums;
   bass: BassLine;
   clav: ClavFigure;
+  signature?: GuitarOstinato;
 }
 
 /**
@@ -189,6 +193,11 @@ export abstract class Section<M = unknown> {
 
 /** A section the band plays through: its chords, drums and bass, and its kind's recipe over them. */
 export abstract class PlayedSection<M extends PlayedMaterial = PlayedMaterial> extends Section<M> {
+  /** A walking bass line on the upright, whatever the song's bass. */
+  override sounds(_song: Sounds): Partial<Sounds> | undefined {
+    return this.material.bass.feel === 'walk' ? { bass: WALKING_BASS } : undefined;
+  }
+
   parts(band: ScoreBand, repeat: number): Parts {
     const ctx = new PlayedScoreContext(this, band, repeat);
     const parts = this.play(ctx);

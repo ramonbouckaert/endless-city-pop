@@ -15,8 +15,10 @@ export type MotifLetter = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'H' | 'R';
 export type PhraseForm = 'period' | 'pairs' | 'sentence' | 'aaba' | 'callResponse' | 'theme' | 'pairs4';
 export type ShapeName = 'rise' | 'fall' | 'arch' | 'valley' | 'neighbor' | 'leapFall' | 'zigzag';
 
-// A cell is eight eighth-note slots: x a note, - held, . a rest. (A
-// melody is written out in sixteenths, like every line.)
+// A cell is eight eighth-note slots, or sixteen sixteenth-note ones (for
+// a 3+3+2 figure, or a push onto a bar's last sixteenth: Plastic Love's,
+// Sparkle's): x a note, - held, . a rest. (A melody is written out in
+// sixteenths, like every line.)
 export type Cells = Readonly<Partial<Record<MotifLetter, readonly string[]>>>;
 
 // F, the fragment, only appears in phrase forms (verse, chorus, bridge):
@@ -24,6 +26,9 @@ export type Cells = Readonly<Partial<Record<MotifLetter, readonly string[]>>>;
 const CELLS = {
   chorus: {
     A: [
+      'x--x--x-x-------',
+      '..x--x--x-x-----',
+      'x--x--x-....x--x',
       '.xxxx---',
       '.x.xx---',
       'x-.xx---',
@@ -39,6 +44,8 @@ const CELLS = {
       'x---x---',
     ],
     B: [
+      'x-x-.x--x--x-..x',
+      '.x--x--x-x-x---x',
       'x-.x.x--',
       'x.xxx.x.',
       '.x.xx.x.',
@@ -72,6 +79,8 @@ const CELLS = {
   },
   verse: {
     A: [
+      'x--x--x-........',
+      '..x.x--x--x-...x',
       '.xx.x.x.',
       '..xx.xx-',
       '.x.xxx--',
@@ -84,7 +93,19 @@ const CELLS = {
       'xx------',
       '..xx----',
     ],
-    B: ['.x.x.x--', 'x-.xx.x-', '..x.xxx-', '.xx.x---', 'x--.x.x-', 'x...xx.x', 'x-----x-', 'x--x----', '.xx-----'],
+    B: [
+      '.x--x--x-.......',
+      'x-.x--x--x-....x',
+      '.x.x.x--',
+      'x-.xx.x-',
+      '..x.xxx-',
+      '.xx.x---',
+      'x--.x.x-',
+      'x...xx.x',
+      'x-----x-',
+      'x--x----',
+      '.xx-----',
+    ],
     C: ['x--.xx--', 'x-x-x---', '.x.x----', '.x--x---', 'x----x--'],
     D: ['x--x----', 'x-------', '.xx-x---', '.x------', 'x.x-----', '..x.x---', 'x---.x--'],
     E: ['.xx.x---', 'x-.x----', '.x.x----', 'x---x---'],

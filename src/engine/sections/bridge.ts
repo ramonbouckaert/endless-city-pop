@@ -42,7 +42,8 @@ export class Bridge extends PlayedSection<BridgeMaterial> {
   }
 
   override sounds(song: Sounds): Partial<Sounds> | undefined {
-    return swappedKeys(this.material.keys, song);
+    const own = { ...super.sounds(song), ...swappedKeys(this.material.keys, song) };
+    return Object.keys(own).length ? own : undefined;
   }
 
   override melodyOver(ctx: PlayedScoreContext): NoteSpec[] | undefined {

@@ -1,8 +1,9 @@
-// Keys, clavinet and the lead; later verses add rhythm guitar and a pad.
-// Its chords are a verse template's, the chorus's, or a two-chord vamp.
+// Keys, clavinet and the lead, later verses adding rhythm guitar and a
+// pad; or sparse; or the band coming in through it. Its chords are a
+// verse template's, the chorus's, or a two-chord vamp.
 
 import type { Rng } from '../../lib/random';
-import { GROOVES, MELODIES, THEME, VERSE, type VerseHarmony } from '../../style';
+import { MELODIES, THEME, VERSE, VERSE_TEXTURES, type VerseHarmony, type VerseTexture } from '../../style';
 import type { Bar } from '../../theory';
 import type { Melody } from '../writers';
 import type { NoteSpec } from '../score';
@@ -18,6 +19,8 @@ export interface VerseFields {
 export interface VerseMaterial extends PlayedMaterial {
   /** Where its chords come from. */
   harmony: VerseHarmony;
+  /** How it is played. */
+  variant: VerseTexture;
   melody: Melody;
 }
 
@@ -42,9 +45,11 @@ export class Verse extends PlayedSection<VerseMaterial> {
       const long = verses.every((v) => v.bars >= 16) && rng.fork('long').chance(THEME.longVerse);
       const short = verses.every((v) => v.bars === 7);
       const bars = long ? [...eight, ...eight] : short ? eight.slice(1) : eight;
+      const variant = rng.fork('texture').weightedKey(VERSE_TEXTURES);
       return {
-        ...ctx.band(ctx.key, bars, GROOVES.verse, rng.fork('groove')),
+        ...ctx.band(ctx.key, bars, VERSE_TEXTURES[variant].groove, rng.fork('groove')),
         harmony,
+        variant,
         melody: ctx.melody(long ? MELODIES.theme : MELODIES.verse, ctx.key, bars, rng.fork('melody')),
       };
     });
@@ -68,7 +73,8 @@ export class Verse extends PlayedSection<VerseMaterial> {
   }
 
   protected override get details(): string[] {
-    return this.material.harmony === 'template' ? [] : [`on ${this.material.harmony}`];
+    const { harmony, variant } = this.material;
+    return [variant === 'full' ? '' : variant, harmony === 'template' ? '' : `on ${harmony}`].filter(Boolean);
   }
 
   override melodyOver(ctx: PlayedScoreContext): NoteSpec[] | undefined {
@@ -76,16 +82,35 @@ export class Verse extends PlayedSection<VerseMaterial> {
   }
 
   protected play(ctx: PlayedScoreContext): Parts {
-    const { band, C, B } = ctx;
+    const { band, C, B, len } = ctx;
     const { later } = this;
-    return [
-      ctx.drums(),
-      B,
-      band.keys(C),
-      ctx.clav,
-      band.lead(ctx.line(this.material.melody)),
-      later && band.scratch(C),
-      later && band.pad(C),
-    ];
+    const lead = band.lead(ctx.line(this.material.melody));
+    // (The song's own guitar figure, if it has one, plays in place of the scratch.)
+    const guitar = ctx.signature ?? (later && band.scratch(C));
+    switch (this.material.variant) {
+      case 'full':
+        return [ctx.drums(), B, band.keys(C), ctx.clav, lead, guitar, later && band.pad(C)];
+      case 'sparse':
+        return [ctx.drums(), B, band.softKeysUnder(C), lead, later && band.pad(C)];
+      case 'build': {
+        // Kick, bass and keys; the hats and clavinet a quarter in, the
+        // backbeat and guitar halfway, the pad for the last quarter.
+        const from = (share: number) => ctx.from(Math.floor(len * share));
+        const drums = ctx.drums((role) => {
+          if (role === 'hat' || role === 'perc') return from(0.25);
+          if (role === 'snare' || role === 'ghost') return from(0.5);
+          return undefined;
+        });
+        return [
+          drums,
+          B,
+          band.keys(C),
+          ctx.clav.mask(from(0.25)),
+          lead,
+          guitar && guitar.mask(from(0.5)),
+          band.pad(C).mask(from(0.75)),
+        ];
+      }
+    }
   }
 }

@@ -10,6 +10,7 @@ import {
   DOUBLE_TOP,
   FERMATA,
   FIGURES,
+  GUITAR_OSTINATOS,
   LAYERS,
   MIX,
   RHYTHMS,
@@ -123,6 +124,12 @@ export class PlayedScoreContext extends ScoreContext {
   /** The clavinet on the part's figure. */
   get clav(): Part {
     return this.band.clav(this.C, CLAV[this.played.clav].figure);
+  }
+
+  /** The song's guitar figure, if this section plays it. */
+  get signature(): Part | undefined {
+    const { signature } = this.played;
+    return signature && this.band.signature(this.C, GUITAR_OSTINATOS[signature]);
   }
 
   /** The section's key. */

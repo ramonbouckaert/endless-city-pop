@@ -73,10 +73,13 @@ export class DrumWriter {
     this.recipe = DRUM_FEELS[this.feel];
   }
 
-  /** The groove as four-bar parts, with a crash and fills if the plan rolled them. */
-  write(): Drums {
+  /**
+   * The groove as four-bar parts, with a crash and fills if the plan
+   * rolled them; `kicks`, a bar of kicks to play in place of the recipe's.
+   */
+  write(kicks?: StepGains): Drums {
     const { rng, recipe, feel, crash, fill } = this;
-    const groove = new RecipeRun(recipe, rng.fork('groove')).run();
+    const groove = new RecipeRun(recipe, rng.fork('groove'), kicks).run();
     const vary = !recipe.steady && rng.chance(DRUMS.vary.chance);
     const parts: DrumPart[] = groove.voices.map(({ drum, role, bar }) => {
       const fourthBar = vary && role === 'kick' ? this.varyKick(bar) : bar;
@@ -121,9 +124,11 @@ interface RecipeState {
 
 /** One run of a recipe's steps, in order: the voices they add, and whether an open hat may close the phrase. */
 class RecipeRun {
+  /** `kicks`: a bar of kicks to play in place of the recipe's own. */
   constructor(
     private readonly recipe: DrumRecipe,
     private readonly rng: Rng,
+    private readonly kicksGiven?: StepGains,
   ) {}
 
   run(): { voices: readonly VoiceBar[]; openOnFour: boolean } {
@@ -150,6 +155,7 @@ class RecipeRun {
   }
 
   private kicks({ required, optional, gain }: Op<'kicks'>): VoiceBar {
+    if (this.kicksGiven) return { drum: PERCUSSION.kick, role: 'kick', bar: this.kicksGiven };
     const density = optional.length ? this.rng.range(DRUMS.kickDensity) : 0;
     const soft = optional.flatMap(([i, p]) =>
       this.rng.chance(p * density) ? [[i, gain * this.rng.range(DRUMS.kickSoft)]] : [],

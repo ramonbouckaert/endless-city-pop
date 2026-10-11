@@ -115,6 +115,41 @@ export const FIGURES = {
   finaleRun: [[...run(0, [0, 2, 4, 6, 7, 9, 11, 13]), [8, 24, 14]], []],
 } satisfies Record<string, Figure<number>>;
 
+// A song's signature guitar figure, played through its grooving
+// sections (Sparkle's sixteenth-note guitar, Sea Line's cutting): notes
+// of the chord's voicing in sixteenths.
+export type GuitarOstinato = 'cutting' | 'sixteenths' | 'skank';
+export const GUITAR_OSTINATOS: Readonly<Record<GuitarOstinato, Figure<number>>> = {
+  // Muted sixteenths rocking between two notes, the beats on the lower.
+  sixteenths: [run(0, [0, 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 2])],
+  // Chopped offbeat pairs, cutting across the beat.
+  cutting: [
+    [
+      [2, 1, 2],
+      [3, 1, 1],
+      [6, 1, 2],
+      [7, 1, 1],
+      [10, 1, 2],
+      [11, 1, 1],
+      [13, 1, 2],
+      [14, 1, 1],
+    ],
+  ],
+  // The offbeats, in dyads.
+  skank: [
+    [
+      [2, 1, 1],
+      [2, 1, 2],
+      [6, 1, 1],
+      [6, 1, 2],
+      [10, 1, 1],
+      [10, 1, 2],
+      [14, 1, 1],
+      [14, 1, 2],
+    ],
+  ],
+};
+
 // The clavinet's figures, on the chord's voicing (4 and up: an octave
 // up; two notes on a step sound together): a part picks one, by weight.
 // Its notes ring on to the next hit, or near it.

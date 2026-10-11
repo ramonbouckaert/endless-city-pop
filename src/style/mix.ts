@@ -26,6 +26,8 @@ export const MIX = {
   keysRun: { gain: 0.32, room: 0.5 },
   clav: { gain: 0.19, pan: 0.28 },
   scratch: { gain: 0.28, pan: 0.72, clip: 0.5 },
+  // The song's signature guitar figure, topping out at e5.
+  signature: { gain: 0.22, pan: 0.7, clip: 0.6, anchor: 76 },
   // Voicings topping out at a4, d6, e5 and g5.
   pad: { gain: 0.14, room: 0.4, anchor: 69 },
   strings: { gain: 0.11, room: 0.45, anchor: 86 },

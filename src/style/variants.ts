@@ -77,6 +77,31 @@ export const INTRO_TEXTURES: Variants<IntroTexture, Grooved> = {
 // beat slowing to `beat`, the last bar's held chord to `hold`.
 export const RUBATO = { bar: 0.75, beat: 0.6, hold: 0.45 };
 
+// How a verse is played: the band in full; sparse, bass, side-stick and
+// soft keys under the lead; or building, the band coming in through it,
+// a part at a time, into the chorus (RIDE ON TIME's).
+export type VerseTexture = 'full' | 'sparse' | 'build';
+export const VERSE_TEXTURES: Variants<VerseTexture, Grooved> = {
+  full: {
+    weight: 4,
+    groove: {
+      drums: { feels: { funk: 2, halfTime: 1, disco: 1 }, crash: 0.3, fill: 0.7 },
+      bass: { funk: 2, drive: 1, halfTime: 1, riff: 0.5, push: 0.5 },
+    },
+  },
+  sparse: {
+    weight: 1,
+    groove: {
+      drums: { feels: { introRide: 1, halfTime: 1 }, crash: 0, fill: 0.7 },
+      bass: { pedal: 1, halfTime: 1, push: 1 },
+    },
+  },
+  build: {
+    weight: 1.5,
+    groove: { drums: { feels: { funk: 1, disco: 1 }, crash: 0, fill: 1 }, bass: { funk: 1, disco: 1, drive: 1 } },
+  },
+};
+
 // How the drums start the opening vamp: in after two bars, kick and hats
 // alone for two bars, or the whole kit from the first. (When the vamp
 // comes back, the band is already going: the whole kit.)
@@ -139,12 +164,15 @@ export const SOLO_COMPS: Variants<SoloComp, Grooved> = {
     weight: 1,
     groove: {
       drums: { feels: { funk: 2, disco: 2, fusion: 1 }, crash: 1, fill: 0.9 },
-      bass: { funk: 2, drive: 2, disco: 2, pop: 1 },
+      bass: { funk: 2, drive: 2, disco: 2, pop: 1, push: 0.5 },
     },
   },
   bossa: {
     weight: 1,
-    groove: { drums: { feels: { bossa: 2, halfTime: 1 }, crash: 0.7, fill: 0.8 }, bass: { bossa: 2, halfTime: 1 } },
+    groove: {
+      drums: { feels: { bossa: 2, halfTime: 1 }, crash: 0.7, fill: 0.8 },
+      bass: { bossa: 2, halfTime: 1, walk: 1.5 },
+    },
   },
 };
 

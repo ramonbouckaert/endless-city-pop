@@ -114,7 +114,8 @@ export class SoloSection extends PlayedSection<SoloMaterial> {
   }
 
   override sounds(song: Sounds): Partial<Sounds> | undefined {
-    return swappedKeys(this.material.keys, song);
+    const own = { ...super.sounds(song), ...swappedKeys(this.material.keys, song) };
+    return Object.keys(own).length ? own : undefined;
   }
 
   protected play(ctx: PlayedScoreContext): Parts {
@@ -127,6 +128,7 @@ export class SoloSection extends PlayedSection<SoloMaterial> {
       bossa ? band.keysUnder(C, spans(COMP.bossa, len)) : band.keysUnder(C),
       // (No clavinet over keys swapped to one.)
       bossa ? band.strings(C) : !band.shares('keys', 'clav') && ctx.clav,
+      !bossa && ctx.signature,
       band.soloist(this.soloist, ctx.soloLine(mat.solo, band.chordal(this.soloist))).pan(bossa ? 0.42 : 0.55),
       mat.run && ctx.runInto(),
     ];

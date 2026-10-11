@@ -44,6 +44,6 @@ export class Vamp extends PlayedSection<VampMaterial> {
     else if (entry === 'light')
       drums = ctx.drums((role) => (role === 'kick' || role === 'hat' ? undefined : ctx.from(2)));
     else drums = ctx.drums();
-    return [drums, B, band.keys(C).lpf(rise(700, 8000, len)), this.material.bells && band.ostinato(C)];
+    return [drums, B, band.keys(C).lpf(rise(700, 8000, len)), ctx.signature, this.material.bells && band.ostinato(C)];
   }
 }

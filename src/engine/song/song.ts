@@ -4,7 +4,15 @@
 
 import { Rng } from '../../lib/random';
 import { Timeline } from '../../lib/timeline';
-import { SONG, TONALITIES, type Colour, type VoicingOdds, type Voicings } from '../../style';
+import {
+  BASS_RIFFS,
+  GUITAR_OSTINATOS,
+  SONG,
+  TONALITIES,
+  type GuitarOstinato,
+  type VoicingOdds,
+  type Voicings,
+} from '../../style';
 import { Key } from '../../theory';
 import {
   Bridge,
@@ -18,6 +26,7 @@ import {
   Verse,
   type Form,
   type SectionKind,
+  type Traits,
 } from '../sections';
 import { FormPlanner } from './form-planner';
 import { Instruments } from './orchestration';
@@ -27,8 +36,8 @@ export interface SongData {
   seed: string;
   titleParts: TitleParts;
   key: Key;
-  /** How lush its chords are. */
-  colour: Colour;
+  /** What it does throughout: how lush its chords are, ... (Traits). */
+  traits: Traits;
   bpm: number;
   swing: number;
   voicings: Voicings;
@@ -57,13 +66,13 @@ export class Song {
     const tonality = rng.fork('mode').pick(Object.values(TONALITIES));
     const key = new Key(rng.pick(tonality.tonics), tonality.mode);
     const bpm = rng.int(...SONG.tempo);
-    const colour = rng.fork('colour').weightedKey(SONG.colour);
+    const traits = Song.traits(rng.fork('traits'));
     const plan = new FormPlanner(rng.fork('form'), tonality.turnarounds, bpm).plan();
-    const form = buildForm(plan, key, bpm, rng.fork('materials'), colour);
+    const form = buildForm(plan, key, bpm, rng.fork('materials'), traits);
     return new Song({
       seed: s,
       key,
-      colour,
+      traits,
       bpm,
       swing: Math.round(rng.range(SONG.swing) * 100) / 100,
       voicings: Song.voicings(tonality.voicings ?? SONG.voicings, rng.fork('voicings')),
@@ -71,6 +80,17 @@ export class Song {
       instruments: Instruments.pick(rng.fork('instruments')),
       titleParts: new TitleWriter(rng.fork('title')).write(),
     });
+  }
+
+  // What a song does throughout, rolled from the style's odds.
+  private static traits(rng: Rng): Traits {
+    const colour = rng.fork('colour').weightedKey(SONG.colour);
+    const lock = rng.chance(SONG.lock);
+    const riff = lock && rng.chance(SONG.riff) ? rng.pick(BASS_RIFFS) : undefined;
+    const ostinato = rng.chance(SONG.ostinato)
+      ? rng.pick(Object.keys(GUITAR_OSTINATOS) as GuitarOstinato[])
+      : undefined;
+    return { colour, lock, ...(riff ? { riff } : {}), ...(ostinato ? { ostinato } : {}) };
   }
 
   // How a song voices its chords, picked from some odds.
@@ -107,7 +127,14 @@ export class Song {
     const intro = this.part(Intro);
     return {
       key: this.key.name,
-      colour: this.colour,
+      traits: [
+        this.traits.colour,
+        this.traits.lock && 'kick on the bass',
+        this.traits.riff && `riff ${this.traits.riff}`,
+        this.traits.ostinato && `${this.traits.ostinato} guitar`,
+      ]
+        .filter(Boolean)
+        .join(', '),
       bpm: this.bpm,
       bars: this.bars,
       voicings: `${this.voicings.comp}/${this.voicings.sustain}`,

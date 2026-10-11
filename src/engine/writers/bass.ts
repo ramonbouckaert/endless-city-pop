@@ -5,7 +5,8 @@
 // stays as it is). Notes are chord-scale degrees, so the
 // groove follows the changes, and a bar's last note can approach the
 // next chord's root, or (in some feels) push it a sixteenth early. Some
-// feels ghost an octave pop after a note.
+// feels ghost an octave pop after a note; a walking line has a way of
+// its own.
 
 import type { Odds, Range, Rng } from '../../lib/random';
 import {
@@ -57,15 +58,20 @@ export class BassWriter {
   // How much of a feel's busy end the song's tempo leaves (1: all of it).
   private readonly busy: number;
 
-  /** `bpm`: the song's tempo, which calms a line the faster it is. */
+  /**
+   * `bpm`: the song's tempo, which calms a line the faster it is; `riff`:
+   * a riff (a cell, as BASS_FEELS' riffs are) to play in place of a feel,
+   * the song's own.
+   */
   constructor(
     feels: Odds<BassFeel>,
     private readonly key: Key,
     bpm: number,
     private readonly rng: Rng,
+    riff?: string,
   ) {
-    this.feel = rng.weightedKey(feels);
-    this.def = BASS_FEELS[this.feel];
+    this.feel = riff ? 'riff' : rng.weightedKey(feels);
+    this.def = riff ? { ...BASS_FEELS.riff, cells: [riff] } : BASS_FEELS[this.feel];
     const [slow, fast] = SONG.pace;
     const pace = Math.min(1, Math.max(0, (bpm - slow) / (fast - slow)));
     this.busy = 1 - BASS.tempoCalm * pace;
@@ -78,6 +84,7 @@ export class BassWriter {
   }
 
   write(bars: Bar[]): BassLine {
+    if (this.def.walk) return new BassLine(this.feel, this.walk(bars));
     const groove = this.groove();
     // The bars that push the next bar's root onto their last sixteenth
     // (never the last, so a looping line starts on its root).
@@ -114,6 +121,27 @@ export class BassWriter {
       return this.notes(steps, (tok, i) => (tok === 'A' ? target : this.degree(tok, Chord.at(bar, i))), push);
     });
     return new BassLine(this.feel, lines);
+  }
+
+  // A walking line, a quarter note a beat: each chord's bass note on its
+  // first beat, then steps through its scale towards the next chord's
+  // bass, the last beat approaching it.
+  private walk(bars: Bar[]): BassNote[][] {
+    return bars.map((bar, b) => {
+      const next = bars[(b + 1) % bars.length][0];
+      const each = 16 / bar.length;
+      return bar.flatMap((chord, c) => {
+        const into = bar[c + 1] ?? next;
+        const first = this.degree('R', chord);
+        const dir = into.bassMidi >= chord.bassMidi ? 1 : -1;
+        return Array.from({ length: each / 4 }, (_, k): BassNote => {
+          const start = c * each + k * 4;
+          if (k === 0) return { start, len: 4, degree: first };
+          if (k === each / 4 - 1) return { start, len: 4, degree: this.approach(chord, into) };
+          return { start, len: 4, degree: { step: first.step + dir * k, alter: 0 } };
+        });
+      });
+    });
   }
 
   // A range with its busy end cut back for the tempo.

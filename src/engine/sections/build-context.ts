@@ -17,6 +17,7 @@ import {
   tonalityOf,
   type BassFeel,
   type Colour,
+  type GuitarOstinato,
   type DrumFeel,
   type GroovePlan,
   type IntroHarmony,
@@ -24,7 +25,8 @@ import {
   type Tonality,
 } from '../../style';
 import { Key, Template, type Bar, type Chord } from '../../theory';
-import { BassWriter, DrumWriter, Harmonizer, MelodyWriter, type Melody } from '../writers';
+import { BassWriter, DrumWriter, Harmonizer, MelodyWriter, type BassLine, type Melody } from '../writers';
+import { empty, type StepGains } from '../../lib/steps';
 import { Form } from './form';
 import { Chorus } from './chorus';
 import { Intro } from './intro';
@@ -40,15 +42,20 @@ export class BuildContext {
   // For the harmony and lines several parts share, each written once on first use.
   private readonly shared: Rng;
 
-  /** `colour`: how lush the song's chords are. */
+  /** `traits`: what the song does throughout (Traits). */
   constructor(
     readonly key: Key,
     readonly bpm: number,
     readonly plan: Form<Plan>,
     private readonly rng: Rng,
-    readonly colour: Colour = 'lush',
+    readonly traits: Traits = PLAIN_TRAITS,
   ) {
     this.shared = rng.fork('shared');
+  }
+
+  /** How lush the song's chords are. */
+  get colour(): Colour {
+    return this.traits.colour;
   }
 
   /** A Harmonizer in the song's colour, in a key (the song's unless given). */
@@ -149,11 +156,28 @@ export class BuildContext {
     return new MelodyWriter(key, style, rng).write(bars);
   }
 
-  /** A section's chords in a key, with drums from its plan and a bass line in a feel that sits with them. */
+  /**
+   * A section's chords in a key, with drums from its plan and a bass line
+   * in a feel that sits with them: in a song whose kick follows its bass,
+   * a grooving section's kick on the bass line's notes, and perhaps the
+   * song's one bass riff. A grooving section plays the song's guitar
+   * figure, if it has one.
+   */
   band(key: Key, bars: Bar[], plan: GroovePlan, rng: Rng): PlayedMaterial {
-    const drums = new DrumWriter(plan.drums, rng.fork('drums')).write();
-    const bass = new BassWriter(bassFeels(plan.bass, drums.feel), key, this.bpm, rng.fork('bass')).write(bars);
-    return { key, bars, drums, bass, clav: rng.fork('clav').weightedKey(CLAV) };
+    const drumWriter = new DrumWriter(plan.drums, rng.fork('drums'));
+    const grooves = LOCKED_FEELS.includes(drumWriter.feel);
+    const { lock, riff, ostinato } = this.traits;
+    const feels = bassFeels(plan.bass, drumWriter.feel);
+    const bass = new BassWriter(feels, key, this.bpm, rng.fork('bass'), grooves ? riff : undefined).write(bars);
+    const drums = drumWriter.write(lock && grooves ? kicksOf(bass) : undefined);
+    return {
+      key,
+      bars,
+      drums,
+      bass,
+      clav: rng.fork('clav').weightedKey(CLAV),
+      ...(ostinato && grooves ? { signature: ostinato } : {}),
+    };
   }
 
   /** Whether the chorus is a sixteen-bar theme, in four-bar phrases (a theme song's). */
@@ -235,4 +259,29 @@ function bassFeels(feels: Odds<BassFeel>, drums: DrumFeel): Odds<BassFeel> {
   if (!fits) return feels;
   const matching = Object.entries(feels).filter(([f]) => fits.includes(f as BassFeel));
   return Object.fromEntries(matching.length ? matching : fits.map((f) => [f, 1]));
+}
+
+/**
+ * What a song does throughout: how lush its chords are; whether its kick
+ * follows its bass line, and the one riff that bass plays all through
+ * (a riff cell, BASS_FEELS), if it does; and its signature guitar figure,
+ * if it has one. (Only grooving sections, LOCKED_FEELS, play these.)
+ */
+export interface Traits {
+  colour: Colour;
+  lock: boolean;
+  riff?: string;
+  ostinato?: GuitarOstinato;
+}
+
+/** A song with none of the traits, lushly coloured. */
+export const PLAIN_TRAITS: Traits = { colour: 'lush', lock: false };
+
+// The drum feels that groove, where a song's traits play.
+const LOCKED_FEELS: readonly DrumFeel[] = ['funk', 'disco', 'fusion', 'halfTime'];
+
+// A kick on every note a bass line starts in its first bar: louder on the beats.
+function kicksOf(bass: BassLine): StepGains {
+  const starts = new Set((bass.bars[0] ?? []).map((n) => n.start).filter((s) => Number.isInteger(s) && s < 16));
+  return empty().map((_, i) => (starts.has(i) ? (i % 4 ? 0.6 : 0.75) : 0));
 }

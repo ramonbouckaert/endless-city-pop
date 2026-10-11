@@ -153,6 +153,9 @@ export const CHORDAL: ReadonlySet<Program> = new Set([
 // length (J-Cycle's B section, on clavinet): this often, and to one of these.
 export const SWAP = { chance: 0.3, keys: [GM.clavinet, GM.rockOrgan] as readonly Program[] };
 
+// A walking bass line's sound, whatever the song's bass: the upright.
+export const WALKING_BASS: Program = GM.acousticBass;
+
 // ---- Effects ----------------------------------------------------------
 
 // The riser into a pre-chorus's chorus or a lift's: a reverse cymbal.

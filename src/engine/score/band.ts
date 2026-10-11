@@ -179,6 +179,10 @@ export class ScoreBand {
       this.varied(0.7, 1),
     );
   }
+  /** The song's signature guitar figure. */
+  signature(changes: Changes, figure: Figure<number>): Part {
+    return this.chords('guitar', changes, this.figure(changes, figure), 'signature').velocity(this.varied(0.75, 1));
+  }
   pad(changes: Changes): Part {
     return this.chords('pad', changes, changes.spans, 'pad');
   }

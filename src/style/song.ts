@@ -40,6 +40,12 @@ export const SONG = {
   voicings: { comp: { close: 4, quartal: 1 }, sustain: { close: 3, spread: 1 } } as VoicingOdds,
   // How lush its chords are (COLOURS).
   colour: { lush: 3, plain: 1, triadic: 1 } as Odds<Colour>,
+  // How often its kick follows its bass line (Plastic Love's), and then
+  // how often that bass plays one riff all through the song; and how
+  // often a guitar figure of its own runs through it (GUITAR_OSTINATOS).
+  lock: 0.2,
+  riff: 0.5,
+  ostinato: 0.2,
 };
 
 // How an intro gets its harmony: the hook's chords, the chorus's first

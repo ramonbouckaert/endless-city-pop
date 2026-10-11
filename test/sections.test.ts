@@ -28,6 +28,7 @@ import {
   PRE_FLAVOURS,
   RISER,
   TRILL,
+  VERSE_TEXTURES,
   TONALITIES,
 } from '../src/style';
 import { PERCUSSION } from '../src/lib/general-midi';
@@ -173,6 +174,22 @@ describe('section materials', () => {
     }
     expect(relative).toBeGreaterThan(5);
     expect(relative).toBeLessThan(minor.length / 2);
+  });
+
+  it('plays a verse in full, sparsely, or building into the chorus', () => {
+    const verses = Array.from({ length: 200 }, (_, i) => Song.generate(`vtex${i}`)).flatMap((song) =>
+      song.form.ofType(Verse).map((sec) => ({ song, sec })),
+    );
+    expect(new Set(verses.map(({ sec }) => sec.material.variant))).toEqual(new Set(Object.keys(VERSE_TEXTURES)));
+    for (const { song, sec } of verses.filter(({ sec }) => sec.material.variant === 'build').slice(0, 10)) {
+      // Building, nothing but kick, bass, keys and lead in its first quarter.
+      const index = song.form.sections.indexOf(sec);
+      const start = song.form.starts[index];
+      const early = new ScoreArranger(song)
+        .arrange()
+        .notes.filter((n) => n.time >= start && n.time < start + Math.floor(sec.bars / 4));
+      for (const n of early) expect(['kit', 'bass', 'keys', 'lead']).toContain(n.path);
+    }
   });
 
   it('varies the pre-chorus', () => {
@@ -410,9 +427,6 @@ describe('section materials', () => {
     expect(trilling.length).toBeLessThan(300 * TRILL.chance * 1.4);
     const lengths = new Set<number>();
     for (const song of songs) {
-      const mat = defined(song.part(Chorus), 'a chorus');
-      // Whether its hook has a note to trill: the trill finds one.
-      const holds = mat.melody.trilled((s) => s + 2) !== mat.melody;
       // (Unswung, so a note's length is as written.)
       const { notes } = new ScoreArranger(new Song({ ...song, swing: 0 })).arrange();
       song.form.sections.forEach((sec, i) => {
@@ -422,6 +436,9 @@ describe('section materials', () => {
         const shakes = notes.filter(
           (n) => n.path === 'lead' && n.time >= start && n.time < start + sec.bars && Math.abs(n.dur - 1 / 32) < 1e-9,
         );
+        // Whether its hook (all of it, or its second half) has a note to trill: the trill finds one.
+        const mat = sec.material;
+        const holds = mat.melody.trilled((s) => s + 2) !== mat.melody;
         const trills = mat.trill && holds && song.form.repeatOf(i) > 0;
         expect(shakes.length > 0, `${song.seed} chorus ${i}`).toBe(trills);
         if (trills) lengths.add(sec.bars);
