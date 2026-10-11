@@ -2,7 +2,7 @@
 // range, and phrase forms or loop), phrase forms and shapes; the chorus
 // answer's figures; and how solos run.
 
-import type { Odds, Weighted } from '../lib/random';
+import type { Odds, Range, Weighted } from '../lib/random';
 
 // How a pre-chorus melody unfolds: climbing a step each repeat, call and
 // response, or long held notes.
@@ -201,7 +201,9 @@ export const SHAPE_CHOICES: Readonly<Record<MotifLetter, Odds<ShapeName>>> = {
 };
 
 // The answer to a hook: short figures of [step, length] in sixteenths
-// from where it starts, from a high degree, stepping between notes.
+// from where it starts, from a high degree, stepping between notes (a
+// figure's steps all rise, `rise` of the time, or all fall); an echo takes up to `echo` notes
+// of the hook's tail; a held line stays between degrees `line`.
 export const ANSWER = {
   figures: [
     [
@@ -221,9 +223,34 @@ export const ANSWER = {
       [0, 4],
       [4, 2],
     ],
+    [
+      [0, 1],
+      [1, 1],
+      [2, 4],
+    ],
+    [
+      [0, 3],
+      [3, 3],
+      [6, 2],
+    ],
+    [
+      [0, 1],
+      [1, 1],
+      [2, 2],
+      [4, 2],
+    ],
+    [
+      [1, 2],
+      [3, 1],
+      [4, 4],
+    ],
   ] as readonly (readonly [step: number, len: number])[][],
   startDegrees: [7, 8, 9],
-  steps: [2, 3, -2],
+  rise: 0.65,
+  rising: [2, 3, 4],
+  falling: [-2, -3],
+  echo: 3,
+  line: [5, 11] as Range,
 };
 
 export const SOLO = {

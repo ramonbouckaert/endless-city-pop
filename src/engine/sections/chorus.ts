@@ -1,7 +1,8 @@
-// The hook, doubled an octave up if it fits; later choruses add the
-// figures that answer it, and the last one stabs, strings and choir.
+// The hook, doubled an octave up if it fits; later choruses answer it
+// (in its gaps every other bar, or with a held line), and the last one
+// adds stabs, strings and choir, and answers in every bar.
 
-import { COMP, GROOVES } from '../../style';
+import { ANSWER_STYLES, COMP, GROOVES, type AnswerStyle } from '../../style';
 import { AnswerWriter, type Melody } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
@@ -18,6 +19,8 @@ export interface ChorusFields {
 export interface ChorusMaterial extends PlayedMaterial {
   melody: Melody;
   answer: Melody;
+  /** How it answers the hook. */
+  variant: AnswerStyle;
 }
 
 export interface Chorus extends Readonly<ChorusFields> {}
@@ -35,10 +38,12 @@ export class Chorus extends PlayedSection<ChorusMaterial> {
       const { key } = ctx;
       const bars = ctx.chorusBars();
       const hook = ctx.hook();
+      const variant = rng.weightedKey(ANSWER_STYLES);
       return {
         ...ctx.band(key, bars, GROOVES.chorus, rng.fork('groove')),
         melody: hook,
-        answer: new AnswerWriter(key, rng.fork('answer')).write(hook, bars),
+        answer: new AnswerWriter(key, variant, rng.fork('answer')).write(hook, bars),
+        variant,
       };
     });
   }
@@ -55,7 +60,7 @@ export class Chorus extends PlayedSection<ChorusMaterial> {
       band.pad(C),
       band.lead(ctx.line(mat.melody)),
       band.double(ctx.line(mat.melody), ctx.octaveUp(mat.melody)),
-      answer && band.counter(ctx.line(mat.answer)),
+      answer && band.counter(ctx.line(big || mat.variant === 'line' ? mat.answer : mat.answer.alternate)),
       big && band.stabs(C),
       big && band.strings(C),
       big && band.choir(C),

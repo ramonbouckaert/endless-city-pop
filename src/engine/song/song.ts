@@ -96,6 +96,7 @@ export class Song {
       sections: this.form.describe(),
       intro: `${intro?.harmony} ${intro?.variant}`,
       pre: this.part(PreChorus)?.variant,
+      answers: this.part(Chorus)?.variant,
       solos: this.parts(SoloSection).map((s) => s.variant),
       lifts: this.parts(Lift).map((l) => l.variant),
       finale: this.part(Finale)?.variant,

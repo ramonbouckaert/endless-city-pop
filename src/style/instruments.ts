@@ -118,6 +118,9 @@ export const VOICES: { readonly pool: readonly Program[]; readonly soloists: num
 
 // The riser into a pre-chorus's chorus or a lift's: a reverse cymbal.
 export const RISER: Program = GM.reverseCymbal;
+// How long its sample swells before it stops (on the app's soundfont, at
+// any tempo): it starts this long before the downbeat, to peak on it.
+export const RISER_SECONDS = 1.4;
 
 // ---- Drum kits --------------------------------------------------------
 

@@ -28,9 +28,10 @@ const bassRange = (note: number) =>
   note < Chord.BASS_LOW ? note + 12 * Math.ceil((Chord.BASS_LOW - note) / 12) : note;
 
 export class ScoreBand {
-  /** `rng`: for the keyboard parts' varying velocities. */
+  /** `bpm`: the song's tempo; `rng`: for the keyboard parts' varying velocities. */
   constructor(
     private readonly instruments: Instruments,
+    readonly bpm: number,
     private readonly rng: Rng,
   ) {}
 

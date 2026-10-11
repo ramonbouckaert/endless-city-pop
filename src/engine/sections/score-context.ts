@@ -4,7 +4,7 @@
 // them.
 
 import { lazy } from '../../lib/lazy';
-import { DOUBLE_TOP, FIGURES, MIX, RHYTHMS, RISER, type DrumRole, type Rhythm } from '../../style';
+import { DOUBLE_TOP, FIGURES, MIX, RHYTHMS, RISER, RISER_SECONDS, type DrumRole, type Rhythm } from '../../style';
 import type { Chord, Key } from '../../theory';
 import {
   Changes,
@@ -45,9 +45,10 @@ export class ScoreContext {
     return (time) => time >= start;
   }
 
-  /** A reverse cymbal swelling through the last bar into the next section. */
+  /** A reverse cymbal swelling into the next section, its peak on the downbeat. */
   get riser(): Part {
-    return new Part([scoreNote({ time: this.len - 1, dur: 1, program: RISER, note: 60, gain: 0.35 })]);
+    const dur = (RISER_SECONDS * this.band.bpm) / 240; // seconds in bars of 4 beats
+    return new Part([scoreNote({ time: this.len - dur, dur, program: RISER, note: 60, gain: 0.35 })]);
   }
 
   /** Two bass notes leading into a chord: the scale degrees below its root. */

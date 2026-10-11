@@ -56,6 +56,13 @@ export const INTRO_TEXTURES: Variants<IntroTexture, Grooved> = {
 export type VampEntry = 'late' | 'light' | 'full';
 export const VAMP_ENTRIES: Odds<VampEntry> = { late: 5, light: 3, full: 2 };
 
+// How later choruses answer the hook: figures in the gaps it leaves
+// (every other bar, every bar in the last chorus), one riff repeated
+// there, the hook's tail echoed high, or a held line over it, a note to a
+// chord.
+export type AnswerStyle = 'fills' | 'riff' | 'echo' | 'line';
+export const ANSWER_STYLES: Odds<AnswerStyle> = { fills: 3, riff: 2, echo: 2, line: 2 };
+
 // Each song's pre-chorus takes one flavour: its progressions (in each
 // tonality, fitted to end on their cadence into the chorus), melody,
 // drums and bass.

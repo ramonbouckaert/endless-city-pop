@@ -7,6 +7,7 @@
 import type { Rng } from '../../lib/random';
 import {
   ANSWER,
+  type AnswerStyle,
   CADENCE_WEIGHTS,
   CHROMATIC_PROB,
   PHRASE_FORMS,
@@ -37,47 +38,129 @@ export class Melody extends Line<MelodyNote> {
     return Math.max(...this.bars.flat().map((n) => n.semis));
   }
 
+  /** Its even bars' notes (the odd ones rest). */
+  get alternate(): Melody {
+    return new Melody(
+      this.bars.map((notes, b) => (b % 2 ? [] : notes)),
+      this.form,
+    );
+  }
+
   /** The first `n` bars. */
   take(n: number): Melody {
     return new Melody(this.bars.slice(0, n), this.form);
   }
 }
 
-/** Writes the answer to a hook: short figures in the gaps it leaves, high above it. */
+/**
+ * Writes the answer to a hook in a style: figures in the gaps it leaves,
+ * high above it (in every bar: a chorus picks which it plays), or a line
+ * held over it.
+ */
 export class AnswerWriter {
   constructor(
     private readonly key: Key,
+    private readonly style: AnswerStyle,
     private readonly rng: Rng,
   ) {}
 
   write(hook: Melody, bars: Bar[]): Melody {
-    const { key, rng } = this;
+    const { key, rng, style } = this;
+    if (style === 'line') return this.line(bars);
+    // A riff plays one figure, from one degree by the same steps, every time.
+    const riff = style === 'riff' && {
+      figure: rng.pick(ANSWER.figures),
+      first: rng.pick(ANSWER.startDegrees),
+      steps: this.steps(),
+    };
     return new Melody(
       hook.bars.map((notes, b) => {
-        if (b % 2) return [];
-        // In a gap at the end of the bar (from beat four at the latest),
-        // or an eighth into a note held a dotted quarter or more.
-        const lastEnd = notes.length ? Math.max(...notes.map((n) => n.start + n.len)) : 0;
-        const lastNote = notes.at(-1);
-        let at: number | null;
-        if (lastEnd <= 12) at = lastEnd;
-        else if (lastNote && lastNote.len >= 6) at = lastNote.start + 2;
-        else at = null;
+        const at = gap(notes);
         if (at === null) return [];
+        if (style === 'echo') return this.echo(notes, at, bars[b]);
         // Figures cut at the barline, keeping those with two notes left.
-        const fitting = ANSWER.figures.map((f) => f.filter(([o, l]) => at + o + l <= 16)).filter((f) => f.length > 1);
+        const fit = (f: readonly (readonly [number, number])[]) => f.filter(([o, l]) => at + o + l <= 16);
+        const fitting = (riff ? [riff.figure] : ANSWER.figures).map(fit).filter((f) => f.length > 1);
         if (!fitting.length) return [];
-        const first = key.scale.semis(rng.pick(ANSWER.startDegrees));
+        const first = key.scale.semis(riff ? riff.first : rng.pick(ANSWER.startDegrees));
         // Each note steps from the one before, snapped to the chord.
-        return rng.pick(fitting).reduce<MelodyNote[]>((notes, [o, len], i) => {
-          const prev = notes.at(-1)?.semis ?? first;
-          const target = prev + (i ? rng.pick(ANSWER.steps) : 0);
-          const semis = Chord.at(bars[b], at + o).snap(target, key, { prev, dir: 1 });
-          return [...notes, { start: at + o, len, semis }];
+        const steps = riff ? riff.steps : this.steps();
+        return rng.pick(fitting).reduce<MelodyNote[]>((out, [o, len], i) => {
+          const prev = out.at(-1)?.semis ?? first;
+          const step = i ? steps[i - 1] : 0;
+          const semis = Chord.at(bars[b], at + o).snap(prev + step, key, { prev, dir: Math.sign(step) || 1 });
+          return [...out, { start: at + o, len, semis }];
         }, []);
       }),
     );
   }
+
+  // Steps for a figure's notes after its first: all up, or all down.
+  private steps(): number[] {
+    const { rng } = this;
+    const steps = rng.chance(ANSWER.rise) ? ANSWER.rising : ANSWER.falling;
+    return Array.from({ length: 3 }, () => rng.pick(steps));
+  }
+
+  // The last few notes the hook sang before the gap, again in it, high.
+  private echo(notes: MelodyNote[], at: number, bar: Bar): MelodyNote[] {
+    const { key } = this;
+    const tail = notes.filter((n) => n.start < at).slice(-ANSWER.echo);
+    if (tail.length < 2) return [];
+    const [lo, hi] = ANSWER.line.map((d) => key.scale.semis(d));
+    let up = 0;
+    while (tail[0].semis + up < lo) up += 12;
+    while (tail[0].semis + up > hi) up -= 12;
+    const placed = tail
+      .map((n) => ({ ...n, start: at + n.start - tail[0].start, len: Math.min(n.len, 4) }))
+      .filter((n) => n.start + n.len <= 16);
+    if (placed.length < 2) return [];
+    return placed.reduce<MelodyNote[]>((out, n, i) => {
+      const prev = out.at(-1)?.semis ?? n.semis + up;
+      const dir = i ? Math.sign(n.semis - tail[i - 1].semis) : 0;
+      return [...out, { ...n, semis: Chord.at(bar, n.start).snap(n.semis + up, key, { prev, dir, diatonic: true }) }];
+    }, []);
+  }
+
+  // A long note on each chord: the nearest tone of the next, holding a
+  // common tone once, then stepping on, turning back at its range's ends.
+  // A note held across a chord change in the bar is one note.
+  private line(bars: Bar[]): Melody {
+    const { key, rng } = this;
+    const [lo, hi] = ANSWER.line.map((d) => key.scale.semis(d));
+    let prev = key.scale.semis(rng.pick(ANSWER.startDegrees));
+    let dir = rng.pick([1, -1]);
+    let held = false;
+    return new Melody(
+      bars.map((bar) => {
+        const len = 16 / bar.length;
+        return bar.reduce<MelodyNote[]>((out, chord, c) => {
+          let semis = chord.snap(prev, key);
+          if (semis === prev && held) semis = chord.snap(prev + 2 * dir, key, { prev, dir });
+          if (semis > hi || semis < lo) {
+            dir = semis > hi ? -1 : 1;
+            semis = chord.snap(prev + 2 * dir, key, { prev, dir });
+          }
+          held = semis === prev;
+          prev = semis;
+          const last = out.at(-1);
+          if (last?.semis === semis) return [...out.slice(0, -1), { ...last, len: last.len + len }];
+          return [...out, { start: c * len, len, semis }];
+        }, []);
+      }),
+    );
+  }
+}
+
+// Where an answer fits in a bar of the hook: a gap at its end (from beat
+// four at the latest), or an eighth into a note held a dotted quarter or
+// more.
+function gap(notes: readonly MelodyNote[]): number | null {
+  const lastEnd = notes.length ? Math.max(...notes.map((n) => n.start + n.len)) : 0;
+  const lastNote = notes.at(-1);
+  if (lastEnd <= 12) return lastEnd;
+  if (lastNote && lastNote.len >= 6) return lastNote.start + 2;
+  return null;
 }
 
 // Offsets for `n` notes, each a step from the one before.

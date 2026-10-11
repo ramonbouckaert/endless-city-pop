@@ -18,7 +18,7 @@ export class ScoreArranger {
     const { song } = this;
     const rng = new Rng(song.seed).fork('score');
     const notes = song.form.sections.flatMap((sec, index) => {
-      const band = new ScoreBand(this.instruments, rng.fork(`section/${index}`));
+      const band = new ScoreBand(this.instruments, song.bpm, rng.fork(`section/${index}`));
       return Part.stack(...sec.parts(band, song.form.repeatOf(index)))
         .transpose(sec.shift)
         .map((n) => this.swung(n))
@@ -28,10 +28,11 @@ export class ScoreArranger {
   }
 
   // Swing: a note starting in the second half of an eighth moves later
-  // by half the swing of an eighth.
+  // by half the swing of an eighth. Effects (notes with no path, such as
+  // the riser) are timed to land on a beat, and stay put.
   private swung(n: ScoreNote): ScoreNote {
     const eighths = n.time * 8;
-    if (eighths - Math.floor(eighths) < 0.5) return n;
+    if (!n.path || eighths - Math.floor(eighths) < 0.5) return n;
     return { ...n, time: n.time + this.song.swing / 2 / 8 };
   }
 }
