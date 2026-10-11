@@ -22,14 +22,14 @@ export interface MidiSlide {
   ticks: number;
 }
 
-/** A controller change: CC7 volume, CC10 pan, CC74 brightness (filter cutoff), CC91 reverb send, ... (values 0-127). */
+/** A controller change: CC7 volume, CC10 pan, CC11 expression (a fade), CC74 brightness (filter cutoff), CC91 reverb send, ... (values 0-127). */
 export interface ControlChange {
   tick: number;
   controller: number;
   value: number;
 }
 
-export const CC = { volume: 7, pan: 10, brightness: 74, reverb: 91 } as const;
+export const CC = { volume: 7, pan: 10, expression: 11, brightness: 74, reverb: 91 } as const;
 
 export interface MidiTrack {
   name: string;

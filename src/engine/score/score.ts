@@ -237,4 +237,6 @@ export interface Score {
   /** Every note, by time. */
   readonly notes: readonly ScoreNote[];
   readonly bars: number;
+  /** Where the song fades out, in bars, if it does: from `from` to silence at `to`. */
+  readonly fade?: { readonly from: number; readonly to: number };
 }

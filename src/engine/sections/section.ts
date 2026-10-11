@@ -39,6 +39,7 @@ export interface SectionKind<S extends Section = Section> {
 // same chords and hook); a section longer than its material loops it.
 // `shift`: semitones up, after a key change (a lift's: the key it lifts to).
 // `fermata`: its last bar held, slowed (a moment of tension mid-song).
+// `fade`: the song fades out over it (and every section after it).
 export interface PlanBase {
   /** Its section's class. */
   readonly kind: SectionKind;
@@ -46,6 +47,7 @@ export interface PlanBase {
   readonly part: string;
   readonly shift: number;
   readonly fermata?: boolean;
+  readonly fade?: boolean;
 }
 
 /** One section of a form's plan, with its kind's own fields (`F`, each class's own, documented there). */
@@ -56,7 +58,7 @@ export type PlanOf<K extends SectionKind> = ConstructorParameters<K>[0];
 
 /** A kind's own fields in its plan. */
 type FieldsOf<K extends SectionKind> = Omit<PlanOf<K>, keyof PlanBase>;
-type Fields<K extends SectionKind> = FieldsOf<K> & { part?: string; shift?: number; fermata?: boolean };
+type Fields<K extends SectionKind> = FieldsOf<K> & { part?: string; shift?: number; fermata?: boolean; fade?: boolean };
 
 /** A section of a kind in a plan: its kind's own part (unless given) and unshifted (unless given). */
 export function planned<K extends SectionKind>(
@@ -122,6 +124,8 @@ export abstract class Section<M = unknown> {
   declare readonly shift: number;
   /** Whether its last bar is held on a fermata, slowed (most sections' isn't). */
   declare readonly fermata?: boolean;
+  /** Whether the song fades out over it. */
+  declare readonly fade?: boolean;
   /** The plan it was built from. */
   readonly plan: Plan;
   /** Its part's material: every section of the part has the same. */
@@ -151,9 +155,12 @@ export abstract class Section<M = unknown> {
 
   /** The section in a line: "chorus (+2) 8", "lift (+2, ii-V) 2", "pre (fermata) 4". */
   describe(): string {
-    const details = [this.shift ? `+${this.shift}` : '', this.fermata ? 'fermata' : '', ...this.details].filter(
-      Boolean,
-    );
+    const details = [
+      this.shift ? `+${this.shift}` : '',
+      this.fermata ? 'fermata' : '',
+      this.fade ? 'fade' : '',
+      ...this.details,
+    ].filter(Boolean);
     const aside = details.length ? ` (${details.join(', ')})` : '';
     return `${this.label}${aside} ${this.bars}`;
   }

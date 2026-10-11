@@ -16,7 +16,9 @@ import {
   type Grace,
 } from '../src/engine';
 import {
+  FINALE_CHORDS,
   FINALE_STYLES,
+  RESOLVED_FINALES,
   INTRO,
   INTRO_TEXTURES,
   LIFT_STYLES,
@@ -214,8 +216,8 @@ describe('section materials', () => {
     expect(new Set(intros.map((m) => m.harmony))).toEqual(new Set(Object.keys(INTRO.harmony)));
   });
 
-  it('winds down in an outro of either style', () => {
-    const songs = Array.from({ length: 150 }, (_, i) => Song.generate(`outro${i}`));
+  it('winds down in an outro of every style', () => {
+    const songs = Array.from({ length: 300 }, (_, i) => Song.generate(`outro${i}`));
     const styles = new Set<string>();
     for (const song of songs) {
       const sec = song.form.first(Outro);
@@ -224,7 +226,14 @@ describe('section materials', () => {
       styles.add(sec.variant);
       expect(sec.bars).toBe(OUTRO_STYLES[sec.variant].bars);
       expect(!!mat.trade).toBe(sec.variant === 'trade');
-      if (mat.trade) {
+      expect(!!mat.adLib).toBe(sec.variant === 'coda');
+      expect(!!mat.hook).toBe(sec.variant === 'loop');
+      // Only a trade leads to either ending; a reprise to the finale, a coda or a loop to a fade.
+      if (sec.variant !== 'trade') expect(!!sec.fade).toBe(sec.variant !== 'reprise');
+      if (mat.adLib || mat.hook) {
+        expect(mat.bars).toHaveLength(sec.bars);
+        expect(sec.fade).toBe(true);
+      } else if (mat.trade) {
         // A line for every bar, over a vamp, for the soloists to trade.
         const { solo, soloists } = mat.trade;
         expect(mat.bars).toHaveLength(sec.bars);
@@ -238,15 +247,26 @@ describe('section materials', () => {
         expect(mat.melody).toBe(intro.melody);
       }
     }
-    expect(styles).toEqual(new Set(['reprise', 'trade']));
+    expect(styles).toEqual(new Set(Object.keys(OUTRO_STYLES)));
   });
 
-  it('varies the finale', () => {
-    const endings = Array.from(
-      { length: 100 },
-      (_, i) => defined(Song.generate(`finale${i}`).part(Finale), 'a finale').variant,
-    );
-    expect(new Set(endings)).toEqual(new Set(Object.keys(FINALE_STYLES)));
+  it('varies the finale, and leaves some open', () => {
+    const finales = Array.from({ length: 300 }, (_, i) => Song.generate(`finale${i}`)).flatMap((song) => {
+      const mat = song.part(Finale);
+      return mat ? [{ song, mat }] : [];
+    });
+    expect(new Set(finales.map(({ mat }) => mat.variant))).toEqual(new Set(Object.keys(FINALE_STYLES)));
+    expect(new Set(finales.map(({ mat }) => mat.ends))).toEqual(new Set(Object.keys(FINALE_CHORDS)));
+    for (const { song, mat } of finales) {
+      const { chord, ends, variant } = mat;
+      // Only the key's own chord slides or ends on a fermata.
+      if (ends !== 'tonic') expect(RESOLVED_FINALES).not.toContain(variant);
+      if (ends === 'V') expect(chord.root).toBe((song.key.tonic + 7) % 12);
+      if (ends === 'sus') {
+        expect(chord.root).toBe(song.key.tonic);
+        expect(['sus2', '9sus']).toContain(chord.symbol);
+      }
+    }
   });
 
   it('varies the phrase form of each melody', () => {

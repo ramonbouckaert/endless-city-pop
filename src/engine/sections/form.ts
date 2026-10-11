@@ -88,6 +88,12 @@ export class Form<S extends Placed = AnySection> implements Iterable<S> {
     return this.starts[i] + Math.min(Math.max(through, 0), 1) * this.sections[i].bars;
   }
 
+  /** The bar the song starts fading out on, if it fades out: its first faded section's start. */
+  get fadeFrom(): number | undefined {
+    const index = this.sections.findIndex((s) => s.fade);
+    return index < 0 ? undefined : this.starts[index];
+  }
+
   /** The song's tempo through the form: `bpm`, changed where a section slows or speeds up. */
   tempos(this: Form<AnySection>, bpm: number): TempoChange[] {
     const marks = this.sections.flatMap((sec, i) =>

@@ -319,4 +319,30 @@ describe('MIDI', () => {
       expect(fileSeconds).toBeCloseTo(songLength(song), 3);
     }
   });
+
+  it('fades a song out on every track, as expression, from where its fade starts', () => {
+    const song = songWhere((s) => s.form.fadeFrom !== undefined, 'a song that fades out');
+    const from = defined(song.form.fadeFrom, 'a fade') * 4 * PPQ;
+    const to = song.bars * 4 * PPQ;
+    const [, ...tracks] = read(songToMidi(song)).tracks;
+    let reachesEnd = 0;
+    for (const events of tracks) {
+      const expression = events.filter((e) => (e.status & 0xf0) === 0xb0 && e.data[0] === CC.expression);
+      expect(expression.length).toBeGreaterThan(0);
+      // It never rises, and is full until the fade starts.
+      const values = expression.map((e) => e.data[1]);
+      for (let i = 1; i < values.length; i++) expect(values[i]).toBeLessThanOrEqual(values[i - 1]);
+      for (const e of expression) if (e.tick <= from) expect(e.data[1]).toBe(127);
+      const last = defined(expression.at(-1), 'an expression');
+      if (last.tick === to) {
+        expect(last.data[1]).toBe(0);
+        reachesEnd++;
+      }
+    }
+    expect(reachesEnd).toBeGreaterThan(0);
+    // A song that doesn't fade has no expression at all.
+    const ends = songWhere((s) => s.form.fadeFrom === undefined, 'a song with a finale');
+    const all = read(songToMidi(ends)).tracks.flat();
+    expect(all.some((e) => (e.status & 0xf0) === 0xb0 && e.data[0] === CC.expression)).toBe(false);
+  });
 });

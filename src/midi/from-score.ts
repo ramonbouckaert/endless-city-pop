@@ -1,8 +1,9 @@
 // A song as MIDI, from its score: every note on one track per instrument
 // (General MIDI programs, drums on channel 10 on the song's kit), each
-// track with the mix (volume, pan, reverb and filter as controllers),
-// and the form's sections as markers. writer.ts writes the bytes. The
-// app plays this file; the MIDI download saves it.
+// track with the mix (volume, pan, reverb and filter as controllers, and
+// a fade-out as expression), and the form's sections as markers.
+// writer.ts writes the bytes. The app plays this file; the MIDI download
+// saves it.
 
 import { programName, type Program } from '../lib/general-midi';
 import type { Timeline } from '../lib/timeline';
@@ -63,13 +64,49 @@ export function midiNotes(score: Score, timeline: Timeline): TrackNote[] {
 const brightness = (lpf: number | undefined) =>
   lpf === undefined ? 64 : Math.round(Math.min(127, Math.max(0, 64 + (64 * Math.log2(lpf / 8000)) / 5)));
 
+/** Where a song fades out, in ticks: from `from` to silence at `to`. */
+export interface Fade {
+  from: number;
+  to: number;
+}
+
+// How far down a fade has come at a tick, as CC11 (expression): falling
+// evenly in decibels (as General MIDI maps expression, 40 log10(value /
+// 127) dB) to FADE_DB, then to silence at its end.
+const FADE_DB = -48;
+function expression({ from, to }: Fade, tick: number): number {
+  const through = (tick - from) / (to - from);
+  if (through <= 0) return 127;
+  if (through >= 1) return 0;
+  return Math.round(127 * 10 ** ((FADE_DB * through) / 40));
+}
+
+// A track's fade (none, if the song doesn't fade out): its expression
+// where it starts, then a step down each beat of the fade while it plays.
+function faded(fade: Fade | undefined, start: number, end: number): ControlChange[] {
+  if (!fade) return [];
+  const beats = Array.from({ length: Math.ceil((fade.to - fade.from) / PPQ) + 1 }, (_, i) =>
+    Math.min(fade.from + i * PPQ, fade.to),
+  ).filter((tick) => tick > start && tick <= end);
+  return [start, ...beats].map((tick) => ({ tick, controller: CC.expression, value: expression(fade, tick) }));
+}
+
 // A track's mix, from `start`: its volume set by its loudest note, each
 // note's velocity relative to that (so together they play at the note's
-// level, and the track's fader moves the whole part), and its pan, reverb
-// and brightness, changed where its notes change them.
-function mixed(notes: readonly TrackNote[], start: number): { notes: MidiNote[]; controls: ControlChange[] } {
+// level, and the track's fader moves the whole part), its pan, reverb
+// and brightness, changed where its notes change them, and the song's
+// fade, if it fades out.
+function mixed(
+  notes: readonly TrackNote[],
+  start: number,
+  fade?: Fade,
+): { notes: MidiNote[]; controls: ControlChange[] } {
   const loudest = Math.max(...notes.map((n) => n.level), 1e-6);
-  const controls: ControlChange[] = [{ tick: start, controller: CC.volume, value: midiLevel(loudest) }];
+  const end = Math.max(...notes.map((n) => n.note.tick + n.note.dur));
+  const controls: ControlChange[] = [
+    { tick: start, controller: CC.volume, value: midiLevel(loudest) },
+    ...faded(fade, start, end),
+  ];
   let last: Partial<Record<'pan' | 'reverb' | 'brightness', number>> = {};
   for (const { note, pan, room, lpf } of [...notes].sort((a, b) => a.note.tick - b.note.tick)) {
     const now = { pan: Math.round(pan * 127), reverb: Math.round(room * 127), brightness: brightness(lpf) };
@@ -115,7 +152,7 @@ export function channelsFor(spans: readonly { first: number; last: number }[]): 
 
 // A track for each instrument's notes (an echo's on one of its own), the
 // drums on the drum channel and the rest on the others (channelsFor).
-function tracksFor(notes: readonly TrackNote[], kit: Kit): MidiTrack[] {
+function tracksFor(notes: readonly TrackNote[], kit: Kit, fade?: Fade): MidiTrack[] {
   // Each track's notes, in order of its first, by its instrument (and whether it echoes).
   const key = (n: TrackNote) => (n.echo ? `${n.program}:echo` : String(n.program));
   const byTrack = new Map<string, TrackNote[]>();
@@ -134,10 +171,10 @@ function tracksFor(notes: readonly TrackNote[], kit: Kit): MidiTrack[] {
   return [...byTrack.values()].map((mine) => {
     const [{ program, echo }] = mine;
     if (program === 'drums')
-      return { name: `Drums (${kit.name})`, channel: DRUM_CHANNEL, program: kit.program, ...mixed(mine, 0) };
+      return { name: `Drums (${kit.name})`, channel: DRUM_CHANNEL, program: kit.program, ...mixed(mine, 0, fade) };
     const { channel, start } = channels[melodic.indexOf(mine)];
     const name = echo ? `${programName(program)} (echo)` : programName(program);
-    return { name, channel, program, start, ...mixed(mine, start) };
+    return { name, channel, program, start, ...mixed(mine, start, fade) };
   });
 }
 
@@ -152,6 +189,10 @@ export function songToMidi(song: Song, instruments: Instruments = song.instrumen
     tempos: timeline.tempoChanges.map(({ quarter, bpm }) => ({ tick: quarter * PPQ, bpm })),
     key: song.key,
     markers,
-    tracks: tracksFor(midiNotes(score, timeline), instruments.kit),
+    tracks: tracksFor(
+      midiNotes(score, timeline),
+      instruments.kit,
+      score.fade && { from: ticks(score.fade.from), to: ticks(score.fade.to) },
+    ),
   });
 }

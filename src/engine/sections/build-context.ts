@@ -93,6 +93,12 @@ export class BuildContext {
     return before && (this.section(before) as unknown as S);
   }
 
+  /** The section just before `sec`, built, if there is one. */
+  before(sec: Section): AnySection | undefined {
+    const index = this.plan.sections.indexOf(sec.plan);
+    return index > 0 ? this.section(this.plan.sections[index - 1]) : undefined;
+  }
+
   /**
    * The first chord of the section after `sec` (a lift or a drum break,
    * leading into it), and that section's shift.

@@ -1,6 +1,6 @@
 // Turns a song into its score: each section of the form by its type's
 // recipe (in sections/), shifted into its key, swung, and placed at the
-// bar it starts on.
+// bar it starts on; and where the song fades out, if it does.
 
 import { Rng } from '../../lib/random';
 import { ScoreBand } from './band';
@@ -26,7 +26,12 @@ export class ScoreArranger {
         .map((n) => this.swung(n))
         .late(song.form.starts[index]).notes;
     });
-    return { notes: notes.toSorted((a, b) => a.time - b.time), bars: song.bars };
+    const { fadeFrom } = song.form;
+    return {
+      notes: notes.toSorted((a, b) => a.time - b.time),
+      bars: song.bars,
+      ...(fadeFrom === undefined ? {} : { fade: { from: fadeFrom, to: song.bars } }),
+    };
   }
 
   // Swing: a note's start and end placed on swung time (warp), so a note

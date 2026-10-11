@@ -7,7 +7,9 @@
 // each section is, its name and whether it hands over to anything, is on
 // its class, in engine/sections/.)
 
-import type { Weighted } from '../lib/random';
+import type { Odds, Weighted } from '../lib/random';
+
+export type SongEnding = 'finale' | 'fade';
 
 export const FORM = {
   // How often a song has verses (and pre-choruses) before its choruses.
@@ -78,6 +80,19 @@ export const FORM = {
     [3, 1],
   ] as Weighted<number>,
   outroChance: 0.75, // its style and length are in variants.ts
+  // How a song ends: on its final chord (the finale), or fading out over
+  // its last choruses (or an outro) played again and again.
+  ending: { finale: 1, fade: 1 } as Odds<SongEnding>,
+  // A fading song's last choruses, and how often an outro (one that
+  // fades, OUTRO_STYLES) takes over from them.
+  fade: {
+    choruses: [
+      [2, 2],
+      [3, 3],
+      [4, 2],
+    ] as Weighted<number>,
+    outroChance: 0.45,
+  },
   // How often a song holds one moment of tension mid-song on a fermata:
   // the last bar of a pre-chorus, bridge, breakdown or lift, slowed and
   // held (FERMATA).

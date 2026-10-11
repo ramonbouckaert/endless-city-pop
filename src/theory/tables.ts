@@ -77,6 +77,7 @@ const CHORD_DEFS = {
   m7b5: { cls: 'hdim', tones: [0, 3, 6, 10] },
   o7: { cls: 'dim', tones: [0, 3, 6, 9] },
   sus: { cls: 'sus', tones: [0, 5, 7] },
+  sus2: { cls: 'sus', tones: [0, 2, 7] },
   5: { cls: 'power', tones: [0, 7] },
   '7#5': { cls: 'aug', tones: [0, 4, 8, 10] }, // the augmented passing chord: i, I+, iv
 } satisfies Record<string, ChordDef>;

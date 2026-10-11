@@ -133,14 +133,18 @@ export class FormPlanner {
   }
 
   // The last choruses, each perhaps lifted a key by a turnaround (a part
-  // of its own), then perhaps an outro, and the finale.
+  // of its own), then perhaps an outro; then the finale, or (in a song
+  // that fades out) more choruses, the song fading over the outro or the
+  // last of them.
   private ending(): Plan[] {
     const { rng } = this;
     const { lift } = FORM;
+    const ending = rng.weightedKey(FORM.ending);
+    const fades = ending === 'fade';
     const s: Plan[] = [];
     let shift = 0;
     let lifts = 0;
-    const finals = rng.weighted(FORM.finalChoruses);
+    const finals = rng.weighted(fades ? FORM.fade.choruses : FORM.finalChoruses);
     for (let i = 0; i < finals; i++) {
       const step = rng.weighted(lift.steps);
       if (shift + step <= MAX_SHIFT && rng.chance(i ? lift.again : lift.first)) {
@@ -149,14 +153,31 @@ export class FormPlanner {
         const bars = this.turnarounds[turnaround].bars.length;
         s.push(planned(Lift, bars, { turnaround, part: `${Lift.id}:${lifts++}`, shift }));
       }
-      const big = i === finals - 1;
+      // The last chorus has everything; a fading song's last two do.
+      const big = i >= finals - (fades ? 2 : 1);
       s.push(planned(Chorus, this.chorusBars, { answer: true, big, shift }));
     }
-    if (rng.chance(FORM.outroChance)) {
-      const variant = rng.weightedKey(OUTRO_STYLES);
+    const styles = Object.fromEntries(
+      Object.entries(OUTRO_STYLES).filter(([, style]) => style.ends.includes(ending)),
+    ) as Partial<typeof OUTRO_STYLES>;
+    if (rng.chance(fades ? FORM.fade.outroChance : FORM.outroChance)) {
+      const variant = rng.weightedKey(styles);
       s.push(planned(Outro, OUTRO_STYLES[variant].bars, { variant, shift }));
     }
-    s.push(planned(Finale, 2, { shift }));
-    return s;
+    if (!fades) return [...s, planned(Finale, 2, { shift })];
+    return this.faded(s);
+  }
+
+  // The ending fading out over its last sections (its outro, and the
+  // choruses and lifts before it), at least FADE_BARS of them.
+  private faded(ending: Plan[]): Plan[] {
+    const fading: ReadonlySet<SectionKind> = new Set([Outro, Chorus, Lift]);
+    let bars = 0;
+    let from = ending.length;
+    while (from > 0 && bars < FADE_BARS && fading.has(ending[from - 1].kind)) bars += ending[--from].bars;
+    return ending.map((p, i) => (i >= from ? { ...p, fade: true } : p));
   }
 }
+
+// The fewest bars a song fades out over (its last choruses).
+const FADE_BARS = 12;

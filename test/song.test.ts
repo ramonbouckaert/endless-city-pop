@@ -25,7 +25,15 @@ describe('Song', () => {
       for (const s of song.form) expect(materials(song)).toHaveProperty([s.part]);
       const kinds = song.form.sections.map((s) => s.kind);
       expect(kinds[0]).toBe(Intro);
-      expect(kinds.at(-1)).toBe(Finale);
+      // It ends on the finale, or fades out over its last sections (and has no finale).
+      const fades = song.form.fadeFrom !== undefined;
+      if (fades) {
+        expect(kinds).not.toContain(Finale);
+        expect(song.form.sections.at(-1)?.fade).toBe(true);
+        const from = song.form.sections.findIndex((s) => s.fade);
+        expect(song.form.sections.slice(from).every((s) => s.fade)).toBe(true);
+        expect(song.bars - defined(song.form.fadeFrom, 'a fade')).toBeGreaterThanOrEqual(12);
+      } else expect(kinds.at(-1)).toBe(Finale);
       expect(kinds).toContain(Chorus);
       // A pre-chorus only follows a verse; every chorus is as long as the others.
       if (!kinds.includes(Verse)) expect(kinds).not.toContain(PreChorus);
@@ -70,10 +78,13 @@ describe('Song', () => {
         }
         if ('bass' in mat) expect(mat.bass.bars).toHaveLength(mat.bars.length);
       }
-      const fin = defined(song.part(Finale), 'a finale').chord;
-      expect(fin.root).toBe(song.key.tonic);
-      expect(fin.cls).toBe(tonic);
-      expect(finale.map(([symbol]) => symbol)).toContain(fin.symbol);
+      const ending = song.part(Finale);
+      if (ending?.ends === 'tonic') {
+        const fin = ending.chord;
+        expect(fin.root).toBe(song.key.tonic);
+        expect(fin.cls).toBe(tonic);
+        expect(finale.map(([symbol]) => symbol)).toContain(fin.symbol);
+      }
     }
   });
 

@@ -1,16 +1,29 @@
-// The key's final chord, rung out in the finale's style over its two bars.
+// The key's final chord (or one left open), rung out in the finale's
+// style over its two bars.
 
 import { PERCUSSION } from '../../lib/general-midi';
-import { FERMATA, FIGURES, FINALE_DEGREES, FINALE_HITS, FINALE_STYLES, type FinaleStyle } from '../../style';
+import type { Odds, Rng } from '../../lib/random';
+import {
+  FERMATA,
+  FIGURES,
+  FINALE_CHORDS,
+  FINALE_DEGREES,
+  FINALE_HITS,
+  FINALE_STYLES,
+  RESOLVED_FINALES,
+  type FinaleChord,
+  type FinaleStyle,
+} from '../../style';
 import { Chord } from '../../theory';
 import { Changes, onChord, rise, spans, timed, type NoteSpec, type ScoreBand, type Span } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts } from './score-context';
 import { Section, type Plan, type TempoMark } from './section';
 
-// The last chord, rung out.
+// The last chord (`ends` says which), rung out.
 export interface FinaleMaterial {
   chord: Chord;
+  ends: FinaleChord;
   variant: FinaleStyle;
 }
 
@@ -23,10 +36,40 @@ export class Finale extends Section<FinaleMaterial> {
   constructor(plan: Plan, ctx: BuildContext) {
     super(plan);
     this.material = ctx.material(this, (rng) => {
-      const { key } = ctx;
-      const [symbol, scale] = rng.pick(ctx.tonality.finale);
-      return { chord: new Chord(key.tonic, symbol, scale), variant: rng.weightedKey(FINALE_STYLES) };
+      const ends = rng.fork('ends').weightedKey(FINALE_CHORDS);
+      const chord = this.chord(ends, ctx, rng.fork('chord'));
+      const styles = ends === 'tonic' ? FINALE_STYLES : without(FINALE_STYLES, RESOLVED_FINALES);
+      return { chord, ends, variant: rng.weightedKey(styles) };
     });
+  }
+
+  // The last chord: the key's own, or one left open.
+  private chord(ends: FinaleChord, ctx: BuildContext, rng: Rng): Chord {
+    const { key } = ctx;
+    const tonic = () => {
+      const [symbol, scale] = rng.pick(ctx.tonality.finale);
+      return new Chord(key.tonic, symbol, scale);
+    };
+    const sus = () => (rng.chance(0.5) ? new Chord(key.tonic, 'sus2', key.mode) : new Chord(key.tonic, '9sus'));
+    switch (ends) {
+      case 'tonic':
+        return tonic();
+      case 'sus':
+        return sus();
+      case 'ii':
+        return key.minor ? sus() : new Chord(key.tonic + 2, 'madd9', 'dorian');
+      case 'V':
+        return new Chord(key.tonic + 7, '9sus', 'mixolydian');
+      case 'section': {
+        // The first chord of the section before, if the band played one.
+        const before = ctx.before(this)?.material;
+        return before && 'bars' in before ? before.bars[0][0] : tonic();
+      }
+    }
+  }
+
+  protected override get details(): string[] {
+    return this.material.ends === 'tonic' ? [] : [`on ${this.material.ends}`];
   }
 
   // A fermata's first bar held at the fermata's tempo, then back to the song's.
@@ -148,4 +191,9 @@ export class Finale extends Section<FinaleMaterial> {
       }
     }
   }
+}
+
+// Odds without some of their keys.
+function without<K extends string>(odds: Odds<K>, keys: readonly K[]): Odds<K> {
+  return Object.fromEntries(Object.entries(odds).filter(([k]) => !keys.includes(k as K))) as Odds<K>;
 }
