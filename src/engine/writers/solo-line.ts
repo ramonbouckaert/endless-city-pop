@@ -11,7 +11,8 @@ export interface SoloNote extends Note {
   degree: number; // chord-scale degree
   grace?: Grace;
 }
-// A grace note into a note from above (1) or below (-1): a semitone
+// A grace note into a note from above (1) or below (-1), the side the
+// line comes from: a semitone
 // away if chromatic, else the next degree. Flicked as a note of its own,
 // or slurred: the note starts at its pitch and slides.
 export interface Grace {
@@ -60,7 +61,7 @@ export class SoloWriter {
             if (ch !== 'x') return at;
             const r = this.advance(rhythm, s, at.deg, at.dir);
             const graced = (s % 4 === 0 || rhythm[s - 1] !== 'x') && rng.chance(SOLO.grace.chance);
-            const note = graced ? { ...r.note, grace: this.grace(Chord.at(bar, s), r.deg, at.deg) } : r.note;
+            const note = graced ? { ...r.note, grace: this.grace(Chord.at(bar, s), r.deg, at.deg, r.dir) } : r.note;
             return { deg: r.deg, dir: r.dir, notes: [...at.notes, note] };
           },
           { deg, dir, notes: [] as SoloNote[] },
@@ -72,10 +73,14 @@ export class SoloWriter {
     return new Solo(lines);
   }
 
-  // A grace note into `target`, never from `prev`, the note just played.
-  private grace(chord: Chord, target: number, prev: number): Grace {
+  // A grace note into `target` in the direction of the phrase: from below
+  // on the way up from `prev`, the note just played, from above on the way
+  // down (on a repeated note, the way the line is heading, `dir`). Never
+  // from `prev` itself.
+  private grace(chord: Chord, target: number, prev: number, dir: number): Grace {
     const { rng } = this;
-    let { from, chromatic } = rng.weighted(SOLO.grace.from);
+    const from = (target === prev ? -Math.sign(dir) : Math.sign(prev - target)) as 1 | -1;
+    let chromatic = rng.chance(SOLO.grace.chromatic);
     if (!chromatic && target + from === prev) chromatic = true;
     const scale = chord.scale && Scale.named(chord.scale);
     const semis = chromatic || !scale ? from : scale.semis(target + from) - scale.semis(target);

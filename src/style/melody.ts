@@ -273,15 +273,11 @@ export const SOLO = {
     [3, 1],
   ] as Weighted<number>,
   // Grace notes flick into notes that stand out: on the beat, or after a
-  // breath. Mostly a chromatic lean up from a semitone below.
+  // breath. They lean in the way the line is going (from below on the way
+  // up, from above on the way down), mostly a semitone away.
   grace: {
     chance: 0.2,
-    from: [
-      [{ from: -1, chromatic: true }, 5],
-      [{ from: 1, chromatic: false }, 2],
-      [{ from: 1, chromatic: true }, 1],
-      [{ from: -1, chromatic: false }, 1],
-    ] as Weighted<{ from: 1 | -1; chromatic: boolean }>,
+    chromatic: 0.65,
     slur: 0.6,
   },
 };

@@ -59,10 +59,13 @@ describe('section materials', () => {
           notes++;
           if (n.grace) graces.push(n.grace);
         }
-        for (const { grace } of mat.solo.bars.flat()) {
+        for (const [k, { grace, degree }] of mat.solo.bars.flat().entries()) {
           if (!grace) continue;
           const { from, chromatic, semis } = grace;
           expect(Math.sign(semis)).toBe(from);
+          // In the direction of the phrase: from below on the way up, from above on the way down.
+          const prev = mat.solo.bars.flat()[k - 1]?.degree;
+          if (prev !== undefined && prev !== degree) expect(from).toBe(Math.sign(prev - degree));
           expect(Math.abs(semis)).toBeGreaterThanOrEqual(1);
           expect(Math.abs(semis)).toBeLessThanOrEqual(chromatic ? 1 : 3); // up to an augmented second
         }
@@ -104,13 +107,13 @@ describe('section materials', () => {
     expect(sixteens).toBeGreaterThan(10);
     expect(split).toBeGreaterThan(20);
     expect(fromHome).toBeGreaterThan(10);
-    // Some notes get grace notes, mostly chromatic ones from below.
+    // Some notes get grace notes, mostly chromatic ones, from either side.
     expect(graces.length / notes).toBeGreaterThan(0.05);
     expect(graces.length / notes).toBeLessThan(0.2);
-    const chromaticBelow = graces.filter((g) => g.chromatic && g.from === -1).length;
-    expect(chromaticBelow).toBeGreaterThan(graces.length / 3);
+    expect(graces.filter((g) => g.chromatic).length).toBeGreaterThan(graces.length / 2);
     expect(graces.some((g) => !g.chromatic)).toBe(true);
     expect(graces.some((g) => g.from === 1)).toBe(true);
+    expect(graces.some((g) => g.from === -1)).toBe(true);
     const slurred = graces.filter((g) => g.slur).length / graces.length;
     expect(slurred).toBeGreaterThan(0.4);
     expect(slurred).toBeLessThan(0.8);
