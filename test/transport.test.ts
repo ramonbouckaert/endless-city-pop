@@ -19,6 +19,9 @@ class FakePlayer implements Player {
   seek(to: number): void {
     this.time = to;
   }
+  pause(): void {
+    this.playing = false;
+  }
   stop(): void {
     this.playing = false;
   }

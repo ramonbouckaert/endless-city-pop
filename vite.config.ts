@@ -1,4 +1,5 @@
 import { readdirSync } from 'node:fs';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import { defineConfig, type Plugin } from 'vite';
 
 // The licences of what the app ships (public/licenses/), and a page
@@ -46,10 +47,13 @@ function licensesIndex(): Plugin {
   };
 }
 
-export default defineConfig({
+// `--mode https` (npm run dev-network) serves over HTTPS on a self-signed
+// certificate, for phones on the network: iOS only gives the media
+// controls and the Audio Session API to a secure page.
+export default defineConfig(({ mode }) => ({
   base: './',
-  plugins: [licensesIndex()],
+  plugins: [licensesIndex(), ...(mode === 'https' ? [basicSsl()] : [])],
   build: {
     target: 'es2022',
   },
-});
+}));

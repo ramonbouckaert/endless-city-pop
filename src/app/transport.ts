@@ -73,7 +73,7 @@ export class Transport {
   pause(): void {
     if (!this.playing) return;
     const at = this.player.time;
-    this.player.stop();
+    this.player.pause();
     this.cue = Math.min(at, this.length);
     this.onChange();
   }

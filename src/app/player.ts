@@ -8,7 +8,8 @@ import { loadSoundfont } from './soundfont';
 // iPhones mute Web Audio with the ring/silent switch, as they would a
 // game's sound effects, unless the page asks for media playback through
 // Safari's Audio Session API (iOS 16.4 on). Asked from Play's tap, as iOS
-// only starts audio in answer to one, and given back when the song stops.
+// only starts audio in answer to one, and given back when the song stops
+// (kept through a pause, as a media app keeps it).
 const audioSession = () => (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
 
 function claimMediaPlayback(): void {
@@ -32,6 +33,8 @@ export interface Player {
   play(midi: Uint8Array, from: number): Promise<void>;
   /** Moves the song playing to `to` seconds in. */
   seek(to: number): void;
+  /** Stops, as the media controls' pause does: for play() to carry on from. */
+  pause(): void;
   stop(): void;
 }
 
@@ -95,14 +98,18 @@ export class SynthPlayer implements Player {
     });
   }
 
-  stop(): void {
+  pause(): void {
     this._playing = false;
     this.pending = false;
-    releaseMediaPlayback();
     void this.engine.then(({ synth, sequencer }) => {
       sequencer.pause();
       synth.stopAll();
     });
+  }
+
+  stop(): void {
+    this.pause();
+    releaseMediaPlayback();
   }
 
   // Puts the sequencer at a time in the loaded song: past its last event
