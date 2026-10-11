@@ -5,6 +5,7 @@
 import { Rng } from '../../lib/random';
 import { Timeline } from '../../lib/timeline';
 import {
+  BALLAD,
   BASS_RIFFS,
   GUITAR_OSTINATOS,
   SONG,
@@ -39,7 +40,10 @@ export interface SongData {
   /** What it does throughout: how lush its chords are, ... (Traits). */
   traits: Traits;
   bpm: number;
+  /** How late an off-beat lands, in its own unit: a sixteenth (in eighths' swing, an eighth). */
   swing: number;
+  /** What swings: the second sixteenth of each eighth (16), or a ballad's second eighth of each beat (8). */
+  swingUnit: 8 | 16;
   voicings: Voicings;
   instruments: Instruments;
   /** Its sections, each with its part's material. */
@@ -56,7 +60,7 @@ export class Song {
 
   constructor(data: SongData) {
     Object.assign(this, data);
-    this.timeline = new Timeline(data.form.tempos(data.bpm));
+    this.timeline = new Timeline(data.form.tempos(data.bpm, data.traits.ballad));
   }
 
   /** A song from a seed, which picks everything else: mode, key, tempo, form and sounds. */
@@ -65,32 +69,42 @@ export class Song {
     const rng = new Rng(s);
     const tonality = rng.fork('mode').pick(Object.values(TONALITIES));
     const key = new Key(rng.pick(tonality.tonics), tonality.mode);
-    const bpm = rng.int(...SONG.tempo);
-    const traits = Song.traits(rng.fork('traits'));
-    const plan = new FormPlanner(rng.fork('form'), tonality.turnarounds, bpm).plan();
+    const ballad = rng.fork('ballad').chance(BALLAD.chance);
+    const bpm = rng.int(...(ballad ? BALLAD.tempo : SONG.tempo));
+    const traits = Song.traits(rng.fork('traits'), ballad);
+    const plan = new FormPlanner(rng.fork('form'), tonality.turnarounds, bpm, ballad).plan();
     const form = buildForm(plan, key, bpm, rng.fork('materials'), traits);
     return new Song({
       seed: s,
       key,
       traits,
       bpm,
-      swing: Math.round(rng.range(SONG.swing) * 100) / 100,
+      swing: Math.round(rng.range(ballad ? BALLAD.swing : SONG.swing) * 100) / 100,
+      swingUnit: ballad ? 8 : 16,
       voicings: Song.voicings(tonality.voicings ?? SONG.voicings, rng.fork('voicings')),
       form,
-      instruments: Instruments.pick(rng.fork('instruments')),
+      instruments: Instruments.pick(rng.fork('instruments'), ballad),
       titleParts: new TitleWriter(rng.fork('title')).write(),
     });
   }
 
-  // What a song does throughout, rolled from the style's odds.
-  private static traits(rng: Rng): Traits {
+  // What a song does throughout, rolled from the style's odds (a ballad's
+  // kick never follows its bass).
+  private static traits(rng: Rng, ballad: boolean): Traits {
     const colour = rng.fork('colour').weightedKey(SONG.colour);
-    const lock = rng.chance(SONG.lock);
+    const paired = ballad && rng.fork('paired').chance(BALLAD.paired);
+    const lock = !ballad && rng.chance(SONG.lock);
     const riff = lock && rng.chance(SONG.riff) ? rng.pick(BASS_RIFFS) : undefined;
     const ostinato = rng.chance(SONG.ostinato)
       ? rng.pick(Object.keys(GUITAR_OSTINATOS) as GuitarOstinato[])
       : undefined;
-    return { colour, lock, ...(riff ? { riff } : {}), ...(ostinato ? { ostinato } : {}) };
+    return {
+      colour,
+      lock,
+      ...(riff ? { riff } : {}),
+      ...(ostinato ? { ostinato } : {}),
+      ...(ballad ? { ballad, paired } : {}),
+    };
   }
 
   // How a song voices its chords, picked from some odds.
@@ -132,6 +146,8 @@ export class Song {
         this.traits.lock && 'kick on the bass',
         this.traits.riff && `riff ${this.traits.riff}`,
         this.traits.ostinato && `${this.traits.ostinato} guitar`,
+        this.traits.ballad && 'ballad',
+        this.traits.paired && 'two chords a bar',
       ]
         .filter(Boolean)
         .join(', '),

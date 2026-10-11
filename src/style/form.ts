@@ -135,6 +135,17 @@ export const FORM = {
     ] as Weighted<number>,
     outroChance: 0.45,
   },
+  // A ballad's rounds and solos: fewer (and it has no drum break).
+  ballad: {
+    rounds: [
+      [1, 1],
+      [2, 3],
+    ] as Weighted<number>,
+    soloCount: [
+      [0, 2],
+      [1, 2],
+    ] as Weighted<number>,
+  },
   // How often a song holds one moment of tension mid-song on a fermata:
   // the last bar of a pre-chorus, bridge, breakdown or lift, slowed and
   // held (FERMATA).

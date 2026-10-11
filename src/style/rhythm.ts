@@ -43,7 +43,18 @@ export const DRUM_BREAK: DrumPlan = { feels: { break: 1 }, crash: 0, fill: 1 };
 // Bass feels that sit with a quieter drum feel.
 export const BASS_WITH: Readonly<Partial<Record<DrumFeel, readonly BassFeel[]>>> = {
   bossa: ['bossa', 'halfTime', 'pedal', 'walk'],
-  halfTime: ['halfTime', 'pedal', 'funk', 'bossa', 'push', 'walk'],
+  halfTime: ['halfTime', 'pedal', 'funk', 'bossa', 'push', 'walk', 'ballad'],
+  ballad: ['ballad', 'pedal', 'walk', 'halfTime'],
   introRide: ['pedal', 'halfTime', 'funk', 'push', 'walk'],
   fusion: ['pop', 'riff', 'funk', 'halfTime', 'pedal'],
+};
+
+// A ballad's grooves: each section's drum and bass feels eased into a
+// ballad's (a feel not named here stays as it is).
+export const BALLAD_FEELS: {
+  drums: Readonly<Partial<Record<DrumFeel, DrumFeel>>>;
+  bass: Readonly<Partial<Record<BassFeel, BassFeel>>>;
+} = {
+  drums: { funk: 'ballad', disco: 'ballad', fusion: 'ballad', build: 'ballad', break: 'ballad', claps: 'ballad' },
+  bass: { funk: 'ballad', disco: 'ballad', drive: 'ballad', pop: 'ballad', riff: 'ballad', push: 'ballad' },
 };

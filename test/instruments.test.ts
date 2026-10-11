@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Song } from '../src/engine';
 import { GM, type Program } from '../src/lib/general-midi';
-import { BAND, KITS, PICKS, SOUND_LEVELS, VOICES, type PickedPart } from '../src/style';
+import { BALLAD_KITS, BAND, KITS, PICKS, SOUND_LEVELS, VOICES, type PickedPart } from '../src/style';
 import { defined } from './helpers';
 
 describe('instruments', () => {
@@ -74,9 +74,11 @@ describe('instruments', () => {
     }
   });
 
-  it("plays each song on one of the soundfont's drum kits", () => {
+  it("plays each song on one of the soundfont's drum kits (a ballad's, for a ballad)", () => {
     const kits = KITS.map(([k]) => k);
-    expect(new Set(songs.map((s) => s.instruments.kit))).toEqual(new Set(kits));
-    for (const { program } of kits) expect(program).toBeGreaterThanOrEqual(0);
+    const ballads = BALLAD_KITS.map(([k]) => k);
+    for (const song of songs) expect(song.traits.ballad ? ballads : kits).toContainEqual(song.instruments.kit);
+    expect(new Set(songs.filter((s) => !s.traits.ballad).map((s) => s.instruments.kit))).toEqual(new Set(kits));
+    for (const { program } of [...kits, ...ballads]) expect(program).toBeGreaterThanOrEqual(0);
   });
 });

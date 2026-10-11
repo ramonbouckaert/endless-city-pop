@@ -51,12 +51,13 @@ export class ScoreArranger {
 
   // Where a time (in bars) falls, swung: in each eighth, the first
   // sixteenth stretched and the second squeezed, so a note on the second
-  // lands `swing` of a sixteenth late and everything between moves with it.
+  // lands `swing` of a sixteenth late and everything between moves with
+  // it (in a ballad's eighths' swing, the same on the eighths of a beat).
   private warp(time: number): number {
-    const s = this.song.swing;
-    const x = time * 16;
-    const eighth = Math.floor(x / 2) * 2;
-    const p = x - eighth;
-    return (eighth + (p < 1 ? p * (1 + s) : 1 + s + (p - 1) * (1 - s))) / 16;
+    const { swing: s, swingUnit: unit } = this.song;
+    const x = time * unit;
+    const pair = Math.floor(x / 2) * 2;
+    const p = x - pair;
+    return (pair + (p < 1 ? p * (1 + s) : 1 + s + (p - 1) * (1 - s))) / unit;
   }
 }

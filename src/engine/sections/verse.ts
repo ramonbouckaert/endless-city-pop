@@ -61,7 +61,7 @@ export class Verse extends PlayedSection<VerseMaterial> {
     const { templates } = ctx.tonality;
     switch (harmony) {
       case 'template':
-        return ctx.progress(rng.pick(templates.verse), 8, rng.fork('template'));
+        return ctx.progress(rng.pick(templates.verse), 8, rng.fork('template'), { paired: true });
       case 'chorus':
         return ctx.chorusBars().slice(0, 8);
       case 'vamp':

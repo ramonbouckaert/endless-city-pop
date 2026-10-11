@@ -79,3 +79,16 @@ export const VERSE = {
 // How often a minor or dorian song's chorus is in its relative major (a
 // theme's never is).
 export const CHORUS = { relativeMajor: 0.25 };
+
+// A ballad (Last Summer Whisper's, Oh No, Oh Yes!'s): this often, slower,
+// swung in eighths rather than sixteenths, every groove eased into a
+// ballad's (BALLAD_FEELS), on brushes more often than not; `paired`, how
+// often its verses and choruses move two chords a bar; `ritard`, the
+// share of its tempo the last beat of each four-bar phrase eases back to.
+export const BALLAD = {
+  chance: 0.12,
+  tempo: [70, 86] as Range,
+  swing: [0.2, 0.45] as Range,
+  paired: 0.5,
+  ritard: 0.94,
+};

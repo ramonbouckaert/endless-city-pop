@@ -39,12 +39,14 @@ export class Harmonizer {
 
   /**
    * A template filled to `bars` bars (ending on its cadence if
-   * `ending`), coloured and reharmonised as the style says (unless
-   * `reharm` is false).
+   * `ending`; two chords a bar if `paired`), coloured and reharmonised
+   * as the style says (unless `reharm` is false).
    */
-  progression(template: string, bars: number, { ending = false, reharm = true } = {}): Bar[] {
+  progression(template: string, bars: number, { ending = false, reharm = true, paired = false } = {}): Bar[] {
     const t = new Template(template);
-    const realized = this.realise(ending ? t.fitEnding(bars) : t.fit(bars));
+    let fitted = ending ? t.fitEnding(bars) : t.fit(bars);
+    if (paired) fitted = t.fitPaired(bars);
+    const realized = this.realise(fitted);
     return reharm ? this.reharmonize(realized) : realized;
   }
 

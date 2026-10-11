@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Chorus, DrumBreak, Finale, Intro, PreChorus, ShortBar, Song, Vamp, Verse } from '../src/engine';
-import { TONALITIES } from '../src/style';
+import { BALLAD, BALLAD_FEELS, TONALITIES } from '../src/style';
 import { CHORDS, MODES, type Mode } from '../src/theory';
 import { defined, materials } from './helpers';
 
@@ -103,5 +103,30 @@ describe('Song', () => {
         (song) => !song.form.first(Verse) && song.form.at(1)?.kind === Vamp && song.form.first(Chorus)?.bars === 16,
       ),
     ).toBe(true);
+  });
+
+  it('writes some songs as ballads: slow, swung in eighths, eased grooves, easing back each phrase', () => {
+    const ballads = Array.from({ length: 300 }, (_, i) => Song.generate(`ballad${i}`)).filter((s) => s.traits.ballad);
+    expect(ballads.length).toBeGreaterThan(300 * BALLAD.chance * 0.5);
+    let paired = 0;
+    for (const song of ballads) {
+      expect(song.bpm).toBeGreaterThanOrEqual(BALLAD.tempo[0]);
+      expect(song.bpm).toBeLessThanOrEqual(BALLAD.tempo[1]);
+      expect(song.swingUnit).toBe(8);
+      expect(song.traits.lock).toBe(false);
+      expect(song.form.first(DrumBreak)).toBeUndefined();
+      for (const mat of Object.values(materials(song))) {
+        if (!('drums' in mat) || !('bass' in mat)) continue;
+        // No grooving feel the ballad's eases.
+        expect(Object.keys(BALLAD_FEELS.drums)).not.toContain(mat.drums.feel);
+        expect(Object.keys(BALLAD_FEELS.bass)).not.toContain(mat.bass.feel);
+      }
+      // Two chords a bar, in a song that pairs them.
+      const chorus = defined(song.part(Chorus), 'a chorus');
+      if (song.traits.paired && chorus.bars.slice(0, 8).every((bar) => bar.length === 2)) paired++;
+      // Easing back at the end of a four-bar phrase.
+      expect(song.timeline.tempoChanges.some((t) => Math.abs(t.bpm - song.bpm * BALLAD.ritard) < 1e-9)).toBe(true);
+    }
+    expect(paired).toBeGreaterThan(0);
   });
 });

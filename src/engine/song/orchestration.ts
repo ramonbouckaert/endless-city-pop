@@ -3,7 +3,17 @@
 
 import type { Program } from '../../lib/general-midi';
 import type { Rng } from '../../lib/random';
-import { BAND, KITS, PICKS, SOUND_LEVELS, VOICES, type BandPart, type Kit, type PickedPart } from '../../style';
+import {
+  BAND,
+  BALLAD_KITS,
+  KITS,
+  PICKS,
+  SOUND_LEVELS,
+  VOICES,
+  type BandPart,
+  type Kit,
+  type PickedPart,
+} from '../../style';
 
 /** The band's instruments, as General MIDI programs. */
 export type Sounds = Readonly<Record<BandPart, Program>> & {
@@ -37,9 +47,9 @@ export class Instruments {
     ]);
   }
 
-  /** Every part's sound and the kit, picked from the style's lists. */
-  static pick(rng: Rng): Instruments {
-    return new Instruments(pickSounds(rng.fork('sounds')), rng.fork('kit').weighted(KITS));
+  /** Every part's sound and the kit (a ballad's, for one), picked from the style's lists. */
+  static pick(rng: Rng, ballad = false): Instruments {
+    return new Instruments(pickSounds(rng.fork('sounds')), rng.fork('kit').weighted(ballad ? BALLAD_KITS : KITS));
   }
 
   /** These instruments, with some parts' sounds changed. */

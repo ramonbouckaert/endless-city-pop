@@ -112,6 +112,22 @@ export class Template {
     return Array.from({ length: n }, (_, i) => this.bars[i % this.bars.length]);
   }
 
+  /**
+   * `n` bars of the template two chords a bar where it can: two bars of
+   * one chord each share a bar, a bar of two keeps its own (looping).
+   */
+  fitPaired(n: number): Roman[][] {
+    const { bars } = this;
+    const out: Roman[][] = [];
+    for (let i = 0; out.length < n; ) {
+      const [a, b] = [bars[i % bars.length], bars[(i + 1) % bars.length]];
+      const pair = a.length === 1 && b.length === 1;
+      out.push(pair ? [...a, ...b] : a);
+      i += pair ? 2 : 1;
+    }
+    return out;
+  }
+
   /** `n` bars that end where the template ends, on its cadence. */
   fitEnding(n: number): Roman[][] {
     const len = this.bars.length;

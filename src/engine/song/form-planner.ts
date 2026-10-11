@@ -44,11 +44,16 @@ export class FormPlanner {
   // How much likelier a sixteen-bar section is at the song's tempo (1: as its odds say).
   private readonly sixteens: number;
 
-  /** `turnarounds`: the lifts into a last chorus the song's tonality offers; `bpm`: the song's tempo, which favours sixteen-bar sections the faster it is. */
+  /**
+   * `turnarounds`: the lifts into a last chorus the song's tonality
+   * offers; `bpm`: the song's tempo, which favours sixteen-bar sections
+   * the faster it is; `ballad`: whether it is a ballad (FORM.ballad).
+   */
   constructor(
     private readonly rng: Rng,
     private readonly turnarounds: Readonly<Record<string, Turnaround>>,
     bpm: number,
+    private readonly ballad = false,
   ) {
     const [slow, fast] = SONG.pace;
     const pace = Math.min(1, Math.max(0, (bpm - slow) / (fast - slow)));
@@ -158,7 +163,8 @@ export class FormPlanner {
   private rounds(): Plan[] {
     const { rng } = this;
     const riffChance = this.shape === 'jpop' ? 1 : rng.pick(FORM.riffChance);
-    const count = this.shape === 'tune' ? rng.weighted(TUNE_ROUNDS) : rng.weighted(FORM.rounds);
+    const rounds = this.ballad ? FORM.ballad.rounds : FORM.rounds;
+    const count = this.shape === 'tune' ? rng.weighted(TUNE_ROUNDS) : rng.weighted(rounds);
     return Array.from({ length: count }, (_, r) => {
       const later = r > 0;
       if (this.shape === 'tune') {
@@ -203,7 +209,7 @@ export class FormPlanner {
     const { rng } = this;
     const parts: Plan[][] = [];
     if (this.shape === 'tune' || rng.chance(FORM.bridgeChance)) parts.push([planned(Bridge, 8)]);
-    const soloCount = rng.weighted(FORM.soloCount);
+    const soloCount = rng.weighted(this.ballad ? FORM.ballad.soloCount : FORM.soloCount);
     if (soloCount) {
       const soloists = rng.shuffle(FORM.soloists);
       parts.push(
@@ -216,7 +222,7 @@ export class FormPlanner {
     if (rng.chance(FORM.breakdown.chance)) {
       body.push(planned(Breakdown, rng.pick(FORM.breakdown.bars)));
     }
-    if (rng.chance(FORM.drumBreakChance)) {
+    if (!this.ballad && rng.chance(FORM.drumBreakChance)) {
       const spots = body.flatMap((x, i) => (x.kind === SoloSection ? [i] : []));
       body.splice(rng.pick([...spots, body.length]), 0, planned(DrumBreak, 2));
     }

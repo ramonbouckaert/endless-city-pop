@@ -3,7 +3,18 @@
 
 import type { Range, Weighted } from '../lib/random';
 
-export type BassFeel = 'pedal' | 'funk' | 'drive' | 'disco' | 'halfTime' | 'bossa' | 'pop' | 'riff' | 'push' | 'walk';
+export type BassFeel =
+  | 'pedal'
+  | 'funk'
+  | 'drive'
+  | 'disco'
+  | 'halfTime'
+  | 'bossa'
+  | 'pop'
+  | 'riff'
+  | 'push'
+  | 'walk'
+  | 'ballad';
 // Chord tones by name (Root, Third, Fifth, Seventh, Octave) and the scale steps between.
 export type BassToken = 'R' | 'T' | 'F' | 'S' | 'O' | 'two' | 'four' | 'six' | 'below';
 export interface BassFeelDef {
@@ -87,6 +98,18 @@ export const BASS_FEELS: Readonly<Record<BassFeel, BassFeelDef>> = {
     legato: [0.6, 1],
     approach: 0.4,
     anticipate: 0.8,
+  },
+  // A ballad's: long roots and fifths on one and three, the next root
+  // often pushed early.
+  ballad: {
+    grid: 8,
+    density: [0.1, 0.25],
+    sync: [0, 0.2],
+    octave: [0, 0.2],
+    legato: [0.8, 1],
+    approach: 0.8,
+    anticipate: 0.35,
+    anchors: { 8: 'F' },
   },
   // Walking quarter notes (Tokai's upright): a chord tone on the beat,
   // stepping on through the chord-scale, the last note approaching the

@@ -5,7 +5,8 @@
 
 import type { TempoChange } from '../../lib/timeline';
 import type { AnySection } from './index';
-import type { Plan, PlanOf, Section, SectionKind } from './section';
+import { BALLAD } from '../../style';
+import type { Plan, PlanOf, Section, SectionKind, TempoMark } from './section';
 
 /** Where the playhead is: the section, and how far through it (0..1). */
 export interface Playhead {
@@ -116,13 +117,26 @@ export class Form<S extends Placed = AnySection> implements Iterable<S> {
     return marks.filter((m, i) => marks[i + 1]?.at !== m.at);
   }
 
-  /** The song's tempo through the form: `bpm`, changed where a section slows or speeds up. */
-  tempos(this: Form<AnySection>, bpm: number): TempoChange[] {
-    const marks = this.sections.flatMap((sec, i) =>
-      sec.tempo.map(({ at, scale }) => ({ at: this.starts[i] + at, bpm: bpm * scale })),
-    );
+  /**
+   * The song's tempo through the form: `bpm`, changed where a section
+   * slows or speeds up; in a ballad, easing back (BALLAD.ritard) through
+   * the last beat of each four-bar phrase of a section that keeps time.
+   */
+  tempos(this: Form<AnySection>, bpm: number, ballad = false): TempoChange[] {
+    const marks = this.sections.flatMap((sec, i) => {
+      const own = sec.tempo.length ? sec.tempo : ballad ? Form.ritards(sec.bars) : [];
+      return own.map(({ at, scale }) => ({ at: this.starts[i] + at, bpm: bpm * scale }));
+    });
     // (A section opening the song out of tempo sets the first tempo.)
     return [marks.find((m) => m.at === 0) ?? { at: 0, bpm }, ...marks.filter((m) => m.at > 0)];
+  }
+
+  // A ballad section's ritardandos: the last beat of each four bars eased back.
+  private static ritards(bars: number): TempoMark[] {
+    return Array.from({ length: Math.floor(bars / 4) }, (_, p) => [
+      { at: p * 4 + 3.75, scale: BALLAD.ritard },
+      { at: p * 4 + 4, scale: 1 },
+    ]).flat();
   }
 
   /** Each section in a line: "chorus (+2) 8", "lift (to +2, ii-V) 2". */

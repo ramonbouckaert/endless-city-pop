@@ -3,7 +3,7 @@ import { songToMidi } from '../src/midi/from-score';
 import { ScoreArranger, Song, Verse } from '../src/engine';
 import { PERCUSSION } from '../src/lib/general-midi';
 import { Chord, Voicing } from '../src/theory';
-import { defined } from './helpers';
+import { defined, songWhere } from './helpers';
 
 const songs = Array.from({ length: 20 }, (_, i) => Song.generate(`score${i}`));
 const scoreOf = (song: Song) => new ScoreArranger(song).arrange();
@@ -45,8 +45,10 @@ describe('score', () => {
       const verse = defined(song.part(Verse), 'a verse');
       const start = song.form.starts[index];
       const lead = scoreOf(song).notes.filter((n) => n.path === 'lead' && n.time >= start && n.time < start + 1);
-      // The first bar's notes, by their start (on eighths, so never swung).
+      // The first bar's notes, by their start (on eighths, so never swung;
+      // in a ballad's eighths' swing, on beats).
       for (const m of verse.melody.bars[0]) {
+        if (m.start % (song.swingUnit === 8 ? 4 : 2)) continue;
         const at = start + m.start / 16;
         const note = defined(
           lead.find((n) => Math.abs(n.time - at) < 1e-9),
@@ -65,15 +67,17 @@ describe('score', () => {
     }
   });
 
-  it("swings a note on an eighth's second sixteenth late by the song's swing, and leaves the first", () => {
-    for (const song of songs.slice(0, 5)) {
+  it("swings a note on an eighth's second sixteenth (a ballad's: a beat's second eighth) late by the song's swing, and leaves the first", () => {
+    const ballad = songWhere((s) => s.swingUnit === 8, 'a ballad');
+    for (const song of [...songs.slice(0, 5), ballad]) {
+      const unit = song.swingUnit;
       const straight = scoreOf(new Song({ ...song, swing: 0 })).notes.filter((n) => n.path === 'bass');
       const swung = scoreOf(song).notes.filter((n) => n.path === 'bass');
       expect(swung).toHaveLength(straight.length);
       straight.forEach((n, i) => {
-        const sixteenths = n.time * 16;
-        if (Math.abs(sixteenths - Math.round(sixteenths)) > 1e-9) return;
-        const late = Math.round(sixteenths) % 2 ? song.swing / 16 : 0;
+        const units = n.time * unit;
+        if (Math.abs(units - Math.round(units)) > 1e-9) return;
+        const late = Math.round(units) % 2 ? song.swing / unit : 0;
         expect(swung[i].time).toBeCloseTo(n.time + late, 9);
       });
     }

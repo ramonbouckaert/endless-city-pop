@@ -172,8 +172,9 @@ export interface Kit {
   name: string;
 }
 
-// GeneralUser GS's drum kits that suit the style (not its brushes,
-// orchestral or effects kits), mostly the standard ones.
+// GeneralUser GS's drum kits that suit the style (not its brushes, but
+// for ballads, nor its orchestral or effects kits), mostly the standard
+// ones.
 export const KITS: Weighted<Kit> = [
   [{ program: 0, name: 'Standard 1' }, 4],
   [{ program: 1, name: 'Standard 2' }, 1],
@@ -184,6 +185,12 @@ export const KITS: Weighted<Kit> = [
   [{ program: 25, name: '808/909' }, 1],
   [{ program: 26, name: 'Dance' }, 1],
   [{ program: 32, name: 'Jazz' }, 1],
+];
+// A ballad's kits: brushes (GeneralUser GS's, for ballads only), jazz or standard.
+export const BALLAD_KITS: Weighted<Kit> = [
+  [{ program: 40, name: 'Brush' }, 3],
+  [{ program: 32, name: 'Jazz' }, 1],
+  [{ program: 0, name: 'Standard 1' }, 1],
 ];
 
 // ---- Everything a song can play -----------------------------------------
@@ -198,7 +205,7 @@ export const SOUNDFONT_PROGRAMS: ReadonlySet<Program> = new Set([
   ...VOICES.pool,
   RISER,
 ]);
-export const SOUNDFONT_KITS: ReadonlySet<number> = new Set(KITS.map(([kit]) => kit.program));
+export const SOUNDFONT_KITS: ReadonlySet<number> = new Set([...KITS, ...BALLAD_KITS].map(([kit]) => kit.program));
 
 // ---- Facts about sounds -----------------------------------------------
 

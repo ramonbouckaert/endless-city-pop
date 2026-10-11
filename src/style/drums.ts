@@ -6,7 +6,17 @@ import { PERCUSSION, type Percussion } from '../lib/general-midi';
 import type { Odds, Range, Weighted } from '../lib/random';
 import { at, empty, steps, type StepGains } from '../lib/steps';
 
-export type DrumFeel = 'funk' | 'disco' | 'halfTime' | 'fusion' | 'bossa' | 'introRide' | 'claps' | 'build' | 'break';
+export type DrumFeel =
+  | 'funk'
+  | 'disco'
+  | 'halfTime'
+  | 'fusion'
+  | 'bossa'
+  | 'introRide'
+  | 'claps'
+  | 'build'
+  | 'break'
+  | 'ballad';
 export type DrumRole = 'kick' | 'snare' | 'ghost' | 'hat' | 'perc';
 
 export interface DrumVoice {
@@ -326,6 +336,25 @@ export const DRUM_FEELS: Readonly<Record<DrumFeel, DrumRecipe>> = {
         ],
       },
       { op: 'cymbal', sixteenths: 0.3, ride: 0, loud: 0.6 },
+    ],
+  },
+  // A ballad's: kick on one and three, cross-stick on two and four, the
+  // ride or hats in eighths, a shaker now and then.
+  ballad: {
+    quiet: true,
+    steps: [
+      {
+        op: 'kicks',
+        required: [0, 8],
+        optional: [
+          [6, 0.15],
+          [14, 0.2],
+        ],
+        gain: 0.5,
+      },
+      { op: 'voice', voices: [{ drum: PERCUSSION.sideStick, role: 'snare', bars: [at({ 4: 0.2, 12: 0.2 })] }] },
+      { op: 'cymbal', sixteenths: 0, ride: 0.5, loud: 0.6 },
+      percussion(0.15),
     ],
   },
   // Drums alone: a busy funk groove.
