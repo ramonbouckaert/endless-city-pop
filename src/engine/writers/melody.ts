@@ -19,7 +19,7 @@ import {
   type PhraseFormDef,
   type ShapeName,
 } from '../../style';
-import { Chord, type Bar, type Key } from '../../theory';
+import { Chord, PitchClass, type Bar, type Key } from '../../theory';
 import { Line, type Note } from './line';
 
 export interface MelodyNote extends Note {
@@ -295,8 +295,11 @@ export class MelodyWriter {
         // A diatonic style (a riff's) keeps to the key: it is harmonised by scale steps.
         semis = chord.snap(semis, key, { prev, dir, diatonic });
       } else free.add(i);
+      // A full cadence may settle on the tonic or fifth, if the chord under it has that note.
       if (last && letter === 'D') {
-        const w = this.rng.weighted(CADENCE_WEIGHTS);
+        const w = this.rng.weighted(
+          CADENCE_WEIGHTS.filter(([w]) => w < 0 || chord.pcs.includes(PitchClass.of(key.tonic + w))),
+        );
         if (w >= 0) semis = Math.round((semis - w) / 12) * 12 + w;
       }
       return [...line, { start: n.start, len: n.len, semis }];

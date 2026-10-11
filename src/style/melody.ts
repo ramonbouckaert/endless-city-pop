@@ -327,8 +327,9 @@ export const TRILL = { chance: 0.3 };
 // How often a melody approaches a note chromatically, from a semitone off, where it can.
 export const CHROMATIC_PROB = 0.15;
 // Where a full cadence's last note lands: the tonic, the fifth, or the chord tone it was on (-1).
+// The tonic and fifth are only offered when the chord under the note has them.
 export const CADENCE_WEIGHTS: Weighted<number> = [
-  [0, 11],
-  [7, 5],
-  [-1, 4],
+  [0, 6],
+  [7, 4],
+  [-1, 8],
 ];
