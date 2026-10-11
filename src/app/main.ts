@@ -39,7 +39,23 @@ class App implements MediaActions {
     $('midi').addEventListener('click', () =>
       downloadMidi(transport.song, transport.midi, (msg) => this.showError(msg)),
     );
+    this.seedGesture();
     this.showSong();
+  }
+
+  // A hidden gesture: with autoplay off, pressing Export as MIDI and
+  // releasing on New song puts this song's seed in the page's ?seed=.
+  private seedGesture(): void {
+    let pressed = false;
+    $('midi').addEventListener('mousedown', () => (pressed = true));
+    $('generate').addEventListener('mouseup', () => {
+      if (!pressed || this.autoplay()) return;
+      const url = new URL(location.href);
+      url.searchParams.set('seed', this.transport.song.seed);
+      history.replaceState(null, '', url);
+    });
+    // After the button's own mouseup listener, as the event bubbles up.
+    globalThis.addEventListener('mouseup', () => (pressed = false));
   }
 
   /** The playhead and autoplay going; resolves once the fonts and sounds have loaded. */
