@@ -128,6 +128,13 @@ export const SOLO_COMPS: Variants<SoloComp, Grooved> = {
   },
 };
 
+// What changes a solo is played over: the mode's own solo changes
+// (pairs cycling through keys, SoloChangesWriter), or one of the song's
+// own progressions looped (as most real songs do): the chorus's, the
+// verse's (in a song with verses), the intro's or the vamp's.
+export type SoloOver = 'cycle' | 'chorus' | 'verse' | 'intro' | 'vamp';
+export const SOLO_OVER: Odds<SoloOver> = { cycle: 3, chorus: 3, verse: 2, intro: 1, vamp: 2 };
+
 // How a lift into a last chorus is played: a rising horn line, band
 // hits, the drums dropping out, a run up into the chorus, or the drums
 // alone.

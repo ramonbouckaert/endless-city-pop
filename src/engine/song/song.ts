@@ -110,7 +110,7 @@ export class Song {
       intro: `${intro?.harmony} ${intro?.variant}`,
       pre: this.part(PreChorus)?.variant,
       answers: this.part(Chorus)?.variant,
-      solos: this.parts(SoloSection).map((s) => s.variant),
+      solos: this.parts(SoloSection).map((s) => `${s.variant} over ${s.over}`),
       lifts: this.parts(Lift).map((l) => l.variant),
       finale: this.part(Finale)?.variant,
       phrases: Object.fromEntries(

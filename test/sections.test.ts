@@ -28,7 +28,7 @@ import {
   TONALITIES,
 } from '../src/style';
 import { PERCUSSION } from '../src/lib/general-midi';
-import { MODES, type Mode } from '../src/theory';
+import { MODES, type Bar, type Mode } from '../src/theory';
 import { defined } from './helpers';
 
 describe('section materials', () => {
@@ -91,6 +91,8 @@ describe('section materials', () => {
           expect(step).toBeLessThanOrEqual(3);
         }
         expect(played.filter((n) => n.slide).length).toBe(mat.solo.bars.flat().filter((n) => n.grace?.slur).length);
+        // The rest is of the mode's solo changes (the others loop the song's).
+        if (mat.over !== 'cycle') continue;
         if (sec.bars === 16) {
           sixteens++;
           const names = mat.bars.map((b) => b.map((c) => c.name(song.key)).join(' '));
@@ -125,6 +127,25 @@ describe('section materials', () => {
     expect(slurred).toBeLessThan(0.8);
     // Minor solos move through iv-bVIIs, not dark ii-Vs.
     expect(minorIvBVII.filter((n) => n >= 2).length).toBeGreaterThan(minorIvBVII.length / 2);
+  });
+
+  it("plays some solos over the song's own changes", () => {
+    const solos = Array.from({ length: 200 }, (_, i) => Song.generate(`over${i}`)).flatMap((song) =>
+      song.form.ofType(SoloSection).map((sec) => ({ song, sec })),
+    );
+    const overs = new Set<string>();
+    for (const { song, sec } of solos) {
+      const { over, bars } = sec.material;
+      const names = (chords: readonly Bar[]) => chords.map((bar) => bar.map((c) => c.name(song.key)).join(' '));
+      overs.add(over);
+      if (over === 'verse') expect(song.form.first(Verse)).toBeDefined();
+      // A loop of the chorus that comes round whole is the chorus's chords, over and over.
+      const chorus = song.part(Chorus);
+      if (over === 'chorus' && chorus && sec.bars % chorus.bars.length === 0) {
+        expect(names(bars.slice(0, chorus.bars.length))).toEqual(names(chorus.bars));
+      }
+    }
+    expect(overs).toEqual(new Set(['cycle', 'chorus', 'verse', 'intro', 'vamp']));
   });
 
   it('varies the pre-chorus', () => {
