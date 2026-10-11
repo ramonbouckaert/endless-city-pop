@@ -3,7 +3,8 @@
 // turns one into timed notes.
 
 import { Rng } from '../../lib/random';
-import { SONG, TONALITIES } from '../../style';
+import { Timeline } from '../../lib/timeline';
+import { SONG, TONALITIES, type VoicingOdds, type Voicings } from '../../style';
 import { Key } from '../../theory';
 import {
   Bridge,
@@ -28,6 +29,7 @@ export interface SongData {
   key: Key;
   bpm: number;
   swing: number;
+  voicings: Voicings;
   instruments: Instruments;
   /** Its sections, each with its part's material. */
   form: Form;
@@ -38,8 +40,12 @@ export interface SongData {
 export interface Song extends Readonly<SongData> {}
 
 export class Song {
+  /** Its bars and tempo: where a time in bars falls, in quarter notes and seconds. */
+  readonly timeline: Timeline;
+
   constructor(data: SongData) {
     Object.assign(this, data);
+    this.timeline = new Timeline(data.form.tempos(data.bpm));
   }
 
   /** A song from a seed, which picks everything else: mode, key, tempo, form and sounds. */
@@ -57,10 +63,16 @@ export class Song {
       key,
       bpm,
       swing: Math.round(rng.range(SONG.swing) * 100) / 100,
+      voicings: Song.voicings(tonality.voicings ?? SONG.voicings, rng.fork('voicings')),
       form,
       instruments: Instruments.pick(rng.fork('instruments')),
       titleParts: new TitleWriter(rng.fork('title')).write(),
     });
+  }
+
+  // How a song voices its chords, picked from some odds.
+  private static voicings(odds: VoicingOdds, rng: Rng): Voicings {
+    return { comp: rng.weightedKey(odds.comp), sustain: rng.weightedKey(odds.sustain) };
   }
 
   /** The title on one line: "真夜中のドライブ (Midnight Drive)". */
@@ -94,6 +106,7 @@ export class Song {
       key: this.key.name,
       bpm: this.bpm,
       bars: this.bars,
+      voicings: `${this.voicings.comp}/${this.voicings.sustain}`,
       sections: this.form.describe(),
       intro: `${intro?.harmony} ${intro?.variant}`,
       pre: this.part(PreChorus)?.variant,

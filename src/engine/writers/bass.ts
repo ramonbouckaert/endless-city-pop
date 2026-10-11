@@ -1,9 +1,11 @@
 // Bass lines. A writer picks a feel and rolls its own settings for it:
 // how busy, how syncopated, how many octave pops, how long notes ring.
-// It writes a one-bar groove, then varies it bar by bar, with a busier
-// end to each four-bar phrase. Notes are chord-scale degrees, so the
+// It writes a one-bar groove (or picks a feel's fixed riff), then varies
+// it bar by bar, with a busier end to each four-bar phrase (a riff
+// stays as it is). Notes are chord-scale degrees, so the
 // groove follows the changes, and a bar's last note can approach the
-// next chord's root.
+// next chord's root, or (in some feels) push it a sixteenth early. Some
+// feels ghost an octave pop after a note.
 
 import type { Odds, Range, Rng } from '../../lib/random';
 import {
@@ -34,7 +36,7 @@ export class BassLine extends Line<BassNote> {
   }
 }
 
-type Step = BassToken | 'A' | null; // A: the approach note
+type Step = BassToken | 'A' | 'pop' | null; // A: the approach note; pop: the last note's octave, ghosted
 
 const ROOT: Degree = { step: 0, alter: 0 };
 
@@ -46,6 +48,7 @@ export class BassWriter {
   private readonly octave: number;
   private readonly legato: number;
   private readonly variety: number;
+  private readonly pops: number;
   // How much of a feel's busy end the song's tempo leaves (1: all of it).
   private readonly busy: number;
 
@@ -66,32 +69,44 @@ export class BassWriter {
     this.octave = rng.range(this.def.octave);
     this.legato = rng.range(this.def.legato);
     this.variety = rng.range(BASS.variety);
+    this.pops = this.def.pops ? rng.range(this.def.pops) : 0;
   }
 
   write(bars: Bar[]): BassLine {
     const groove = this.groove();
+    // The bars that push the next bar's root onto their last sixteenth
+    // (never the last, so a looping line starts on its root).
+    const { anticipate } = this.def;
+    const pushes = bars.map((_, b) => !!anticipate && b < bars.length - 1 && this.rng.chance(anticipate));
     const lines = bars.map((bar, b) => {
       // Where the approach into the next chord starts (16: none). A chord
       // change mid-bar lands on the new root. Those steps are set, so only
       // the others are rolled.
       const approachStep = this.grid === 16 && this.rng.chance(0.5) ? 15 : 14;
-      const at = this.rng.chance(this.def.approach) ? approachStep : 16;
+      const push = pushes[b];
+      const pushed = b > 0 && pushes[b - 1];
+      let at = this.rng.chance(this.def.approach) ? approachStep : 16;
+      if (push) at = 15;
       const split = bar.length > 1;
       const free = (i: number) => i !== 0 && !this.anchor(i) && i < at && !(split && i === 8);
-      const varied = b === 0 ? groove : this.vary(groove, free);
-      const played = b === bars.length - 1 || b % 4 === 3 ? this.fill(varied, free) : varied;
-      // The approach note, then silence to the barline.
+      // A fixed riff plays as it is, but for the song's last bar.
+      const { cells } = this.def;
+      const varied = b === 0 || cells ? groove : this.vary(groove, free);
+      const ends = b === bars.length - 1 || (b % 4 === 3 && !cells);
+      const played = ends ? this.fill(varied, free) : varied;
+      // The approach note, then silence to the barline; and no root on
+      // the downbeat the bar before pushed early.
       const steps = played.map((tok, i): Step => {
         if (i === at) return 'A';
-        if (i > at) return null;
+        if (i > at || (i === 0 && pushed)) return null;
         return split && i === 8 ? 'R' : tok;
       });
       // The approach into the next bar's first chord (with no chords to
-      // go between, the root).
+      // go between, the root), or that root itself, pushed.
       const last = bar.at(-1);
       const next = bars[(b + 1) % bars.length]?.[0];
-      const target = at < 16 && last && next ? this.approach(last, next) : ROOT;
-      return this.notes(steps, (tok) => (tok === 'A' ? target : { step: BASS_DEGREES[tok], alter: 0 }));
+      const target = at < 16 && last && next ? this.approach(last, next, push) : ROOT;
+      return this.notes(steps, (tok) => (tok === 'A' ? target : { step: BASS_DEGREES[tok], alter: 0 }), push);
     });
     return new BassLine(this.feel, lines);
   }
@@ -127,11 +142,20 @@ export class BassWriter {
     return this.rng.weighted(weights.map(([tok, base, oct]) => [tok, base + oct * this.octave] as const));
   }
 
-  // One bar as 16 steps: a note where one starts, null elsewhere.
+  // One bar as 16 steps: a note where one starts, null elsewhere; in a
+  // popping feel, perhaps an octave pop on the free sixteenth after a
+  // note. A feel with riffs plays one of them.
   private groove(): readonly Step[] {
-    return Array.from({ length: 16 }, (_, i) =>
+    const { cells } = this.def;
+    if (cells) return [...this.rng.pick(cells)].map((ch) => (ch === '.' ? null : (ch as BassToken)));
+    const steps: Step[] = Array.from({ length: 16 }, (_, i) =>
       i === 0 || this.anchor(i) || this.sounds(i) ? (this.anchor(i) ?? this.note(i)) : null,
     );
+    if (!this.pops) return steps;
+    return steps.map((tok, i) => {
+      const before = steps[i - 1];
+      return !tok && before && before !== 'pop' && !this.anchor(i) && this.rng.chance(this.pops) ? 'pop' : tok;
+    });
   }
 
   // The groove with a few free steps re-rolled.
@@ -152,28 +176,37 @@ export class BassWriter {
     });
   }
 
-  // The note from `cur` into `next`'s root, as a degree of cur's scale.
-  private approach(cur: Chord, next: Chord): Degree {
+  // The note from `cur` into `next`'s root (or, `exact`, that root), as a degree of cur's scale.
+  private approach(cur: Chord, next: Chord, exact = false): Degree {
     const root = cur.bassMidi;
     let target = next.bassMidi;
     if (target - root > 6) target -= 12;
     if (root - target > 6) target += 12;
     const { rng } = this;
     const approach = rng.chance(BASS.chromatic) ? BASS.approachChromatic : BASS.approachDiatonic;
-    let pitch = target === root ? root + rng.pick(BASS.approachSame) : target + rng.weighted(approach);
+    let pitch: number;
+    if (exact) pitch = target;
+    else pitch = target === root ? root + rng.pick(BASS.approachSame) : target + rng.weighted(approach);
     while (pitch < Chord.BASS_LOW) pitch += 12;
     return cur.chordScale.degree(pitch - root, this.key.usesFlats);
   }
 
   // Notes ring to the next one, or are cut short when the feel is
-  // choppy; the gap becomes a rest.
-  private notes(steps: readonly Step[], degree: (tok: BassToken | 'A') => Degree): BassNote[] {
+  // choppy; the gap becomes a rest. A pop is a ghost of the note before
+  // it an octave away; a pushed root rings over the barline.
+  private notes(steps: readonly Step[], degree: (tok: BassToken | 'A') => Degree, push: boolean): BassNote[] {
     const starts = steps.flatMap((tok, i) => (tok ? [{ start: i, tok }] : []));
-    return starts.map(({ start, tok }, k) => {
+    return starts.reduce<BassNote[]>((out, { start, tok }, k) => {
+      if (tok === 'pop') {
+        const prev = out.at(-1)?.degree ?? ROOT;
+        const up = prev.step < BASS_DEGREES.O ? 1 : -1;
+        return [...out, { start, len: BASS.popLen, degree: { ...prev, step: prev.step + up * BASS_DEGREES.O } }];
+      }
+      if (tok === 'A' && push) return [...out, { start, len: BASS.pushLen, degree: degree(tok) }];
       const gap = (starts[k + 1]?.start ?? 16) - start;
       const maxLen = this.grid === 16 ? 1 : 2;
       const len = this.rng.chance(this.legato) ? gap : Math.min(gap, maxLen);
-      return { start, len, degree: degree(tok) };
-    });
+      return [...out, { start, len, degree: degree(tok) }];
+    }, []);
   }
 }

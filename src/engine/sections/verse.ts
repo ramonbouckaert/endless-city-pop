@@ -1,6 +1,6 @@
 // Keys, clavinet and the lead; later verses add rhythm guitar and a pad.
 
-import { GROOVES, MELODIES } from '../../style';
+import { GROOVES, MELODIES, THEME } from '../../style';
 import type { Melody } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
@@ -26,10 +26,15 @@ export class Verse extends PlayedSection<VerseMaterial> {
   constructor(plan: Plan<VerseFields>, ctx: BuildContext) {
     super(plan);
     this.material = ctx.material(this, (rng) => {
-      const bars = ctx.progress(rng.pick(ctx.tonality.templates.verse), 8, rng.fork('harmony'));
+      const eight = ctx.progress(rng.pick(ctx.tonality.templates.verse), 8, rng.fork('harmony'));
+      // A song whose verses are all sixteen bars may sing them in four-bar
+      // phrases over its chords twice (never a shorter verse: it would
+      // stop halfway through the material).
+      const long = ctx.plan.ofType(Verse).every((v) => v.bars >= 16) && rng.fork('long').chance(THEME.longVerse);
+      const bars = long ? [...eight, ...eight] : eight;
       return {
         ...ctx.band(ctx.key, bars, GROOVES.verse, rng.fork('groove')),
-        melody: ctx.melody(MELODIES.verse, ctx.key, bars, rng.fork('melody')),
+        melody: ctx.melody(long ? MELODIES.theme : MELODIES.verse, ctx.key, bars, rng.fork('melody')),
       };
     });
   }

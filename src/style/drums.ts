@@ -6,7 +6,7 @@ import { PERCUSSION, type Percussion } from '../lib/general-midi';
 import type { Odds, Range, Weighted } from '../lib/random';
 import { at, empty, steps, type StepGains } from '../lib/steps';
 
-export type DrumFeel = 'funk' | 'disco' | 'halfTime' | 'bossa' | 'introRide' | 'claps' | 'build' | 'break';
+export type DrumFeel = 'funk' | 'disco' | 'halfTime' | 'fusion' | 'bossa' | 'introRide' | 'claps' | 'build' | 'break';
 export type DrumRole = 'kick' | 'snare' | 'ghost' | 'hat' | 'perc';
 
 export interface DrumVoice {
@@ -59,12 +59,67 @@ const EXTRAS: readonly DrumVoice[] = [
 ];
 const percussion = (chance: number) => ({ op: 'voice', chance, voices: EXTRAS }) as const;
 
+// Latin percussion over the kit, as fusion layers it: maracas in eighths,
+// wood blocks on a cross figure, or congas.
+const LATIN: readonly DrumVoice[] = [
+  {
+    drum: PERCUSSION.maracas,
+    role: 'perc',
+    bars: [steps([0, 2, 4, 6, 8, 10, 12, 14], (i) => (i % 4 ? 0.07 : 0.11))],
+    weight: 2,
+  },
+  {
+    drum: PERCUSSION.highWoodBlock,
+    role: 'perc',
+    bars: [
+      [2, 5, 8, 11, 14],
+      [0, 3, 6, 10, 12],
+      [2, 6, 9, 12, 14],
+    ].map((list) => steps(list, 0.08)),
+  },
+  {
+    drum: PERCUSSION.lowConga,
+    role: 'perc',
+    bars: [at({ 6: 0.1, 7: 0.08, 14: 0.1, 15: 0.08 }), at({ 3: 0.08, 6: 0.1, 11: 0.08, 14: 0.1 })],
+  },
+  {
+    drum: PERCUSSION.openHighConga,
+    role: 'perc',
+    bars: [at({ 4: 0.09, 10: 0.07, 12: 0.09 }), at({ 2: 0.08, 10: 0.08 })],
+  },
+];
+const latin = (chance: number) => ({ op: 'voice', chance, voices: LATIN }) as const;
+
+// Hand percussion an intro brings in one at a time (J-Cycle's): a
+// triangle, a bell tree in triplets, wood blocks. Each a bar's hits, in
+// sixteenths of 4/4 (triplets between them).
+export interface LayerHit {
+  drum: Percussion;
+  at: number;
+  gain: number;
+}
+export const LAYERS: readonly (readonly LayerHit[])[] = [
+  [
+    { drum: PERCUSSION.openTriangle, at: 0, gain: 0.1 },
+    { drum: PERCUSSION.openTriangle, at: 8, gain: 0.07 },
+  ],
+  [8, 8 + 8 / 3, 8 + 16 / 3].map((at) => ({ drum: PERCUSSION.bellTree, at, gain: 0.06 })),
+  [
+    { drum: PERCUSSION.highWoodBlock, at: 0, gain: 0.08 },
+    { drum: PERCUSSION.highWoodBlock, at: 3, gain: 0.06 },
+    { drum: PERCUSSION.lowWoodBlock, at: 6, gain: 0.07 },
+    { drum: PERCUSSION.highWoodBlock, at: 10, gain: 0.06 },
+    { drum: PERCUSSION.lowWoodBlock, at: 12, gain: 0.07 },
+  ],
+];
+
 // The backbeat's drum(s), and how often each plays it.
 export const BACKBEATS: Weighted<Percussion[]> = [
   [[PERCUSSION.snare], 4],
   [[PERCUSSION.snare, PERCUSSION.clap], 2],
   [[PERCUSSION.clap], 1],
   [[PERCUSSION.sideStick], 0.5],
+  [[PERCUSSION.electricSnare], 1],
 ];
 
 // Each feel's groove, as steps rolled in order.
@@ -91,6 +146,7 @@ export const DRUM_FEELS: Readonly<Record<DrumFeel, DrumRecipe>> = {
       { op: 'ghosts', density: [0.05, 0.35], avoid: [4, 12] },
       { op: 'cymbal', sixteenths: 0.7, ride: 0.15, loud: 1 },
       percussion(0.3),
+      latin(0.15),
     ],
   },
   disco: {
@@ -110,6 +166,7 @@ export const DRUM_FEELS: Readonly<Record<DrumFeel, DrumRecipe>> = {
       { op: 'cymbal', sixteenths: 0.6, ride: 0.1, loud: 0.8 },
       { op: 'openHats', chance: 0.75 }, // the disco signature
       percussion(0.45),
+      latin(0.1),
     ],
   },
   halfTime: {
@@ -136,6 +193,48 @@ export const DRUM_FEELS: Readonly<Record<DrumFeel, DrumRecipe>> = {
       },
       { op: 'cymbal', sixteenths: 0.3, ride: 0.35, loud: 0.7 },
       percussion(0.25),
+      latin(0.2),
+    ],
+  },
+  // Half-time fusion: kick and a late backbeat under the pedal hi-hat on
+  // the offbeats and the ride's bell on the beats, Latin percussion over it.
+  fusion: {
+    steps: [
+      {
+        op: 'kicks',
+        required: [0],
+        optional: [
+          [3, 0.3],
+          [6, 0.4],
+          [10, 0.5],
+          [11, 0.3],
+          [13, 0.3],
+        ],
+        gain: 0.7,
+      },
+      { op: 'backbeat', steps: [8], gain: 0.5, orElse: { keep: 0.6, steps: [7, 12] } },
+      { op: 'ghosts', density: [0.1, 0.35], avoid: [7, 8, 12] },
+      {
+        op: 'voice',
+        voices: [
+          {
+            drum: PERCUSSION.pedalHat,
+            role: 'hat',
+            bars: [steps([2, 6, 10, 14], 0.12), steps([2, 4, 6, 10, 12, 14], (i) => (i % 4 ? 0.12 : 0.08))],
+          },
+        ],
+      },
+      {
+        op: 'voice',
+        voices: [
+          {
+            drum: PERCUSSION.rideBell,
+            role: 'hat',
+            bars: [steps([0, 4, 8, 12], 0.1), steps([0, 4, 8, 10, 12], (i) => (i % 4 ? 0.07 : 0.1))],
+          },
+        ],
+      },
+      latin(0.7),
     ],
   },
   bossa: {

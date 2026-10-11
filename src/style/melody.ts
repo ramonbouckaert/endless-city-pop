@@ -7,10 +7,12 @@ import type { Odds, Range, Weighted } from '../lib/random';
 // How a pre-chorus melody unfolds: climbing a step each repeat, call and
 // response, or long held notes.
 export type PreMelody = 'climb' | 'question' | 'hold';
-// A is the idea; C a half cadence, D the full one; E a contrast or tag; F a fragment.
-export type MotifLetter = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
-// How a verse, chorus or bridge melody lays its motifs over eight bars.
-export type PhraseForm = 'period' | 'pairs' | 'sentence' | 'aaba' | 'callResponse';
+// A is the idea; C a half cadence, D the full one; E a contrast or tag; F
+// a fragment; H a long held note; R a bar's rest.
+export type MotifLetter = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'H' | 'R';
+// How a verse, chorus or bridge melody lays its motifs over eight bars,
+// or a theme's over sixteen, in four-bar phrases.
+export type PhraseForm = 'period' | 'pairs' | 'sentence' | 'aaba' | 'callResponse' | 'theme' | 'pairs4';
 export type ShapeName = 'rise' | 'fall' | 'arch' | 'valley' | 'neighbor' | 'leapFall' | 'zigzag';
 
 // A cell is eight eighth-note slots: x a note, - held, . a rest. (A
@@ -107,7 +109,11 @@ export interface PhraseFormDef {
   step?: Partial<Record<MotifLetter, number>>;
 }
 
-// Eight-bar phrase forms. A is the idea; C a half cadence, D the full one.
+// A held note: a bar of it, perhaps from the and of one, or with a pickup into the rest.
+const HOLD_NOTES = ['x-------', '.x------', 'x-----x-'];
+
+// Phrase forms, of eight bars or (theme, pairs4) sixteen. A is the idea;
+// C a half cadence, D the full one.
 export const PHRASE_FORMS: Readonly<Record<PhraseForm, PhraseFormDef>> = {
   // Antecedent and consequent: the same opening, ending open then closed.
   period: { plan: ['A', 'B', 'A', 'C', 'A', 'B', 'A', 'D'] },
@@ -126,12 +132,27 @@ export const PHRASE_FORMS: Readonly<Record<PhraseForm, PhraseFormDef>> = {
       B: ['x.x.xx--', '.xx.xxx-', 'x.xxx.x-', '.x.x.xx-', 'xx.xx---'],
     },
   },
+  // Sixteen bars of four-bar phrases (J-Cycle's theme): two bars of line,
+  // a held note, a bar's rest for an answer; the second phrase ends
+  // open, and the last climbs into the cadence with no rest.
+  theme: {
+    plan: ['A', 'B', 'H', 'R', 'A', 'C', 'H', 'R', 'A', 'B', 'H', 'R', 'E', 'E', 'C', 'D'],
+    lift: { E: 2 },
+    cells: { H: HOLD_NOTES },
+  },
+  // Two-bar calls and answers, each phrase resting in its last bar.
+  pairs4: {
+    plan: ['A', 'B', 'C', 'R', 'A', 'B', 'H', 'R', 'A', 'B', 'C', 'R', 'F', 'F', 'C', 'D'],
+    step: { F: 1 },
+    cells: { H: HOLD_NOTES },
+  },
 };
 
 const FORM_CHOICES = {
   chorus: { period: 4, pairs: 2, sentence: 2, aaba: 2, callResponse: 2 },
   verse: { period: 3, pairs: 2, sentence: 2, aaba: 1, callResponse: 3 },
   bridge: { period: 2, pairs: 1, sentence: 3, aaba: 2 },
+  theme: { theme: 2, pairs4: 1 },
 } satisfies Record<string, Odds<PhraseForm>>;
 
 const MELODY_RANGES = {
@@ -181,6 +202,8 @@ export const MELODIES = {
   chorus: { range: MELODY_RANGES.chorus, cells: CELLS.chorus, forms: FORM_CHOICES.chorus },
   bridge: { range: MELODY_RANGES.bridge, cells: CELLS.bridge, forms: FORM_CHOICES.bridge },
   riff: { range: MELODY_RANGES.riff, cells: CELLS.riff, plan: { loop: ['A', 'B'], end: ['D'] }, diatonic: true },
+  // Sixteen bars in four-bar phrases: a theme song's chorus, or a long verse's.
+  theme: { range: MELODY_RANGES.chorus, cells: CELLS.chorus, forms: FORM_CHOICES.theme },
 } satisfies Record<string, MelodyStyle>;
 
 // Pre-chorus melodies all end on a half cadence into the chorus. Some
@@ -198,6 +221,8 @@ export const SHAPE_CHOICES: Readonly<Record<MotifLetter, Odds<ShapeName>>> = {
   D: { fall: 2, valley: 2, neighbor: 2, arch: 1, leapFall: 1 },
   E: { rise: 2, arch: 2, leapFall: 1 },
   F: { zigzag: 2, neighbor: 2, fall: 2, rise: 1 },
+  H: { neighbor: 1 }, // one note (or two)
+  R: { neighbor: 1 }, // none
 };
 
 // The answer to a hook: short figures of [step, length] in sixteenths
@@ -280,7 +305,24 @@ export const SOLO = {
     chromatic: 0.65,
     slur: 0.6,
   },
+  // Now and then (from the second bar on) a bar is a move of its own
+  // (J-Cycle's organ solo): a glissando in thirty-seconds up into a held
+  // note; a cascade of sixteenths down; or stabs of a chord (on a
+  // soloist that plays chords; any other plays their top notes).
+  moves: {
+    chance: 0.12,
+    kinds: { gliss: 2, cascade: 2, stabs: 1 } as Odds<SoloMove>,
+    gliss: 10, // notes up to the held one
+    cascade: 12, // notes down
+    stabs: 'x.x..x.x.x..x...',
+    stack: [2, 4], // degrees under a stab's top note
+  },
 };
+export type SoloMove = 'gliss' | 'cascade' | 'stabs';
+
+// How often a song's chorus, coming back, trills its first long held
+// note (a lone note held half a bar or more), if it has one.
+export const TRILL = { chance: 0.3 };
 
 // How often a step in a melody is taken chromatically.
 export const CHROMATIC_PROB = 0.15;

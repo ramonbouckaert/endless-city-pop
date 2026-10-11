@@ -1,5 +1,5 @@
 import { PitchClass } from './pitch';
-import { NUMERALS, type ChordClass } from './tables';
+import { NUMERALS, type ChordClass, type ChordSymbol, type NumeralName } from './tables';
 import type { Key } from './key';
 
 /** A roman numeral: semitones above the tonic and a chord family. */
@@ -10,7 +10,7 @@ export class Roman {
     readonly text: string,
   ) {}
 
-  /** "I", "vi", "bVII", "V7", "ii7", "viiø", "#iv°", "IVmaj7", "Isus", "I5". */
+  /** "I", "vi", "bVII", "V7", "ii7", "viiø", "#iv°", "IVmaj7", "Isus", "I5", "I+". */
   static parse(text: string): Roman {
     const m = /^([b#]?)(iii|ii|iv|i|vii|vi|v|III|II|IV|I|VII|VI|V)(.*)$/.exec(text);
     if (!m) throw new Error(`Not a roman numeral: ${text}`);
@@ -19,7 +19,7 @@ export class Roman {
     let accOffset = 0;
     if (acc === 'b') accOffset = -1;
     else if (acc === '#') accOffset = 1;
-    const offset = NUMERALS[numeral.toLowerCase()] + accOffset;
+    const offset = NUMERALS[numeral.toLowerCase() as NumeralName] + accOffset;
     return new Roman(PitchClass.of(offset), Roman.family(suffix, upper), text);
   }
 
@@ -27,6 +27,7 @@ export class Roman {
     if (/ø/.test(suffix)) return 'hdim';
     if (/[°o]/.test(suffix)) return 'dim';
     if (/sus/.test(suffix)) return 'sus';
+    if (/\+|#5/.test(suffix)) return 'aug';
     if (suffix === '5') return 'power';
     if (/maj|\^/.test(suffix)) return 'maj';
     if (/7/.test(suffix) && upper) return 'dom';
@@ -71,5 +72,12 @@ export class Template {
   }
 }
 
-/** A chord as "numeral:symbol", with alternative symbols split by "|": "V:7alt|13b9". */
-export type ChordSpec = string;
+/** A numeral as a chord spec names it: "V", "bVII", "#iv". */
+type Numeral = `${'' | 'b' | '#'}${NumeralName | Uppercase<NumeralName>}`;
+
+/**
+ * A chord as "numeral:symbol", with alternative symbols split by "|":
+ * "V:7alt|13b9". The type checks the numeral and the first symbol (every
+ * combination of alternatives would be too many for TypeScript).
+ */
+export type ChordSpec = `${Numeral}:${Exclude<ChordSymbol, ''>}` | `${Numeral}:${Exclude<ChordSymbol, ''>}|${string}`;

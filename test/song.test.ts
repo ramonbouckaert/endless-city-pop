@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Chorus, DrumBreak, Finale, Intro, Song, Verse } from '../src/engine';
+import { Chorus, DrumBreak, Finale, Intro, PreChorus, Song, Vamp, Verse } from '../src/engine';
 import { TONALITIES } from '../src/style';
 import { CHORDS, MODES, type Mode } from '../src/theory';
 import { defined, materials } from './helpers';
@@ -26,8 +26,12 @@ describe('Song', () => {
       const kinds = song.form.sections.map((s) => s.kind);
       expect(kinds[0]).toBe(Intro);
       expect(kinds.at(-1)).toBe(Finale);
-      expect(kinds).toContain(Verse);
       expect(kinds).toContain(Chorus);
+      // A pre-chorus only follows a verse; every chorus is as long as the others.
+      if (!kinds.includes(Verse)) expect(kinds).not.toContain(PreChorus);
+      const choruses = song.form.ofType(Chorus);
+      expect(new Set(choruses.map((c) => c.bars)).size).toBe(1);
+      expect(choruses.at(-1)?.big).toBe(true);
       const brk = kinds.indexOf(DrumBreak);
       if (brk >= 0) expect(kinds[brk + 1]).not.toBe(Finale);
       expect(song.describe().bars).toBe(song.bars);
@@ -71,5 +75,20 @@ describe('Song', () => {
       expect(fin.cls).toBe(tonic);
       expect(finale.map(([symbol]) => symbol)).toContain(fin.symbol);
     }
+  });
+
+  it('mixes its forms from independent rolls: verses or none, choruses of 8, 10 or 16 bars', () => {
+    const songs = Array.from({ length: 400 }, (_, i) => Song.generate(`form${i}`));
+    const shape = (song: Song) =>
+      `${song.form.first(Verse) ? 'verses' : 'no verses'}, ${song.form.first(Chorus)?.bars} bar choruses`;
+    const seen = new Set(songs.map(shape));
+    for (const verses of ['verses', 'no verses'])
+      for (const bars of [8, 10, 16]) expect(seen).toContain(`${verses}, ${bars} bar choruses`);
+    // J-Cycle's way among them: an intro and a vamp into sixteen-bar themes, with no verses.
+    expect(
+      songs.some(
+        (song) => !song.form.first(Verse) && song.form.at(1)?.kind === Vamp && song.form.first(Chorus)?.bars === 16,
+      ),
+    ).toBe(true);
   });
 });

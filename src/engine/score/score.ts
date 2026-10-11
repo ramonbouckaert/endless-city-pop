@@ -38,6 +38,8 @@ export interface ScoreNote {
   readonly clip: number;
   readonly slide?: Slide;
   readonly controls: Controls;
+  /** An echo's: how far behind the line it echoes it plays, in bars (it swings as that line does). */
+  readonly delay?: number;
 }
 
 /** A note at full velocity, untrimmed, sounding its whole length, with no effects, unless given. */
@@ -115,6 +117,13 @@ export class Part {
   /** The notes that start where `keep` says. */
   mask(keep: (time: number) => boolean): Part {
     return new Part(this.notes.filter((n) => keep(n.time)));
+  }
+
+  /** The notes that start before `time`, any still sounding then cut off there. */
+  until(time: number): Part {
+    return new Part(
+      this.notes.filter((n) => n.time < time).map((n) => (n.time + n.dur > time ? { ...n, dur: time - n.time } : n)),
+    );
   }
 
   /** The notes sounding at each of `spans`' starts, played on them instead. */

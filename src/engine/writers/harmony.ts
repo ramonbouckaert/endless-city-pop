@@ -164,8 +164,9 @@ export class Harmonizer {
 }
 
 // Solo changes, in eights that each end with the cadence home: the
-// mode's pairs moving through keys, a stretch on the home tonic first, or
-// one of its vamps (Tonality.solo). Reharmonised like any section; each
+// mode's pairs moving through keys, a stretch on the home tonic first,
+// one of its vamps, or the tonic side-slipped outside the key and back
+// (Tonality.solo). Reharmonised like any section; each
 // chord's scale is the one it has in the key of its bar (a pair's own
 // key, or home).
 
@@ -201,14 +202,26 @@ export class SoloChangesWriter {
   // Eight bars: a shape's lead-in, then the cadence home.
   private eight(): Keyed[] {
     const { harmony, rng, key: home } = this;
-    const { solo, templates, tonic } = harmony.tonality;
+    const { solo, templates } = harmony.tonality;
     const shape = rng.weighted(solo.shapes);
     let lead: Keyed[];
     if (shape === 'cycle') lead = this.pairs(3);
-    else if (shape === 'home')
-      lead = [{ bars: harmony.realise(new Template(TONIC_CHORDS[tonic]).fit(2)), key: home }, ...this.pairs(2)];
+    else if (shape === 'home') lead = [this.tonic(2), ...this.pairs(2)];
+    else if (shape === 'outside')
+      lead = [this.tonic(2), ...rng.weighted(SOLO_CHANGES.outside).map((off) => this.tonic(1, off))];
+    else if (shape === 'sidestep')
+      lead = [{ bars: harmony.realise(new Template(SOLO_CHANGES.sidestep).fit(6)), key: home }];
     else lead = [{ bars: harmony.realise(new Template(rng.pick(templates.vamp)).fit(6)), key: home }];
     return [...lead, { bars: harmony.approach(), key: home }];
+  }
+
+  // `n` bars of the home tonic's chord, or one bar of it side-slipped
+  // `off` semitones (its chord-scale from the key it slips into).
+  private tonic(n: number, off = 0): Keyed {
+    const { harmony, key: home } = this;
+    const bars = harmony.realise(new Template(TONIC_CHORDS[harmony.tonality.tonic]).fit(n));
+    const key = home.transpose(off);
+    return { bars: bars.map((bar) => bar.map((c) => new Chord(c.root + off, c.symbol))), key };
   }
 
   // `n` of the mode's pairs, each in a key a step on from the one before.

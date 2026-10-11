@@ -26,6 +26,8 @@ export const MINOR: TonalityDef = {
       'bVImaj7 bVII7',
       'i7 IV7sus',
       'i7 [bVImaj7 bVII7]',
+      'i7 bVImaj7',
+      'i7 i7 bVImaj7 bVImaj7',
     ],
     verse: [
       'i7 IV7 i7 IV7 bVImaj7 bVII7 i7 i7',
@@ -33,6 +35,7 @@ export const MINOR: TonalityDef = {
       'i7 bVII7 bVImaj7 bVII7 i7 bVII7 iv7 bVII7',
       'bVImaj7 bVII7 v7 i7 bVImaj7 bVII7 i7 i7',
       'iv7 bVII7 bIIImaj7 bVImaj7 iiø V7 i7 i7',
+      'i7 I+ iv7 bVII7 bVImaj7 bVII7 i7 i7',
     ],
     chorus: [
       'bVImaj7 bVII7 i7 i7 bVImaj7 bVII7 i7 i7',
@@ -57,6 +60,7 @@ export const MINOR: TonalityDef = {
       'i7 iv7 bVII7 bIIImaj7 bVImaj7 bVII7',
       'bVImaj7 bVII7 i7 i7 iv7 bVII7',
       'bIIImaj7 bVImaj7 iv7 bVII7 i7 i7',
+      'IV7sus V7sus IV7sus V7sus bvi7 bII7',
     ],
     riff: [
       'i7 IV7',
@@ -67,6 +71,7 @@ export const MINOR: TonalityDef = {
       'iv7 bVII7 i7 i7',
       'i7 IV7 bVImaj7 bVII7',
       'i7 [iv7 v7]',
+      'i7 i7 bVImaj7 bVImaj7',
     ],
     intro: [
       'i7 iv7',
@@ -114,6 +119,8 @@ export const MINOR: TonalityDef = {
       ['cycle', 2],
       ['home', 2],
       ['loop', 2],
+      ['outside', 1],
+      ['sidestep', 1],
     ],
   },
   turnarounds: {

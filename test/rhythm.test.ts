@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DrumBreak, Finale, Song } from '../src/engine';
+import { BASS_FEELS } from '../src/style';
 import { partSections } from './helpers';
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => `seed${i}`);
@@ -49,6 +50,14 @@ describe('rhythm', () => {
         if (sec instanceof Finale || sec instanceof DrumBreak) continue;
         expect(sec.material.bass.bars, sec.kind.label).toHaveLength(sec.material.bars.length);
         expect(sec.material.bass.bars.flat().length, sec.kind.label).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('writes bass riffs as bars of sixteen sixteenths, starting on the root', () => {
+    for (const { cells = [] } of Object.values(BASS_FEELS)) {
+      for (const cell of cells) {
+        expect(cell).toMatch(/^R[RTFSO.]{15}$/);
       }
     }
   });

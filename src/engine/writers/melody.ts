@@ -46,6 +46,41 @@ export class Melody extends Line<MelodyNote> {
     );
   }
 
+  /** Whether each bar rests. */
+  get rests(): boolean[] {
+    return this.bars.map((notes) => !notes.length);
+  }
+
+  /** Its notes in the bars `keep` marks (the others rest). */
+  where(keep: readonly boolean[]): Melody {
+    return new Melody(
+      this.bars.map((notes, b) => (keep[b] ? notes : [])),
+      this.form,
+    );
+  }
+
+  /**
+   * Its first note held a half bar or more, as a lone note in its bar,
+   * trilled: thirty-seconds with the note above (`above` gives it) for
+   * half its length, then held.
+   */
+  trilled(above: (semis: number) => number): Melody {
+    const at = this.bars.findIndex((notes) => notes.length === 1 && notes[0].len >= 8);
+    if (at < 0) return this;
+    const [held] = this.bars[at];
+    const shakes = held.len; // thirty-seconds over the first half
+    const trill = Array.from({ length: shakes }, (_, i) => ({
+      start: held.start + i / 2,
+      len: 0.5,
+      semis: i % 2 ? above(held.semis) : held.semis,
+    }));
+    const rest = { start: held.start + shakes / 2, len: held.len - shakes / 2, semis: held.semis };
+    return new Melody(
+      this.bars.map((notes, b) => (b === at ? [...trill, rest] : notes)),
+      this.form,
+    );
+  }
+
   /** The first `n` bars. */
   take(n: number): Melody {
     return new Melody(this.bars.slice(0, n), this.form);
@@ -206,7 +241,7 @@ export class MelodyWriter {
     return this.form && PHRASE_FORMS[this.form];
   }
 
-  /** Which motif plays in each of `n` bars. C: half cadence, D: full cadence, E: tag, F: fragment. */
+  /** Which motif plays in each of `n` bars. C: half cadence, D: full cadence, E: tag, F: fragment, H: held, R: rest. */
   private plan(n: number): MotifLetter[] {
     if (this.phrase) return phrasePlan(this.phrase.plan, n);
     if (!this.style.plan) throw new Error('A melody needs phrase forms or a loop');
@@ -227,7 +262,9 @@ export class MelodyWriter {
   }
 
   // A bar of the melody, from where it has got to; and where it gets to.
+  // A rest bar (R) plays nothing, and leaves the line where it was.
   private bar(bar: Bar, letter: MotifLetter, at: Progress): { notes: MelodyNote[]; at: Progress } {
+    if (letter === 'R') return { notes: [], at };
     const { key } = this;
     const { range, diatonic = false } = this.style;
     const scale = key.scale;

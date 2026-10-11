@@ -11,6 +11,7 @@ export type PaletteName =
   | 'domToMinor'
   | 'susToMinor'
   | 'minTonic'
+  | 'minPhrygianTonic'
   | 'domTonic';
 
 // Colours for each chord family; majLydian is a major chord away from
@@ -33,8 +34,11 @@ export const PALETTE: Readonly<Record<PaletteName, Odds<string>>> = {
   dim: { o7: 1 },
   sus: { '9sus': 2, '7sus': 1 },
   power: { '9sus': 1 },
+  aug: { '7#5': 1 },
   // A minor key's tonic: aeolian m9 and m11, or the dorian m6/9.
   minTonic: { m9: 3, m11: 2, m69: 2 },
+  // A phrygian key's tonic: its 9th is off the key, so an 11th over the m7.
+  minPhrygianTonic: { m7add11: 2, m7: 1 },
   // A mixolydian key's tonic: a dominant that doesn't resolve, sometimes the funk #9.
   domTonic: { '13': 3, '9': 2, '7#9': 1 },
 };
@@ -57,8 +61,13 @@ export const ADVENTUROUS = 0.8;
 
 export const TONIC_CHORDS: Readonly<Record<string, string>> = { maj: 'Imaj7', min: 'i7', dom: 'I7' };
 
-// Solo changes: the steps between a solo's pair keys, and where the first pair starts.
+// Solo changes: the steps between a solo's pair keys, where the first
+// pair starts, and the side-slips of an outside solo: four bars of the
+// tonic chord, each this many semitones off home.
 export const SOLO_CHANGES = {
+  // A sidestep's lead-in: a sus pedal rocking IV to V, then a ii-V
+  // borrowed from a tritone away (J-Cycle's B section: Dsus Esus, Fm7 Bb7).
+  sidestep: 'IV7sus V7sus IV7sus V7sus bvi7 bII7',
   steps: [
     [3, 3],
     [-2, 2],
@@ -66,6 +75,12 @@ export const SOLO_CHANGES = {
     [-1, 1],
   ] as Weighted<number>,
   starts: [0, 2, 9],
+  outside: [
+    [[1, 1, -1, -1], 2],
+    [[-1, 6, 1, 0], 1],
+    [[6, 6, 1, 1], 1],
+    [[1, 3, 6, -1], 1],
+  ] as Weighted<readonly number[]>,
 };
 
 // Planing intros start on bIII or bVI.

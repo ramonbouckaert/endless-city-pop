@@ -2,9 +2,9 @@
 // and chord-scales, chord symbols and how chords and numerals spell.
 
 // The modes a song can be in: church modes with a tonality each (style/tonalities).
-export type Mode = 'major' | 'minor' | 'dorian' | 'mixolydian';
+export type Mode = 'major' | 'minor' | 'dorian' | 'mixolydian' | 'phrygian';
 
-export type ChordClass = 'maj' | 'min' | 'dom' | 'hdim' | 'dim' | 'sus' | 'power';
+export type ChordClass = 'maj' | 'min' | 'dom' | 'hdim' | 'dim' | 'sus' | 'power' | 'aug';
 export interface ChordDef {
   cls: ChordClass;
   tones: readonly number[]; // semitones above the root
@@ -45,7 +45,7 @@ export const LETTER_PCS = [0, 2, 4, 5, 7, 9, 11];
 export const RARE_SPELLINGS = ['Cb', 'Fb', 'E#', 'B#'];
 
 // Chord symbols, written as iReal Pro writes them (^ for major seventh).
-export const CHORDS: Readonly<Record<string, ChordDef>> = {
+const CHORD_DEFS = {
   '': { cls: 'maj', tones: [0, 4, 7] },
   add9: { cls: 'maj', tones: [0, 4, 7, 14] },
   '^7': { cls: 'maj', tones: [0, 4, 7, 11] },
@@ -62,6 +62,7 @@ export const CHORDS: Readonly<Record<string, ChordDef>> = {
   'm^9': { cls: 'min', tones: [0, 3, 7, 11, 14] },
   m9: { cls: 'min', tones: [0, 3, 7, 10, 14] },
   m11: { cls: 'min', tones: [0, 3, 7, 10, 14, 17] },
+  m7add11: { cls: 'min', tones: [0, 3, 7, 10, 17] }, // a phrygian tonic: no 9th
   7: { cls: 'dom', tones: [0, 4, 7, 10] },
   9: { cls: 'dom', tones: [0, 4, 7, 10, 14] },
   13: { cls: 'dom', tones: [0, 4, 7, 10, 14, 21] },
@@ -77,7 +78,12 @@ export const CHORDS: Readonly<Record<string, ChordDef>> = {
   o7: { cls: 'dim', tones: [0, 3, 6, 9] },
   sus: { cls: 'sus', tones: [0, 5, 7] },
   5: { cls: 'power', tones: [0, 7] },
-};
+  '7#5': { cls: 'aug', tones: [0, 4, 8, 10] }, // the augmented passing chord: i, I+, iv
+} satisfies Record<string, ChordDef>;
+export const CHORDS: Readonly<Record<string, ChordDef>> = CHORD_DEFS;
+
+/** A chord symbol in CHORDS. */
+export type ChordSymbol = `${keyof typeof CHORD_DEFS}`;
 
 // The chord-scale a symbol implies regardless of context.
 export const SYMBOL_SCALES: Readonly<Record<string, string>> = {
@@ -98,6 +104,7 @@ export const SYMBOL_SCALES: Readonly<Record<string, string>> = {
   '7b9sus': 'phrygian',
   sus: 'mixolydian',
   '7#9': 'mixolydian',
+  '7#5': 'altered',
 };
 
 // A chromatic chord's usual chord-scale, by family. A dominant
@@ -111,9 +118,13 @@ export const FAMILY_SCALES: Readonly<Record<ChordClass, string>> = {
   dim: 'locrian',
   sus: 'mixolydian',
   power: 'mixolydian',
+  aug: 'altered',
 };
 export const DOM_TO_MINOR_SCALE = 'phrygian:dominant';
 // A tritone sub's chord-scale: its #11 is the 5th of the chord it stands for.
 export const TRITONE_SUB_SCALE = 'lydian:dominant';
 
-export const NUMERALS: Readonly<Record<string, number>> = { i: 0, ii: 2, iii: 4, iv: 5, v: 7, vi: 9, vii: 11 };
+export const NUMERALS = { i: 0, ii: 2, iii: 4, iv: 5, v: 7, vi: 9, vii: 11 } as const satisfies Record<string, number>;
+
+/** A roman numeral, in lower case (a key of NUMERALS). */
+export type NumeralName = keyof typeof NUMERALS;

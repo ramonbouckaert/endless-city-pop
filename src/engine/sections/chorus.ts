@@ -1,8 +1,9 @@
-// The hook, doubled an octave up if it fits; later choruses answer it
+// The hook, doubled an octave up if it fits (perhaps echoed, and perhaps
+// trilling a held note when it comes back); later choruses answer it
 // (in its gaps every other bar, or with a held line), and the last one
 // adds stabs, strings and choir, and answers in every bar.
 
-import { ANSWER_STYLES, COMP, GROOVES, type AnswerStyle } from '../../style';
+import { ANSWER_STYLES, COMP, ECHO, GROOVES, OSTINATO_CHANCE, TRILL, type AnswerStyle } from '../../style';
 import { AnswerWriter, type Melody } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
@@ -21,6 +22,12 @@ export interface ChorusMaterial extends PlayedMaterial {
   answer: Melody;
   /** How it answers the hook. */
   variant: AnswerStyle;
+  /** How far behind the lead its echo plays, in bars, if it has one. */
+  echo?: number;
+  /** A theme's: whether the bells' ostinato plays under its second half. */
+  bells: boolean;
+  /** Whether it trills its first long held note when it comes back (TRILL). */
+  trill: boolean;
 }
 
 export interface Chorus extends Readonly<ChorusFields> {}
@@ -39,7 +46,11 @@ export class Chorus extends PlayedSection<ChorusMaterial> {
       const bars = ctx.chorusBars();
       const hook = ctx.hook();
       const variant = rng.weightedKey(ANSWER_STYLES);
+      const echo = rng.fork('echo');
       return {
+        ...(echo.chance(ECHO.chance) ? { echo: echo.pick(ECHO.delays) } : {}),
+        bells: ctx.theme && rng.fork('bells').chance(OSTINATO_CHANCE.theme),
+        trill: rng.fork('trill').chance(TRILL.chance),
         ...ctx.band(key, bars, GROOVES.chorus, rng.fork('groove')),
         melody: hook,
         answer: new AnswerWriter(key, variant, rng.fork('answer')).write(hook, bars),
@@ -48,19 +59,33 @@ export class Chorus extends PlayedSection<ChorusMaterial> {
     });
   }
 
+  // What of the answer plays: all of it in the last chorus (or a held
+  // line); else, if the hook rests any bar (as a theme's does each
+  // phrase), those bars; or every other bar.
+  private get answered(): Melody {
+    const mat = this.material;
+    if (this.big || mat.variant === 'line') return mat.answer;
+    return mat.melody.bars.some((notes) => !notes.length) ? mat.answer.where(mat.melody.rests) : mat.answer.alternate;
+  }
+
   protected play(ctx: PlayedScoreContext): Parts {
-    const { band, C, B, len } = ctx;
+    const { band, C, B, len, key } = ctx;
     const mat = this.material;
     const { answer, big } = this;
+    // A chorus coming back may trill its first long held note, up to the scale step above.
+    const above = (semis: number) => key.scale.semis(key.scale.degree(semis).step + 1);
+    const melody = ctx.repeat && mat.trill ? mat.melody.trilled(above) : mat.melody;
     return [
       ctx.drums(),
       B,
       band.comp(C, spans(COMP.chorus, len)),
       band.clav(C),
       band.pad(C),
-      band.lead(ctx.line(mat.melody)),
-      band.double(ctx.line(mat.melody), ctx.octaveUp(mat.melody)),
-      answer && band.counter(ctx.line(big || mat.variant === 'line' ? mat.answer : mat.answer.alternate)),
+      band.lead(ctx.line(melody)),
+      band.double(ctx.line(melody), ctx.octaveUp(melody)),
+      mat.echo !== undefined && band.echo(ctx.line(melody), mat.echo).until(len),
+      answer && band.counter(ctx.line(this.answered)),
+      mat.bells && band.ostinato(C).mask(ctx.from(len / 2)),
       big && band.stabs(C),
       big && band.strings(C),
       big && band.choir(C),

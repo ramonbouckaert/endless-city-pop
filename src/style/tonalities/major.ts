@@ -91,6 +91,7 @@ export const MAJOR: TonalityDef = {
       'Imaj7 vi7 IVmaj7 V7 iii7 vi7',
       'bVImaj7 bVII7 Imaj7 Imaj7 ii7 V7',
       'iii7 VI7 ii7 V7 IVmaj7 V7sus',
+      'IV7sus V7sus IV7sus V7sus bvi7 bII7',
     ],
     riff: [
       'ii7 V7',
@@ -160,6 +161,8 @@ export const MAJOR: TonalityDef = {
       ['cycle', 3],
       ['home', 2],
       ['loop', 1],
+      ['outside', 1],
+      ['sidestep', 1],
     ],
   },
   turnarounds: LIFT_TURNAROUNDS,

@@ -5,10 +5,13 @@ import { Song } from '../src/engine';
 
 // A player whose clock the test moves.
 class FakePlayer implements Player {
-  readonly loaded = Promise.resolve();
   playing = false;
   time = 0;
   plays: { midi: Uint8Array; from: number }[] = [];
+
+  load(): Promise<void> {
+    return Promise.resolve();
+  }
 
   play(midi: Uint8Array, from: number): Promise<void> {
     this.plays.push({ midi, from });

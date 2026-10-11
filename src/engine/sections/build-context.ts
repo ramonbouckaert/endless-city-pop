@@ -3,12 +3,15 @@
 // its hook, the vamp's, the intro's). A section's constructor writes its
 // part's material from it.
 
+import type { Program } from '../../lib/general-midi';
 import { lazy } from '../../lib/lazy';
 import type { Odds, Rng } from '../../lib/random';
 import {
   BASS_WITH,
   INTRO,
   MELODIES,
+  SWAP,
+  THEME,
   tonalityOf,
   type BassFeel,
   type DrumFeel,
@@ -120,6 +123,11 @@ export class BuildContext {
     return this.progress(rng.pick(templates), 4, rng.fork('harmony'));
   }
 
+  /** Perhaps sounds for a section's keys of its own (SWAP), in order of preference. */
+  swap(rng: Rng): readonly Program[] | undefined {
+    return rng.chance(SWAP.chance) ? rng.shuffle(SWAP.keys) : undefined;
+  }
+
   /** A melody in a style, in a key, over some chords. */
   melody(style: MelodyStyle, key: Key, bars: Bar[], rng: Rng): Melody {
     return new MelodyWriter(key, style, rng).write(bars);
@@ -132,9 +140,18 @@ export class BuildContext {
     return { key, bars, drums, bass };
   }
 
-  /** The chorus's chords (the intro's and breakdown's too): eight bars, and a tag if the chorus runs longer. */
+  /** Whether the chorus is a sixteen-bar theme, in four-bar phrases (a theme song's). */
+  get theme(): boolean {
+    return (this.plan.first(Chorus)?.bars ?? 8) >= 16;
+  }
+
+  /**
+   * The chorus's chords (the intro's and breakdown's too): eight bars, and
+   * a tag if the chorus runs longer; a theme's sixteen.
+   */
   readonly chorusBars = lazy((): Bar[] => {
     const rng = this.shared.fork(`${Chorus.id}Harmony`);
+    if (this.theme) return this.themeBars(rng.fork('theme'));
     const bars = this.progress(rng.pick(this.tonality.templates.chorus), 8, rng.fork('harmony'));
     const len = this.plan.first(Chorus)?.bars ?? 8;
     if (len <= 8) return bars;
@@ -142,8 +159,25 @@ export class BuildContext {
     return [...bars, ...new Harmonizer(this.key, rng.fork('tag')).realise(tag)];
   });
 
-  /** The chorus's melody (the intro's teaser and the breakdown's line too). */
-  readonly hook = lazy(() => this.melody(MELODIES.chorus, this.key, this.chorusBars(), this.shared.fork('hook')));
+  // A theme's sixteen bars: the vamp three times and a tag, or the
+  // chorus's changes twice, the second time to their cadence.
+  private themeBars(rng: Rng): Bar[] {
+    if (rng.weightedKey(THEME.harmony) === 'vamp') {
+      const vamp = this.vampBars();
+      const tag = new Template(rng.pick(this.tonality.templates.tag)).fit(4);
+      return [...vamp, ...vamp, ...vamp, ...new Harmonizer(this.key, rng.fork('tag')).realise(tag)];
+    }
+    const template = rng.pick(this.tonality.templates.chorus);
+    return [
+      ...this.progress(template, 8, rng.fork('first')),
+      ...this.progress(template, 8, rng.fork('second'), { ending: true }),
+    ];
+  }
+
+  /** The chorus's melody (the intro's teaser and the breakdown's line too): a theme's in four-bar phrases. */
+  readonly hook = lazy(() =>
+    this.melody(this.theme ? MELODIES.theme : MELODIES.chorus, this.key, this.chorusBars(), this.shared.fork('hook')),
+  );
 
   /** The vamp's chords (a trading outro's too). */
   readonly vampBars = lazy(() => this.loop(this.tonality.templates.vamp, this.shared.fork(`${Vamp.id}Harmony`)));

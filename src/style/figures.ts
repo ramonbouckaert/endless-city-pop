@@ -59,6 +59,9 @@ export const COMP = {
 // Notes on consecutive sixteenths from step `from`.
 const run = (from: number, notes: readonly number[]): Figure<number>[number] => notes.map((n, i) => [from + i, 1, n]);
 
+// A bar of the ostinato: notes of a voicing (4 and up: an octave up), one a sixteenth.
+const OSTINATO = run(0, [5, 0, 3, 4, 1, 5, 4, 2, 3, 1, 5, 4, 0, 2, 3, 4]);
+
 // Figures on a chord's voicing (notes counted up from its lowest) or on a scale (degrees).
 export const FIGURES = {
   // Up the chord's voicing in eighths, twice a bar.
@@ -109,6 +112,15 @@ export const FIGURES = {
       [14, 2, -1],
     ],
   ],
+  // A broken chord in sixteenths on the bells (J-Cycle's kalimba), up
+  // and round the voicing and its octave; the fourth bar ends on a
+  // sixteenth-note triplet tumbling down it.
+  ostinato: [
+    OSTINATO,
+    OSTINATO,
+    OSTINATO,
+    [...OSTINATO.slice(0, 12), ...[4, 3, 2, 1, 0, -1].map((n, i) => [12 + (2 * i) / 3, 2 / 3, n] as const)],
+  ],
   // Up the chord in sixteenths, then held into the second bar.
   finaleRun: [[...run(0, [0, 2, 4, 6, 7, 9, 11, 13]), [8, 24, 14]], []],
 } satisfies Record<string, Figure<number>>;
@@ -119,6 +131,21 @@ export const FINALE_DEGREES = [4, 9, 13, 15, 17, 19];
 
 // The highest MIDI note a melody may be doubled up to.
 export const DOUBLE_TOP = 100;
+
+// How often a chorus's lead echoes, and how far behind (in bars of 4/4):
+// a quarter-note triplet (J-Cycle's), or a dotted eighth.
+export const ECHO = { chance: 0.35, delays: [1 / 6, 3 / 16] };
+
+// How often an intro or a solo ends on the horns running up the scale into the next downbeat.
+export const RUN_INTO = 0.3;
+
+// How often the bells' ostinato plays under a theme's second half, and under a vamp.
+export const OSTINATO_CHANCE = { theme: 0.5, vamp: 0.3 };
+
+// A lead that scoops up into its long notes (a synth lead's or a sax's
+// way): how often, from how long a note (in bars), how far below, and
+// how fast.
+export const SCOOP = { chance: 0.3, from: 3 / 16, semis: [1, 2], seconds: 0.09 };
 
 // Seconds a slurred note takes to slide into its pitch.
 export const SLIDE_SECONDS = 0.05;

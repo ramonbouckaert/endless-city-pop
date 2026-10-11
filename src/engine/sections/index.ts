@@ -51,4 +51,4 @@ export function buildForm(plan: Form<Plan>, key: Key, bpm: number, rng: Rng): Fo
 
 export { Breakdown, Bridge, Chorus, DrumBreak, Finale, Intro, Lift, Outro, PreChorus, Riff, SoloSection, Vamp, Verse };
 export { Form, type Playhead } from './form';
-export { planned, type Plan, type SectionKind } from './section';
+export { planned, type Plan, type SectionKind, type TempoMark } from './section';

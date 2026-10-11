@@ -1,6 +1,7 @@
 import type { Weighted } from '../../lib/random';
 import type { ChordClass, ChordSpec, Mode } from '../../theory';
 import type { PaletteName } from '../harmony';
+import type { VoicingOdds } from '../song';
 import type { PreFlavour } from '../variants';
 
 // A turnaround's chords relative to the key it leads into, one array per bar.
@@ -40,7 +41,10 @@ export interface SoloChanges {
 }
 // cycle: three pairs moving through keys. home: two bars on the home
 // tonic, then two pairs. loop: six bars of one of the mode's vamps.
-export type SoloShape = 'cycle' | 'home' | 'loop';
+// outside: two bars on the home tonic, then four of it side-slipped
+// (SOLO_CHANGES.outside) before coming home. sidestep: a sus pedal and
+// a borrowed ii-V a tritone away (SOLO_CHANGES.sidestep).
+export type SoloShape = 'cycle' | 'home' | 'loop' | 'outside' | 'sidestep';
 
 // How a mode sounds as a key: its progressions, where it cadences, what
 // its tonic chord is, and how it moves away and comes home. Templates are
@@ -61,4 +65,5 @@ export interface TonalityDef {
   bridgeKeys: readonly BridgeKey[];
   turnarounds: Readonly<Record<string, Turnaround>>;
   solo: SoloChanges;
+  voicings?: VoicingOdds; // how its songs voice chords, if not as SONG.voicings
 }

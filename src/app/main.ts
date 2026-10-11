@@ -2,6 +2,7 @@
 // action comes through App (the buttons, the form strip, the media
 // controls and autoplay), and every change is shown by render().
 
+import { Song } from '../engine';
 import { autoplaySwitch } from './autoplay';
 import { FormStrip } from './form-strip';
 import { MediaControls, type MediaActions } from './media-session';
@@ -13,12 +14,16 @@ import { Transport } from './transport';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
+// The first song: from the page's ?seed= if it has one, else a random seed.
+const seed = new URLSearchParams(location.search).get('seed');
+const firstSong = seed ? Song.generate(seed) : undefined;
+
 class App implements MediaActions {
   private readonly player = new SynthPlayer();
-  private readonly transport = new Transport(this.player, () => this.render());
+  private readonly transport = new Transport(this.player, () => this.render(), firstSong);
   private readonly title = new TitleMarquee($('title'));
   private readonly strip = new FormStrip($('form'), $('playhead'), this.transport.song.form, (bar) =>
-    this.seek(seconds(bar, this.transport.song.bpm)),
+    this.seek(seconds(this.transport.song, bar)),
   );
   private readonly media = new MediaControls(this, this.transport.song);
   private readonly autoplay = autoplaySwitch($<HTMLInputElement>('autoplay'));
@@ -117,8 +122,8 @@ class App implements MediaActions {
   // the playhead shows while it plays, or stopped, where a seek moved it.
   private followPlayhead(): void {
     const { song, playing, time } = this.transport;
-    const bar = bars(time, song.bpm);
-    const shown = clock(seconds(Math.min(this.strip.shown(bar), song.bars), song.bpm));
+    const bar = bars(song, time);
+    const shown = clock(seconds(song, Math.min(this.strip.shown(bar), song.bars)));
     if (this.clock.textContent !== shown) this.clock.textContent = shown;
     this.strip.playhead(bar, playing || time > 0);
     requestAnimationFrame(() => this.followPlayhead());
@@ -128,7 +133,7 @@ class App implements MediaActions {
   private async loadSounds(): Promise<void> {
     document.body.classList.add('loading');
     try {
-      await this.player.loaded;
+      await this.player.load();
     } catch (e) {
       this.showError(`Could not load the sounds: ${(e as Error).message}`);
     } finally {

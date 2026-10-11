@@ -1,7 +1,7 @@
 import { loopBars } from '../../lib/steps';
 import type { NoteSpec } from '../score';
 
-/** A note on a bar's sixteenths: the one it starts on and how many it lasts. */
+/** A note on a bar's sixteenths: the one it starts on and how many it lasts (perhaps past the barline). */
 export interface Note {
   start: number;
   len: number;
@@ -17,11 +17,12 @@ export class Line<N extends Note> {
   }
 
   // The line over `bars` bars, looping it, each note placed in time in
-  // bars from the section's start (cut off at its bar's end).
+  // bars from the section's start (cut off at the section's end: a note
+  // may be tied over the barline).
   protected over(bars: number): { time: number; dur: number; note: N }[] {
     return loopBars(this.bars, bars, (note, b) => ({
       time: b + note.start / 16,
-      dur: (Math.min(note.start + note.len, 16) - note.start) / 16,
+      dur: (Math.min(b * 16 + note.start + note.len, bars * 16) - b * 16 - note.start) / 16,
       note,
     }));
   }

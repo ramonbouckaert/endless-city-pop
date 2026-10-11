@@ -3,8 +3,20 @@
 // PlayedScoreContext: its chords, bass, lines and the figures built on
 // them.
 
+import { PERCUSSION } from '../../lib/general-midi';
 import { lazy } from '../../lib/lazy';
-import { DOUBLE_TOP, FIGURES, MIX, RHYTHMS, RISER, RISER_SECONDS, type DrumRole, type Rhythm } from '../../style';
+import {
+  DOUBLE_TOP,
+  FERMATA,
+  FIGURES,
+  LAYERS,
+  MIX,
+  RHYTHMS,
+  RISER,
+  RISER_SECONDS,
+  type DrumRole,
+  type Rhythm,
+} from '../../style';
 import type { Chord, Key } from '../../theory';
 import {
   Changes,
@@ -45,10 +57,18 @@ export class ScoreContext {
     return (time) => time >= start;
   }
 
+  /**
+   * A reverse cymbal swelling into the next section, its peak on the
+   * downbeat (over a last bar played at `scale` of the song's tempo).
+   */
+  riserAt(scale = 1): Part {
+    const dur = (RISER_SECONDS * this.band.bpm * scale) / 240; // seconds in bars of 4 beats
+    return new Part([scoreNote({ time: this.len - dur, dur, program: RISER, note: 60, gain: 0.35 })]);
+  }
+
   /** A reverse cymbal swelling into the next section, its peak on the downbeat. */
   get riser(): Part {
-    const dur = (RISER_SECONDS * this.band.bpm) / 240; // seconds in bars of 4 beats
-    return new Part([scoreNote({ time: this.len - dur, dur, program: RISER, note: 60, gain: 0.35 })]);
+    return this.riserAt();
   }
 
   /** Two bass notes leading into a chord: the scale degrees below its root. */
@@ -128,6 +148,12 @@ export class PlayedScoreContext extends ScoreContext {
     return hits.map(({ time, dur, value }) => ({ time, dur, note: onChord(this.C.at(time), value) + up }));
   }
 
+  /** The horns running up the scale through the last bar's last three beats, into the next downbeat. */
+  runInto(): Part {
+    const { len, band } = this;
+    return band.horns(this.onChords(timed(lastBar(len, FIGURES.liftRun), len), 12));
+  }
+
   // 12 to play a melody an octave up, or 0 if that would take it too high.
   octaveUp(melody: Melody): number {
     return this.tonicPitch + this.sec.shift + melody.top + 12 <= DOUBLE_TOP ? 12 : 0;
@@ -158,13 +184,57 @@ export class PlayedScoreContext extends ScoreContext {
     ];
   }
 
+  /**
+   * Hand percussion (LAYERS) coming in one at a time, evenly through the
+   * section after its first bars, each playing on from there.
+   */
+  layers(): Part {
+    const { len, band } = this;
+    const every = Math.max(1, Math.floor(len / (LAYERS.length + 1)));
+    return Part.stack(
+      ...LAYERS.map((hits, i) =>
+        Part.stack(
+          ...hits.map(({ drum, at, gain }) =>
+            band.kit(
+              drum,
+              Array.from({ length: len }, (_, b) => ({ time: b + at / 16, dur: 1 / 16, gain })).filter(
+                ({ time }) => time >= (i + 1) * every,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * The section's parts with its last bar held on a fermata (slowed by
+   * its tempo): everything stops at that bar's downbeat, where the band
+   * hits its first chord under a crash and holds it, a reverse cymbal
+   * swelling into the next section.
+   */
+  fermata(parts: Parts): Parts {
+    const { band, len } = this;
+    const last = len - 1;
+    const chord = this.C.at(last);
+    const held = new Changes([{ time: last, dur: 1, chord }], len);
+    return [
+      ...parts.map((p) => p && p.until(last)),
+      band.kit([PERCUSSION.kick, PERCUSSION.crash], [{ time: last, dur: 1, gain: 0.5 }]),
+      band.finaleKeys(held),
+      band.strings(held),
+      band.bass([{ time: last, dur: 1, note: chord.bassMidi }]),
+      this.riserAt(FERMATA.midSong),
+    ];
+  }
+
   /** Strings swelling through the section, up to `top`. */
   swell(top: number): Part {
     return this.band.strings(this.C).gain(rise(0.04, top, this.len));
   }
 
-  /** A solo against the section's chords. */
-  soloLine(solo: Solo): NoteSpec[] {
-    return solo.play(this.C, this.len);
+  /** A solo against the section's chords: a stab's chords too, if `chords`. */
+  soloLine(solo: Solo, chords = false): NoteSpec[] {
+    return solo.play(this.C, this.len, chords);
   }
 }

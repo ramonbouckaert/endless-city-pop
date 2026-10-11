@@ -5,24 +5,18 @@
 // app plays this file; the MIDI download saves it.
 
 import { programName, type Program } from '../lib/general-midi';
+import type { Timeline } from '../lib/timeline';
 import { ScoreArranger, type Instruments, type Score, type Song } from '../engine';
 import type { Kit } from '../style';
-import {
-  CC,
-  DRUM_CHANNEL,
-  PPQ,
-  TICKS_PER_BAR,
-  writeMidi,
-  type ControlChange,
-  type MidiNote,
-  type MidiTrack,
-} from './writer';
+import { CC, DRUM_CHANNEL, PPQ, writeMidi, type ControlChange, type MidiNote, type MidiTrack } from './writer';
 
-const DRUM_TICKS = TICKS_PER_BAR / 16;
+const DRUM_TICKS = PPQ / 4; // a sixteenth
 
 /** A note on its way to a track: the instrument that plays it (or the drum kit), as MIDI, and its place in the mix. */
 export interface TrackNote {
   program: Program | 'drums';
+  /** An echo of a line: on a track of its own, though its instrument may play another. */
+  echo?: boolean;
   note: MidiNote;
   /** Its level: gain, velocity and the instrument's trim together. */
   level: number;
@@ -36,18 +30,32 @@ export interface TrackNote {
 // its square root spreads those out.
 const midiLevel = (level: number) => 127 * Math.sqrt(Math.min(1, Math.max(0, level)));
 
-/** Every note of a score as MIDI: drums a sixteenth long, the rest as long as they sound. */
-export function midiNotes(score: Score, bpm: number): TrackNote[] {
-  const ticksPerSecond = (bpm / 60) * PPQ;
-  return score.notes.map(({ time, dur, program, note: pitch, gain, velocity, postgain, clip, slide, controls }) => {
-    const level = gain * velocity * postgain;
-    const { pan = 0.5, room = 0, lpf } = controls;
-    const length = program === 'drums' ? DRUM_TICKS : dur * TICKS_PER_BAR * clip;
-    // Its velocity is set with its track's mix, relative to the loudest note there.
-    const note: MidiNote = { tick: time * TICKS_PER_BAR, dur: length, pitch, velocity: 127 };
-    if (slide) note.slide = { semis: slide.semis, ticks: slide.seconds * ticksPerSecond };
-    return { program, note, level, pan, room, ...(lpf === undefined ? {} : { lpf }) };
-  });
+/** Every note of a score as MIDI, placed on the song's timeline: drums a sixteenth long, the rest as long as they sound. */
+export function midiNotes(score: Score, timeline: Timeline): TrackNote[] {
+  const ticks = (time: number) => timeline.quarters(time) * PPQ;
+  return score.notes.map(
+    ({ time, dur, path, program, note: pitch, gain, velocity, postgain, clip, slide, controls }) => {
+      const level = gain * velocity * postgain;
+      const { pan = 0.5, room = 0, lpf } = controls;
+      const tick = ticks(time);
+      const length = program === 'drums' ? DRUM_TICKS : (ticks(time + dur) - tick) * clip;
+      // Its velocity is set with its track's mix, relative to the loudest note there.
+      const note: MidiNote = { tick, dur: length, pitch, velocity: 127 };
+      if (slide) {
+        const over = ((slide.seconds * timeline.bpmAt(time)) / 60) * PPQ;
+        note.slide = { semis: slide.semis, ticks: over };
+      }
+      return {
+        program,
+        ...(path === 'echo' ? { echo: true } : {}),
+        note,
+        level,
+        pan,
+        room,
+        ...(lpf === undefined ? {} : { lpf }),
+      };
+    },
+  );
 }
 
 // A filter cutoff as brightness (CC74): 64, the sound as it is, at 8 kHz
@@ -105,44 +113,45 @@ export function channelsFor(spans: readonly { first: number; last: number }[]): 
   return picked;
 }
 
-// A track for each instrument's notes, the drums on the drum channel and
-// the rest on the others (channelsFor).
+// A track for each instrument's notes (an echo's on one of its own), the
+// drums on the drum channel and the rest on the others (channelsFor).
 function tracksFor(notes: readonly TrackNote[], kit: Kit): MidiTrack[] {
-  // Each instrument's notes, in order of its first.
-  const byProgram = new Map<Program | 'drums', TrackNote[]>();
+  // Each track's notes, in order of its first, by its instrument (and whether it echoes).
+  const key = (n: TrackNote) => (n.echo ? `${n.program}:echo` : String(n.program));
+  const byTrack = new Map<string, TrackNote[]>();
   for (const n of notes) {
-    const mine = byProgram.get(n.program);
+    const mine = byTrack.get(key(n));
     if (mine) mine.push(n);
-    else byProgram.set(n.program, [n]);
+    else byTrack.set(key(n), [n]);
   }
-  const melodic = [...byProgram.keys()].filter((p): p is Program => p !== 'drums');
+  const melodic = [...byTrack.values()].filter((mine) => mine[0].program !== 'drums');
   const channels = channelsFor(
-    melodic.map((program) => {
-      const mine = byProgram.get(program) ?? [];
-      return {
-        first: Math.min(...mine.map((n) => n.note.tick)),
-        last: Math.max(...mine.map((n) => n.note.tick + n.note.dur)),
-      };
-    }),
+    melodic.map((mine) => ({
+      first: Math.min(...mine.map((n) => n.note.tick)),
+      last: Math.max(...mine.map((n) => n.note.tick + n.note.dur)),
+    })),
   );
-  return [...byProgram].map(([program, mine]) => {
+  return [...byTrack.values()].map((mine) => {
+    const [{ program, echo }] = mine;
     if (program === 'drums')
       return { name: `Drums (${kit.name})`, channel: DRUM_CHANNEL, program: kit.program, ...mixed(mine, 0) };
-    const { channel, start } = channels[melodic.indexOf(program)];
-    return { name: programName(program), channel, program, start, ...mixed(mine, start) };
+    const { channel, start } = channels[melodic.indexOf(mine)];
+    const name = echo ? `${programName(program)} (echo)` : programName(program);
+    return { name, channel, program, start, ...mixed(mine, start) };
   });
 }
 
 /** The song as a MIDI file, played on `instruments` (its own unless given). */
 export function songToMidi(song: Song, instruments: Instruments = song.instruments): Uint8Array {
   const score = new ScoreArranger(song, instruments).arrange();
-  const { starts } = song.form;
-  const markers = song.form.describe().map((text, i) => ({ tick: starts[i] * TICKS_PER_BAR, text }));
+  const { timeline } = song;
+  const ticks = (time: number) => timeline.quarters(time) * PPQ;
+  const markers = song.form.describe().map((text, i) => ({ tick: ticks(song.form.starts[i]), text }));
   return writeMidi({
     title: song.title,
-    bpm: song.bpm,
+    tempos: timeline.tempoChanges.map(({ quarter, bpm }) => ({ tick: quarter * PPQ, bpm })),
     key: song.key,
     markers,
-    tracks: tracksFor(midiNotes(score, song.bpm), instruments.kit),
+    tracks: tracksFor(midiNotes(score, timeline), instruments.kit),
   });
 }

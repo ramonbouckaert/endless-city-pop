@@ -24,8 +24,8 @@ function releaseMediaPlayback(): void {
 
 /** What plays a song: its MIDI file, from a time, until stopped. */
 export interface Player {
-  /** Settles once the soundfont is in (play() waits for it). */
-  readonly loaded: Promise<void>;
+  /** Loads the soundfont, once: settles when it is in (play() waits for it). */
+  load(): Promise<void>;
   readonly playing: boolean;
   /** How many seconds into the song playing it is (while playing). */
   readonly time: number;
@@ -46,14 +46,16 @@ interface Engine {
 
 /**
  * Songs played by SpessaSynth's synthesizer and sequencer. A song's time
- * is kept on the audio clock: the sequencer's own runs stale for a
- * moment after a song loads, and a song's tempo never changes. After a
- * song's last note the clock runs on into the silence after it.
+ * is kept in seconds on the audio clock (the sequencer's own runs stale
+ * for a moment after a song loads); the sequencer follows the file's
+ * tempo changes, and the page turns seconds into bars on the song's
+ * timeline. After a song's last note the clock runs on into the silence
+ * after it.
  */
 export class SynthPlayer implements Player {
-  readonly loaded: Promise<void>;
   private readonly context = new AudioContext();
-  private readonly engine: Promise<Engine>;
+  // Set up on first use.
+  private engine?: Promise<Engine>;
   private _playing = false;
   // When the song playing was at 0 s, on the audio clock.
   private startedAt = 0;
@@ -61,10 +63,8 @@ export class SynthPlayer implements Player {
   // before it has): made, at wherever the clock has got to, once it has.
   private pending = false;
 
-  constructor() {
-    // Loading starts now; play() waits for it.
-    this.engine = this.setUp();
-    this.loaded = this.engine.then(() => undefined);
+  load(): Promise<void> {
+    return this.ready().then(() => undefined);
   }
 
   get playing(): boolean {
@@ -79,7 +79,7 @@ export class SynthPlayer implements Player {
     // Before any await: still in the tap.
     claimMediaPlayback();
     void this.context.resume();
-    const { synth, sequencer } = await this.engine;
+    const { synth, sequencer } = await this.ready();
     synth.stopAll(true);
     sequencer.loadNewSongList([{ binary: midi.slice().buffer }]);
     sequencer.play();
@@ -92,7 +92,7 @@ export class SynthPlayer implements Player {
     if (!this._playing) return;
     // The clock moves at once; the sequencer as soon as it can.
     this.startedAt = this.context.currentTime - Math.max(to, 0);
-    void this.engine.then(({ sequencer }) => {
+    void this.ready().then(({ sequencer }) => {
       if (sequencer.midiData) this.place(this.time);
       else this.pending = true;
     });
@@ -101,7 +101,7 @@ export class SynthPlayer implements Player {
   pause(): void {
     this._playing = false;
     this.pending = false;
-    void this.engine.then(({ synth, sequencer }) => {
+    void this.ready().then(({ synth, sequencer }) => {
       sequencer.pause();
       synth.stopAll();
     });
@@ -117,7 +117,7 @@ export class SynthPlayer implements Player {
   // the song is over; before it, playing on from there, though it had
   // finished.
   private place(to: number): void {
-    void this.engine.then(({ synth, sequencer }) => {
+    void this.ready().then(({ synth, sequencer }) => {
       if (to >= sequencer.duration) {
         sequencer.pause();
         synth.stopAll();
@@ -127,6 +127,12 @@ export class SynthPlayer implements Player {
       sequencer.currentTime = to;
       if (sequencer.paused) sequencer.play();
     });
+  }
+
+  // The engine, set up once.
+  private ready(): Promise<Engine> {
+    this.engine ??= this.setUp();
+    return this.engine;
   }
 
   // The synthesizer, its worklet loaded and the soundfont in it, and its

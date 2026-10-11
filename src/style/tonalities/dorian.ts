@@ -9,13 +9,24 @@ export const DORIAN: TonalityDef = {
   tonics: [2, 7, 0, 9, 4, 5], // D G C A E F
   tonic: 'min',
   reharm: 0.5,
+  voicings: { comp: { close: 2, quartal: 1 }, sustain: { close: 3, spread: 1 } },
   finale: [
     ['m11', 'dorian'],
     ['m69', 'dorian'],
   ],
   approach: [['bVII:^9|69'], ['IV:13|9']],
   templates: {
-    vamp: ['i7 IV7', 'i7 i7', 'i7 bVIImaj7', 'i7 [v7 IV7]', 'i7 ii7', 'i7 bIIImaj7', 'i7 [bVIImaj7 IV7]', 'i7 IV7sus'],
+    vamp: [
+      'i7 IV7',
+      'i7 i7',
+      'i7 bVIImaj7',
+      'i7 [v7 IV7]',
+      'i7 ii7',
+      'i7 bIIImaj7',
+      'i7 [bVIImaj7 IV7]',
+      'i7 IV7sus',
+      'i7 i7 bVImaj7 bVImaj7',
+    ],
     verse: [
       'i7 i7 IV7 IV7 i7 i7 IV7 IV7',
       'i7 IV7 v7 i7 bIIImaj7 IV7 i7 IV7',
@@ -59,6 +70,7 @@ export const DORIAN: TonalityDef = {
       'i7 i7 bIIImaj7 IV7 i7 i7',
       'i7 i7 bVIImaj7 bVIImaj7 IV7 IV7',
       'IV7 IV7 i7 i7 v7 IV7',
+      'IV7sus V7sus IV7sus V7sus bvi7 bII7',
     ],
     intro: [
       'i7 IV7',
@@ -124,6 +136,8 @@ export const DORIAN: TonalityDef = {
       ['cycle', 1],
       ['home', 1],
       ['loop', 3],
+      ['outside', 1],
+      ['sidestep', 1],
     ],
   },
   turnarounds: {

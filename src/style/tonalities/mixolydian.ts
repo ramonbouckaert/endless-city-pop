@@ -107,6 +107,8 @@ export const MIXOLYDIAN: TonalityDef = {
       ['cycle', 1],
       ['home', 1],
       ['loop', 3],
+      ['outside', 1],
+      ['sidestep', 1],
     ],
   },
   turnarounds: {

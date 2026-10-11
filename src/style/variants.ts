@@ -18,7 +18,7 @@ export interface Grooved extends Variant {
 }
 
 // Intro arrangements.
-export type IntroTexture = 'pads' | 'keys' | 'groove' | 'bassFirst' | 'arp' | 'drumsFirst' | 'fanfare';
+export type IntroTexture = 'pads' | 'keys' | 'groove' | 'bassFirst' | 'arp' | 'drumsFirst' | 'fanfare' | 'ostinato';
 export const INTRO_TEXTURES: Variants<IntroTexture, Grooved> = {
   pads: {
     weight: 1,
@@ -47,6 +47,13 @@ export const INTRO_TEXTURES: Variants<IntroTexture, Grooved> = {
   fanfare: {
     weight: 1,
     groove: { drums: { feels: { funk: 1, disco: 1 }, crash: 1, fill: 1 }, bass: { drive: 1, disco: 1 } },
+  },
+  ostinato: {
+    weight: 1,
+    groove: {
+      drums: { feels: { halfTime: 1, funk: 1, fusion: 1 }, crash: 0, fill: 1 },
+      bass: { pedal: 1, halfTime: 1 },
+    },
   },
 };
 
@@ -110,7 +117,10 @@ export type SoloComp = 'band' | 'bossa';
 export const SOLO_COMPS: Variants<SoloComp, Grooved> = {
   band: {
     weight: 1,
-    groove: { drums: { feels: { funk: 1, disco: 1 }, crash: 1, fill: 0.9 }, bass: { funk: 1, drive: 1, disco: 1 } },
+    groove: {
+      drums: { feels: { funk: 2, disco: 2, fusion: 1 }, crash: 1, fill: 0.9 },
+      bass: { funk: 2, drive: 2, disco: 2, pop: 1 },
+    },
   },
   bossa: {
     weight: 1,
@@ -147,5 +157,5 @@ export const OUTRO_STYLES: Variants<OutroStyle, Grooved & { bars: number }> = {
 
 // How the last chord rings out: voices stacking up it one by one, band
 // hits, a slide down from a semitone above, or a run up it.
-export type FinaleStyle = 'cascade' | 'hits' | 'slide' | 'run';
-export const FINALE_STYLES: Odds<FinaleStyle> = { cascade: 3, hits: 2, slide: 2, run: 2 };
+export type FinaleStyle = 'cascade' | 'hits' | 'slide' | 'run' | 'fermata';
+export const FINALE_STYLES: Odds<FinaleStyle> = { cascade: 3, hits: 2, slide: 2, run: 2, fermata: 1.5 };

@@ -3,7 +3,7 @@
 
 import type { Range, Weighted } from '../lib/random';
 
-export type BassFeel = 'pedal' | 'funk' | 'drive' | 'disco' | 'halfTime' | 'bossa';
+export type BassFeel = 'pedal' | 'funk' | 'drive' | 'disco' | 'halfTime' | 'bossa' | 'pop' | 'riff';
 // Chord tones by name (Root, Third, Fifth, Seventh, Octave) and the scale steps between.
 export type BassToken = 'R' | 'T' | 'F' | 'S' | 'O' | 'two' | 'four' | 'six' | 'below';
 export interface BassFeelDef {
@@ -14,6 +14,11 @@ export interface BassFeelDef {
   legato: Range;
   approach: number;
   anchors?: Readonly<Record<number, BassToken>>; // steps that always sound
+  pops?: Range; // how often a note is followed by a ghosted octave pop, a sixteenth on
+  anticipate?: number; // how often a bar pushes the next bar's root onto its last sixteenth
+  // Fixed one-bar riffs to pick from, in place of a rolled groove: a
+  // sixteenth per character, a token (R T F S O) where a note starts, . elsewhere.
+  cells?: readonly string[];
 }
 
 export const BASS = {
@@ -37,6 +42,9 @@ export const BASS = {
   ] as Weighted<number>,
   // How often an approach note is chromatic rather than diatonic.
   chromatic: 0.75,
+  // A ghosted pop's length, and how long a pushed root rings over the barline, in sixteenths.
+  popLen: 0.25,
+  pushLen: 3,
 };
 
 export const BASS_FEELS: Readonly<Record<BassFeel, BassFeelDef>> = {
@@ -53,6 +61,30 @@ export const BASS_FEELS: Readonly<Record<BassFeel, BassFeelDef>> = {
     legato: [0.6, 0.9],
     approach: 0.7,
     anchors: { 6: 'F', 8: 'F' },
+  },
+  // Fusion slap: held notes on the strong sixteenths, ghosted octave pops
+  // after them, and the next root pushed a sixteenth early.
+  pop: {
+    grid: 16,
+    density: [0.3, 0.55],
+    sync: [0.4, 0.8],
+    octave: [0.1, 0.4],
+    legato: [0.6, 1],
+    approach: 0.5,
+    pops: [0.35, 0.75],
+    anticipate: 0.45,
+  },
+  // A fixed riff in dotted eighths, then sixteenths into the barline
+  // (J-Cycle's 3+3+3 and a run), its root pushed into the next bar.
+  riff: {
+    grid: 16,
+    density: [0.4, 0.6],
+    sync: [0.4, 0.7],
+    octave: [0.2, 0.5],
+    legato: [0.4, 0.8],
+    approach: 0.3,
+    anticipate: 0.45,
+    cells: ['R..F..S...RORFO.', 'R..O..F..R.OR.F.', 'R..R..F.R..O..F.', 'R..F..R..F..O.R.'],
   },
 };
 

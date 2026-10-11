@@ -1,13 +1,17 @@
 // Song form: which sections a song may have, how long, and how often.
-// Every song has an intro, a verse, a chorus and a final chord; the rest
-// is optional, so songs range from a short verse-chorus-solo tune to a
-// long one with several rounds, two soloists, a bridge, a breakdown and
-// a key change. (What each section is, its name and whether it hands
-// over to anything, is on its class, in engine/sections/.)
+// Every song has an intro, a chorus and a final chord; the rest is
+// optional, so songs range from a short verse-chorus-solo tune to a long
+// one with several rounds, two soloists, a bridge, a breakdown and a key
+// change, or (fusion's way, J-Cycle's) an intro and a vamp into a
+// sixteen-bar theme with no verses, a solo, and the theme again. (What
+// each section is, its name and whether it hands over to anything, is on
+// its class, in engine/sections/.)
 
 import type { Weighted } from '../lib/random';
 
 export const FORM = {
+  // How often a song has verses (and pre-choruses) before its choruses.
+  verseChance: 0.85,
   // 0: no pre-chorus
   preBars: [
     [0, 1],
@@ -16,7 +20,13 @@ export const FORM = {
     [6, 1],
     [8, 1],
   ] as Weighted<number>,
-  chorusTag: 0.45,
+  // A chorus: eight bars; ten, with a two-bar tag; or sixteen, a theme in
+  // four-bar phrases.
+  chorusBars: [
+    [8, 5],
+    [10, 4],
+    [16, 2],
+  ] as Weighted<number>,
   rounds: [
     [1, 2],
     [2, 5],
@@ -64,6 +74,10 @@ export const FORM = {
     [3, 1],
   ] as Weighted<number>,
   outroChance: 0.75, // its style and length are in variants.ts
+  // How often a song holds one moment of tension mid-song on a fermata:
+  // the last bar of a pre-chorus, bridge, breakdown or lift, slowed and
+  // held (FERMATA).
+  fermataChance: 0.3,
 };
 
 // The furthest the last choruses lift the key, in semitones. Instruments

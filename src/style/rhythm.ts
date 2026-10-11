@@ -19,14 +19,14 @@ export interface GroovePlan {
 
 /** The groove of each section the band plays through without variants of its own. */
 export const GROOVES = {
-  vamp: { drums: { feels: { funk: 1 }, crash: 0, fill: 1 }, bass: { funk: 2, disco: 1 } },
+  vamp: { drums: { feels: { funk: 1 }, crash: 0, fill: 1 }, bass: { funk: 2, disco: 1, riff: 1 } },
   verse: {
     drums: { feels: { funk: 2, halfTime: 1, disco: 1 }, crash: 0.3, fill: 0.7 },
-    bass: { funk: 2, drive: 1, halfTime: 1 },
+    bass: { funk: 2, drive: 1, halfTime: 1, riff: 0.5 },
   },
   chorus: { drums: { feels: { disco: 2, funk: 1 }, crash: 1, fill: 0.9 }, bass: { disco: 2, funk: 1, drive: 1 } },
   bridge: {
-    drums: { feels: { halfTime: 2, bossa: 1, introRide: 1 }, crash: 0.3, fill: 0.5 },
+    drums: { feels: { halfTime: 2, bossa: 1, introRide: 1, fusion: 1 }, crash: 0.3, fill: 0.5 },
     bass: { halfTime: 2, pedal: 1, bossa: 1 },
   },
   riff: { drums: { feels: { funk: 1, disco: 1 }, crash: 1, fill: 1 }, bass: { funk: 1, disco: 1 } },
@@ -45,4 +45,5 @@ export const BASS_WITH: Readonly<Partial<Record<DrumFeel, readonly BassFeel[]>>>
   bossa: ['bossa', 'halfTime', 'pedal'],
   halfTime: ['halfTime', 'pedal', 'funk', 'bossa'],
   introRide: ['pedal', 'halfTime', 'funk'],
+  fusion: ['pop', 'riff', 'funk', 'halfTime', 'pedal'],
 };

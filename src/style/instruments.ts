@@ -97,9 +97,15 @@ export const VOICES: { readonly pool: readonly Program[]; readonly soloists: num
     GM.overdrivenGuitar,
     GM.acousticGrandPiano,
     GM.drawbarOrgan,
+    GM.rockOrgan,
     GM.reedOrgan,
     GM.glockenspiel,
     GM.vibraphone,
+    // Synth leads
+    GM.squareLead,
+    GM.sawtoothLead,
+    GM.calliopeLead,
+    GM.bassAndLead,
     // Pads, effects and voices
     GM.crystal,
     GM.atmosphere,
@@ -113,6 +119,32 @@ export const VOICES: { readonly pool: readonly Program[]; readonly soloists: num
   ],
   soloists: 4,
 };
+
+// The melody voices that scoop into long notes when they lead (SCOOP).
+export const SCOOPERS: ReadonlySet<Program> = new Set([
+  GM.sopranoSax,
+  GM.altoSax,
+  GM.tenorSax,
+  GM.squareLead,
+  GM.sawtoothLead,
+  GM.calliopeLead,
+  GM.bassAndLead,
+]);
+
+// The melody voices that play chords as soloists (SOLO.moves' stabs).
+export const CHORDAL: ReadonlySet<Program> = new Set([
+  GM.acousticGrandPiano,
+  GM.drawbarOrgan,
+  GM.rockOrgan,
+  GM.reedOrgan,
+  GM.vibraphone,
+  GM.electricGuitarJazz,
+  GM.overdrivenGuitar,
+]);
+
+// A solo or bridge may hand its keys part to another sound for its
+// length (J-Cycle's B section, on clavinet): this often, and to one of these.
+export const SWAP = { chance: 0.3, keys: [GM.clavinet, GM.rockOrgan] as readonly Program[] };
 
 // ---- Effects ----------------------------------------------------------
 
@@ -215,6 +247,10 @@ export const SOUND_LEVELS: Readonly<Partial<Record<Program, number>>> = {
   [GM.baritoneSax]: 0.9,
   [GM.clarinet]: 0.77,
   [GM.flute]: 0.87,
+  [GM.squareLead]: 1.06,
+  [GM.sawtoothLead]: 0.92,
+  [GM.calliopeLead]: 0.51,
+  [GM.bassAndLead]: 0.8,
   [GM.warmPad]: 1.55,
   [GM.polysynthPad]: 1.24,
   [GM.choirPad]: 1.11,

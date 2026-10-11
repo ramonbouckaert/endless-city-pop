@@ -3,6 +3,7 @@
 // next, how often a part has played). The planner writes a form of
 // plans; the sections are built from it, into a form of sections.
 
+import type { TempoChange } from '../../lib/timeline';
 import type { AnySection } from './index';
 import type { Plan, PlanOf, Section, SectionKind } from './section';
 
@@ -85,6 +86,14 @@ export class Form<S extends Placed = AnySection> implements Iterable<S> {
   barAt({ index, through }: Playhead): number {
     const i = Math.min(Math.max(index, 0), this.length - 1);
     return this.starts[i] + Math.min(Math.max(through, 0), 1) * this.sections[i].bars;
+  }
+
+  /** The song's tempo through the form: `bpm`, changed where a section slows or speeds up. */
+  tempos(this: Form<AnySection>, bpm: number): TempoChange[] {
+    const marks = this.sections.flatMap((sec, i) =>
+      sec.tempo.map(({ at, scale }) => ({ at: this.starts[i] + at, bpm: bpm * scale })),
+    );
+    return [{ at: 0, bpm }, ...marks.filter((m) => m.at > 0)];
   }
 
   /** Each section in a line: "chorus (+2) 8", "lift (to +2, ii-V) 2". */

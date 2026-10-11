@@ -1,8 +1,8 @@
 // The vamp's chords, and how its drums come in: after two bars, with kick
-// and hats alone at first, or throughout. When the vamp comes back, the
-// band is already going.
+// and hats alone at first, or throughout; perhaps with the bells'
+// ostinato over it. When the vamp comes back, the band is already going.
 
-import { GROOVES, VAMP_ENTRIES, type VampEntry } from '../../style';
+import { GROOVES, OSTINATO_CHANCE, VAMP_ENTRIES, type VampEntry } from '../../style';
 import { rise } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
@@ -15,6 +15,8 @@ export interface VampFields {
 
 export interface VampMaterial extends PlayedMaterial {
   variant: VampEntry;
+  /** Whether the bells' ostinato plays over it. */
+  bells: boolean;
 }
 
 export interface Vamp extends Readonly<VampFields> {}
@@ -30,6 +32,7 @@ export class Vamp extends PlayedSection<VampMaterial> {
     this.material = ctx.material(this, (rng) => ({
       ...ctx.band(ctx.key, ctx.vampBars(), GROOVES.vamp, rng.fork('groove')),
       variant: rng.weightedKey(VAMP_ENTRIES),
+      bells: rng.fork('bells').chance(OSTINATO_CHANCE.vamp),
     }));
   }
 
@@ -41,6 +44,6 @@ export class Vamp extends PlayedSection<VampMaterial> {
     else if (entry === 'light')
       drums = ctx.drums((role) => (role === 'kick' || role === 'hat' ? undefined : ctx.from(2)));
     else drums = ctx.drums();
-    return [drums, B, band.keys(C).lpf(rise(700, 8000, len))];
+    return [drums, B, band.keys(C).lpf(rise(700, 8000, len)), this.material.bells && band.ostinato(C)];
   }
 }

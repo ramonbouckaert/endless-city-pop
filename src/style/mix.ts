@@ -36,9 +36,15 @@ export const MIX = {
   bassUnder: { gain: 0.62 },
   lead: { gain: 0.5, room: 0.25 },
   double: { gain: 0.13, room: 0.35 },
+  // The lead's echo: quieter, wetter, off to one side.
+  echo: { gain: 0.17, room: 0.75, pan: 0.32 },
   soloist: { gain: 0.4, room: 0.3 },
   answer: { gain: 0.3, pan: 0.62, room: 0.25 },
   bell: { gain: 0.3, room: 0.4 },
+  // The bells' sixteenth-note ostinato, round a voicing topping out at a5,
+  // and an octave up.
+  ostinato: { gain: 0.16, room: 0.5, clip: 0.5, anchor: 81 },
+  ostinatoDouble: { gain: 0.07, room: 0.5, clip: 0.5 },
   // The bell doubling a lead an octave up.
   bellDouble: { gain: 0.15, room: 0.4 },
   horns: { gain: 0.3, room: 0.25 },

@@ -18,7 +18,9 @@ export class ScoreArranger {
     const { song } = this;
     const rng = new Rng(song.seed).fork('score');
     const notes = song.form.sections.flatMap((sec, index) => {
-      const band = new ScoreBand(this.instruments, song.bpm, rng.fork(`section/${index}`));
+      const sounds = sec.sounds(this.instruments.sounds);
+      const instruments = sounds ? this.instruments.with(sounds) : this.instruments;
+      const band = new ScoreBand(instruments, song.bpm, song.voicings, rng.fork(`section/${index}`));
       return Part.stack(...sec.parts(band, song.form.repeatOf(index)))
         .transpose(sec.shift)
         .map((n) => this.swung(n))
@@ -27,12 +29,29 @@ export class ScoreArranger {
     return { notes: notes.toSorted((a, b) => a.time - b.time), bars: song.bars };
   }
 
-  // Swing: a note starting in the second half of an eighth moves later
-  // by half the swing of an eighth. Effects (notes with no path, such as
-  // the riser) are timed to land on a beat, and stay put.
+  // Swing: a note's start and end placed on swung time (warp), so a note
+  // on an eighth's second sixteenth moves later by half the swing of an
+  // eighth, and ornaments between the sixteenths (trills, glissandos,
+  // flicks, triplets) move with the notes around them, never into each
+  // other. An echo swings as the line it echoes does; and effects (notes
+  // with no path, such as the riser) are timed to land on a beat, and
+  // stay put.
   private swung(n: ScoreNote): ScoreNote {
-    const eighths = n.time * 8;
-    if (!n.path || eighths - Math.floor(eighths) < 0.5) return n;
-    return { ...n, time: n.time + this.song.swing / 2 / 8 };
+    if (!n.path) return n;
+    const delay = n.delay ?? 0;
+    const at = (time: number) => this.warp(time - delay) + delay;
+    const time = at(n.time);
+    return { ...n, time, dur: at(n.time + n.dur) - time };
+  }
+
+  // Where a time (in bars) falls, swung: in each eighth, the first
+  // sixteenth stretched and the second squeezed, so a note on the second
+  // lands `swing` of a sixteenth late and everything between moves with it.
+  private warp(time: number): number {
+    const s = this.song.swing;
+    const x = time * 16;
+    const eighth = Math.floor(x / 2) * 2;
+    const p = x - eighth;
+    return (eighth + (p < 1 ? p * (1 + s) : 1 + s + (p - 1) * (1 - s))) / 16;
   }
 }

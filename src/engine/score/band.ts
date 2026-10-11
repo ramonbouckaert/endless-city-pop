@@ -3,7 +3,19 @@
 
 import { PERCUSSION, type Percussion } from '../../lib/general-midi';
 import type { Rng } from '../../lib/random';
-import { COMP, FIGURES, MIX, RHYTHMS, type Figure, type Level, type MixName } from '../../style';
+import {
+  CHORDAL,
+  COMP,
+  FIGURES,
+  MIX,
+  RHYTHMS,
+  SCOOP,
+  SCOOPERS,
+  type Figure,
+  type Level,
+  type MixName,
+  type Voicings,
+} from '../../style';
 import { Chord, Voicing } from '../../theory';
 import type { Instruments, SoundPath } from '../song';
 import { Part, scoreNote, spans, timed, type Changes, type NoteSpec, type Span } from './score';
@@ -14,8 +26,10 @@ export interface LineVoice {
   gain: number;
 }
 
-// The parts that play chords.
+// The parts that play chords, and those of them that sustain (voiced as
+// the song voices sustained chords; the rest as it voices comping).
 type ChordPart = 'keys' | 'clav' | 'guitar' | 'pad' | 'strings' | 'choir' | 'stabs';
+const SUSTAINED: ReadonlySet<ChordPart> = new Set(['pad', 'strings', 'choir']);
 
 // A chord to play over a span: all of its voicing, or note `n` of it.
 interface ChordHit extends Span {
@@ -28,10 +42,14 @@ const bassRange = (note: number) =>
   note < Chord.BASS_LOW ? note + 12 * Math.ceil((Chord.BASS_LOW - note) / 12) : note;
 
 export class ScoreBand {
-  /** `bpm`: the song's tempo; `rng`: for the keyboard parts' varying velocities. */
+  /**
+   * `bpm`: the song's tempo; `voicings`: how it voices chords; `rng`: for
+   * the keyboard parts' varying velocities.
+   */
   constructor(
     private readonly instruments: Instruments,
     readonly bpm: number,
+    private readonly voicings: Voicings,
     private readonly rng: Rng,
   ) {}
 
@@ -85,8 +103,9 @@ export class ScoreBand {
   private chords(part: ChordPart, hits: readonly ChordHit[], mix: MixName): Part {
     const level: Level = MIX[mix];
     const { anchor } = level;
+    const style = SUSTAINED.has(part) ? this.voicings.sustain : this.voicings.comp;
     const specs = hits.flatMap(({ time, dur, chord, n }) => {
-      const voicing = new Voicing(chord, anchor);
+      const voicing = Voicing.of(chord, anchor, style);
       const notes = n === undefined ? voicing.notes : [voicing.note(n)];
       return notes.map((note) => ({ time, dur, note }));
     });
@@ -133,6 +152,16 @@ export class ScoreBand {
   arp(changes: Changes): Part {
     return this.chords('keys', this.figure(changes, FIGURES.arp), 'arp');
   }
+  /** A sixteenth-note broken chord on the bells, doubled an octave up. */
+  ostinato(changes: Changes): Part {
+    const { anchor } = MIX.ostinato;
+    const specs = this.figure(changes, FIGURES.ostinato).map(({ time, dur, chord, n = 0 }) => ({
+      time,
+      dur,
+      note: Voicing.of(chord, anchor).note(n),
+    }));
+    return Part.stack(this.play('bell', specs, MIX.ostinato), this.double(specs, 12, 'bell', MIX.ostinatoDouble));
+  }
   /** The final chord, held on the keys. */
   finaleKeys(changes: Changes): Part {
     return this.chords('keys', changes.spans, 'finaleKeys');
@@ -171,8 +200,16 @@ export class ScoreBand {
   voice({ path, gain }: LineVoice, specs: readonly NoteSpec[]): Part {
     return this.play(path, specs, { gain });
   }
+  /** The lead; a synth lead or a sax scoops up into some of its long notes. */
   lead(specs: readonly NoteSpec[]): Part {
-    return this.play('lead', specs, MIX.lead);
+    if (!SCOOPERS.has(this.instruments.sound('lead'))) return this.play('lead', specs, MIX.lead);
+    const rng = this.rng.fork('scoops');
+    const scooped = specs.map((s) =>
+      !s.slide && s.dur >= SCOOP.from && rng.chance(SCOOP.chance)
+        ? { ...s, slide: { semis: -rng.pick(SCOOP.semis), seconds: SCOOP.seconds } }
+        : s,
+    );
+    return this.play('lead', scooped, MIX.lead);
   }
   double(specs: readonly NoteSpec[], up = 12, path: SoundPath = 'double', level: Level = MIX.double): Part {
     return this.play(
@@ -180,6 +217,20 @@ export class ScoreBand {
       specs.map((s) => ({ ...s, note: s.note + up })),
       level,
     );
+  }
+  /** A line echoed `delay` bars later on the lead's sound. */
+  echo(specs: readonly NoteSpec[], delay: number): Part {
+    return this.play('echo', specs, MIX.echo)
+      .late(delay)
+      .map((n) => ({ ...n, delay }));
+  }
+  /** Whether two parts play on the same sound. */
+  shares(a: SoundPath, b: SoundPath): boolean {
+    return this.instruments.sound(a) === this.instruments.sound(b);
+  }
+  /** Whether one of the song's soloists plays chords. */
+  chordal(index: number): boolean {
+    return CHORDAL.has(this.instruments.sound(this.instruments.soloist(index)));
   }
   /** A line on one of the song's soloists, in the solo room. */
   soloist(index: number, specs: readonly NoteSpec[]): Part {

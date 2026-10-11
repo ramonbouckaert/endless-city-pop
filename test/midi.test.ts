@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { Key } from '../src/theory';
 import { channelsFor, songToMidi } from '../src/midi/from-score';
 import { CC, DRUM_CHANNEL, keySignature, PPQ, vlq, writeMidi, type MidiSong } from '../src/midi/writer';
-import { PreChorus, Song, Vamp } from '../src/engine';
-import { defined } from './helpers';
+import { Chorus, Finale, PreChorus, Song, Vamp } from '../src/engine';
+import { songLength } from '../src/app/time';
+import { defined, heldBars, songWhere } from './helpers';
 
 // A small Standard MIDI File reader: each track's events with absolute ticks.
 function read(bytes: Uint8Array) {
@@ -45,7 +46,10 @@ function read(bytes: Uint8Array) {
 
 const song = (tracks: MidiSong['tracks']): MidiSong => ({
   title: 'Test',
-  bpm: 120,
+  tempos: [
+    { tick: 0, bpm: 120 },
+    { tick: 16 * PPQ, bpm: 96 },
+  ],
   key: new Key(2, 'minor'),
   markers: [
     { tick: 0, text: 'intro 4' },
@@ -83,7 +87,10 @@ describe('MIDI', () => {
     expect(file.header).toEqual({ format: 1, tracks: 3, division: PPQ });
     const [conductor, bass, drums] = file.tracks;
     const metaOf = (type: number) => conductor.filter((e) => e.type === type);
-    expect(metaOf(0x51)[0].data).toEqual([0x07, 0xa1, 0x20]); // 500000 us: 120 BPM
+    expect(metaOf(0x51).map((e) => [e.tick, e.data])).toEqual([
+      [0, [0x07, 0xa1, 0x20]], // 500000 us: 120 BPM
+      [16 * PPQ, [0x09, 0x89, 0x68]], // 625000 us: 96 BPM
+    ]);
     expect(metaOf(0x58)[0].data).toEqual([4, 2, 24, 8]);
     expect(metaOf(0x59)[0].data).toEqual([0xff, 1]); // one flat, minor
     expect(metaOf(0x06).map((e) => [e.tick, String.fromCharCode(...e.data)])).toEqual([
@@ -99,6 +106,16 @@ describe('MIDI', () => {
     ]);
     // Drums: channel 10, and no program change.
     expect(drums.filter((e) => e.status !== 0xff).map((e) => e.status)).toEqual([0x99, 0x89]);
+  });
+
+  it('puts an echo on a track of its own', () => {
+    const song = Array.from({ length: 80 }, (_, i) => Song.generate(`echo${i}`)).find(
+      (s) => s.part(Chorus)?.echo !== undefined,
+    );
+    const names = read(songToMidi(defined(song, 'a song with an echo'))).tracks.map(
+      (t) => t.find((e) => e.type === 0x03)?.data,
+    );
+    expect(names.map((d) => (d ? String.fromCharCode(...d) : '')).filter((n) => n.endsWith('(echo)'))).toHaveLength(1);
   });
 
   it('slides notes in with pitch bends', () => {
@@ -214,8 +231,8 @@ describe('MIDI', () => {
   });
 
   it("never plays two of a song's tracks on one channel at once", () => {
-    // ch1 has seventeen melodic instruments, two of them only in the finale.
-    const tracks = read(songToMidi(Song.generate('ch1'))).tracks.slice(1);
+    // ch9 has seventeen melodic tracks: more than there are channels.
+    const tracks = read(songToMidi(Song.generate('ch9'))).tracks.slice(1);
     const spans = new Map<number, [number, number][]>();
     for (const track of tracks) {
       const notes = track.filter((e) => (e.status & 0xf0) === 0x90 || (e.status & 0xf0) === 0x80);
@@ -273,5 +290,33 @@ describe('MIDI', () => {
     );
     const program = defined(cymbal, 'a reverse cymbal track').find((e) => (e.status & 0xf0) === 0xc0);
     expect(program?.data).toEqual([119]);
+  });
+
+  it("writes fermatas' tempo changes, so the file plays as long as the page's clock says", () => {
+    const songs = [
+      songWhere((s) => s.part(Finale)?.variant === 'fermata', 'a song ending on a fermata'),
+      songWhere((s) => s.form.sections.some((sec) => sec.fermata), 'a song holding a fermata mid-song'),
+    ];
+    for (const song of songs) {
+      const [conductor] = read(songToMidi(song)).tracks;
+      const tempos = conductor
+        .filter((e) => e.type === 0x51)
+        .map((e) => ({ tick: e.tick, us: e.data.reduce((a, b) => a * 256 + b, 0) }));
+      const held = heldBars(song);
+      expect(tempos.map((t) => t.tick)).toEqual([
+        0,
+        ...held.flatMap(({ bar }) => [bar * 4 * PPQ, (bar + 1) * 4 * PPQ]),
+      ]);
+      // Each held bar slower by its fermata, then back.
+      tempos.slice(1).forEach((t, i) => expect(t.us / tempos[0].us).toBeCloseTo(i % 2 ? 1 : 1 / held[i >> 1].scale, 4));
+      // The file's own time at the song's end, from its tempo events, as a sequencer reads it.
+      const end = song.bars * 4 * PPQ;
+      const fileSeconds = tempos.reduce(
+        (sum, t, i) => sum + ((Math.min(tempos[i + 1]?.tick ?? end, end) - t.tick) / PPQ) * (t.us / 1e6),
+        0,
+      );
+      // (Within a millisecond: the file keeps each tempo to a whole microsecond a quarter note.)
+      expect(fileSeconds).toBeCloseTo(songLength(song), 3);
+    }
   });
 });

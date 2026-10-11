@@ -7,6 +7,7 @@ import { DORIAN } from './dorian';
 import { MAJOR } from './major';
 import { MINOR } from './minor';
 import { MIXOLYDIAN } from './mixolydian';
+import { PHRYGIAN } from './phrygian';
 import { Tonality } from './tonality';
 
 export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
@@ -14,6 +15,7 @@ export const TONALITIES: Readonly<Record<Mode, Tonality>> = {
   minor: new Tonality('minor', MINOR),
   dorian: new Tonality('dorian', DORIAN),
   mixolydian: new Tonality('mixolydian', MIXOLYDIAN),
+  phrygian: new Tonality('phrygian', PHRYGIAN),
 };
 
 /** A mode's tonality. */

@@ -20,11 +20,14 @@ import {
   Vamp,
   Verse,
   type Plan,
+  type SectionKind,
 } from '../sections';
 
 export class FormPlanner {
   private readonly preBars: number;
   private readonly chorusBars: number;
+  // Whether its rounds open with a verse (and a pre-chorus), or are choruses alone.
+  private readonly verses: boolean;
 
   /** `turnarounds`: the lifts into a last chorus the song's tonality offers. */
   constructor(
@@ -32,21 +35,35 @@ export class FormPlanner {
     private readonly turnarounds: Readonly<Record<string, Turnaround>>,
   ) {
     this.preBars = rng.weighted(FORM.preBars);
-    this.chorusBars = rng.chance(FORM.chorusTag) ? 10 : 8;
+    this.chorusBars = rng.weighted(FORM.chorusBars);
+    this.verses = rng.chance(FORM.verseChance);
   }
 
   plan(): Form<Plan> {
     const opening = this.opening();
     const body = [...this.rounds(), ...this.middle()];
     const vamp = opening.find((s) => s.kind === Vamp);
-    return new Form([...opening, ...(vamp ? this.vampReturn(body, vamp.bars) : body), ...this.ending()]);
+    return new Form(this.held([...opening, ...(vamp ? this.vampReturn(body, vamp.bars) : body), ...this.ending()]));
   }
 
+  // The intro, and perhaps a vamp.
   private opening(): Plan[] {
     const { rng } = this;
     const s: Plan[] = [planned(Intro, rng.weighted(FORM.introBars))];
     if (rng.chance(FORM.vamp.chance)) s.push(planned(Vamp, rng.pick(FORM.vamp.bars), { returning: false }));
     return s;
+  }
+
+  // Now and then, one moment of tension held on a fermata: the last bar
+  // of a pre-chorus, a bridge, a breakdown or a lift (one of two bars or
+  // more, so a bar plays before the held one).
+  private held(plans: readonly Plan[]): Plan[] {
+    const rng = this.rng.fork('fermata');
+    const tense: ReadonlySet<SectionKind> = new Set([PreChorus, Bridge, Breakdown, Lift]);
+    const spots = plans.flatMap((p, i) => (tense.has(p.kind) && p.bars >= 2 ? [i] : []));
+    if (!spots.length || !rng.chance(FORM.fermataChance)) return [...plans];
+    const at = rng.pick(spots);
+    return plans.map((p, i) => (i === at ? { ...p, fermata: true } : p));
   }
 
   // The body, perhaps with the opening vamp back once, after a section
@@ -61,14 +78,16 @@ export class FormPlanner {
     return [...body.slice(0, at), planned(Vamp, bars, { returning: true }), ...body.slice(at)];
   }
 
-  // Verse / pre-chorus / chorus rounds.
+  // Rounds of a verse and pre-chorus (in a song that has them), a chorus,
+  // and perhaps a riff.
   private rounds(): Plan[] {
     const { rng } = this;
     const riffChance = rng.pick(FORM.riffChance);
     return Array.from({ length: rng.weighted(FORM.rounds) }, (_, r) => {
       const later = r > 0;
-      const round: Plan[] = [planned(Verse, rng.weighted(FORM.verseBars), { later })];
-      if (this.preBars) round.push(planned(PreChorus, this.preBars, { later }));
+      const round: Plan[] = [];
+      if (this.verses) round.push(planned(Verse, rng.weighted(FORM.verseBars), { later }));
+      if (this.verses && this.preBars) round.push(planned(PreChorus, this.preBars, { later }));
       round.push(planned(Chorus, this.chorusBars, { answer: later, big: false }));
       if (rng.chance(riffChance)) round.push(planned(Riff, 4));
       return round;
@@ -103,7 +122,7 @@ export class FormPlanner {
   }
 
   // The last choruses, each perhaps lifted a key by a turnaround (a part
-  // of its own), then the ending.
+  // of its own), then perhaps an outro, and the finale.
   private ending(): Plan[] {
     const { rng } = this;
     const { lift } = FORM;

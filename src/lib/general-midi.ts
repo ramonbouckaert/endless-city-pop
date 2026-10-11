@@ -170,16 +170,27 @@ export const PERCUSSION = {
   sideStick: 37,
   snare: 38,
   clap: 39,
+  electricSnare: 40,
   closedHat: 42,
+  pedalHat: 44,
   lowTom: 45,
   openHat: 46,
   midTom: 47,
   crash: 49,
   highTom: 50,
   ride: 51,
+  rideBell: 53,
   tambourine: 54,
   cowbell: 56,
+  muteHighConga: 62,
+  openHighConga: 63,
+  lowConga: 64,
+  maracas: 70,
+  highWoodBlock: 76,
+  lowWoodBlock: 77,
+  openTriangle: 81,
   shaker: 82,
+  bellTree: 84, // GS
 } as const;
 
 /** A drum, by its key on the drum channel. */

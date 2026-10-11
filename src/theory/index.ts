@@ -8,4 +8,4 @@ export { PitchClass } from './pitch';
 export { Roman, Template, type ChordSpec } from './roman';
 export { Scale, type Degree } from './scale';
 export { CHORDS, MODES, type ChordClass, type ChordDef, type Mode } from './tables';
-export { Voicing } from './voicing';
+export { Voicing, type VoicingStyle } from './voicing';

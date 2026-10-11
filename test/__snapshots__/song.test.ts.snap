@@ -15,5 +15,7 @@ exports[`Song > writes the same chorus for a seed as it did 2`] = `
   "Bb13#11",
   "Am11",
   "D9sus",
+  "Bm7",
+  "E13",
 ]
 `;

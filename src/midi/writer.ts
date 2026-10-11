@@ -5,7 +5,6 @@
 import { PitchClass, type Key } from '../theory';
 
 export const PPQ = 480; // ticks per quarter note
-export const TICKS_PER_BAR = PPQ * 4;
 export const DRUM_CHANNEL = 9; // channel 10, counting from one
 const BEND_STEPS = 8; // pitch-bend messages in a slide
 
@@ -47,9 +46,16 @@ export interface MidiTrack {
   start?: number;
 }
 
+/** A tempo from a tick on, in quarter notes a minute. */
+export interface MidiTempo {
+  tick: number;
+  bpm: number;
+}
+
 export interface MidiSong {
   title: string;
-  bpm: number;
+  /** In tick order, the first at tick 0. */
+  tempos: MidiTempo[];
   key: Key;
   markers: { tick: number; text: string }[];
   tracks: MidiTrack[];
@@ -64,10 +70,9 @@ export function keySignature(key: Key): { sf: number; minor: boolean } {
 /** The song as a type-1 MIDI file. */
 export function writeMidi(song: MidiSong): Uint8Array {
   const { sf, minor } = keySignature(song.key);
-  const usPerQuarter = Math.round(60_000_000 / song.bpm);
   const conductor: TrackEvent[] = [
     { tick: 0, data: meta(0x03, text(song.title)) },
-    { tick: 0, data: meta(0x51, [(usPerQuarter >> 16) & 0xff, (usPerQuarter >> 8) & 0xff, usPerQuarter & 0xff]) },
+    ...song.tempos.map(({ tick, bpm }) => ({ tick: Math.round(tick), data: tempo(bpm) })),
     { tick: 0, data: meta(0x58, [4, 2, 24, 8]) }, // 4/4
     { tick: 0, data: meta(0x59, [sf & 0xff, minor ? 1 : 0]) },
     ...song.markers.map((m) => ({ tick: m.tick, data: meta(0x06, text(m.text)) })),
@@ -75,6 +80,12 @@ export function writeMidi(song: MidiSong): Uint8Array {
   const chunks = [conductor, ...song.tracks.map(trackEvents)].map(trackChunk);
   const header = [...ascii('MThd'), ...u32(6), ...u16(1), ...u16(chunks.length), ...u16(PPQ)];
   return Uint8Array.from([...header, ...chunks.flat()]);
+}
+
+// A tempo as microseconds a quarter note.
+function tempo(bpm: number): number[] {
+  const us = Math.round(60_000_000 / bpm);
+  return meta(0x51, [(us >> 16) & 0xff, (us >> 8) & 0xff, us & 0xff]);
 }
 
 interface TrackEvent {

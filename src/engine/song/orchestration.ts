@@ -9,6 +9,7 @@ import { BAND, KITS, PICKS, SOUND_LEVELS, VOICES, type BandPart, type Kit, type 
 export type Sounds = Readonly<Record<BandPart, Program>> & {
   readonly lead: Program;
   readonly double: Program; // the lead an octave up
+  readonly echo: Program; // the lead's own, echoing it
   readonly soloists: readonly Program[];
 };
 
@@ -39,6 +40,11 @@ export class Instruments {
   /** Every part's sound and the kit, picked from the style's lists. */
   static pick(rng: Rng): Instruments {
     return new Instruments(pickSounds(rng.fork('sounds')), rng.fork('kit').weighted(KITS));
+  }
+
+  /** These instruments, with some parts' sounds changed. */
+  with(sounds: Partial<Sounds>): Instruments {
+    return new Instruments({ ...this.sounds, ...sounds }, this.kit);
   }
 
   /** The path of a soloist, by an index into the sounds' soloists (wrapping round). */
@@ -77,5 +83,5 @@ function pickSounds(rng: Rng): Sounds {
     used.add(sound);
     picked[part] = sound;
   }
-  return { ...BAND, ...picked, lead, double, soloists };
+  return { ...BAND, ...picked, lead, double, echo: lead, soloists };
 }

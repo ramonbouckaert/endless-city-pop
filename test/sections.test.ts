@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  Breakdown,
   Bridge,
   Chorus,
   Finale,
@@ -22,8 +23,11 @@ import {
   MAX_SHIFT,
   OUTRO_STYLES,
   PRE_FLAVOURS,
+  RISER,
+  TRILL,
   TONALITIES,
 } from '../src/style';
+import { PERCUSSION } from '../src/lib/general-midi';
 import { MODES, type Mode } from '../src/theory';
 import { defined } from './helpers';
 
@@ -70,10 +74,12 @@ describe('section materials', () => {
           expect(Math.abs(semis)).toBeLessThanOrEqual(chromatic ? 1 : 3); // up to an augmented second
         }
         // In the score, a flicked grace note is a third of a sixteenth just
-        // before its note, a step or a semitone away; a slurred one slides in.
+        // before its note, a step or a semitone away; a slurred one slides
+        // in.
         const index = song.form.sections.indexOf(sec);
         const start = song.form.starts[index];
-        const played = new ScoreArranger(song)
+        // (Unswung, so a note's length is as written.)
+        const played = new ScoreArranger(new Song({ ...song, swing: 0 }))
           .arrange()
           .notes.filter((n) => n.path?.startsWith('soloists.') && n.time >= start && n.time < start + sec.bars)
           .sort((x, y) => x.time - y.time);
@@ -223,16 +229,96 @@ describe('section materials', () => {
   });
 
   it('varies the phrase form of each melody', () => {
-    const songs = Array.from({ length: 100 }, (_, i) => Song.generate(`phrase${i}`));
+    const songs = Array.from({ length: 200 }, (_, i) => Song.generate(`phrase${i}`));
     const forms = (kind: typeof Verse | typeof Chorus | typeof Bridge) =>
       new Set(songs.flatMap((song) => song.part(kind)?.melody.form ?? []));
     const all = ['period', 'pairs', 'sentence', 'aaba', 'callResponse'];
-    expect(forms(Chorus)).toEqual(new Set(all));
-    expect(forms(Verse)).toEqual(new Set(all));
+    // Sixteen bars in four-bar phrases: a theme, or a long verse.
+    const long = ['theme', 'pairs4'];
+    expect(forms(Chorus)).toEqual(new Set([...all, ...long]));
+    expect(forms(Verse)).toEqual(new Set([...all, ...long]));
     expect(forms(Bridge)).toEqual(new Set(all.filter((f) => f !== 'callResponse')));
     for (const song of songs) {
       const chorus = defined(song.part(Chorus), 'a chorus');
       expect(chorus.melody.bars).toHaveLength(chorus.bars.length);
     }
+  });
+
+  it('never plays a verse shorter than its material', () => {
+    for (let i = 0; i < 300; i++) {
+      const song = Song.generate(`verses${i}`);
+      const mat = song.part(Verse);
+      if (!mat) continue;
+      const shortest = Math.min(...song.form.ofType(Verse).map((v) => v.bars));
+      expect(mat.bass.bars.length).toBeLessThanOrEqual(shortest);
+    }
+  });
+
+  it("sings a theme in four-bar phrases, resting each phrase's last bar but the last", () => {
+    const themes = Array.from({ length: 200 }, (_, i) => Song.generate(`theme${i}`))
+      .map((song) => song.part(Chorus))
+      .filter((c) => c?.melody.form === 'theme');
+    expect(themes.length).toBeGreaterThan(0);
+    for (const chorus of themes) {
+      const rests = defined(chorus, 'a theme').melody.rests;
+      expect(rests).toHaveLength(16);
+      expect([3, 7, 11].every((b) => rests[b])).toBe(true);
+      expect(rests.filter(Boolean)).toHaveLength(3);
+    }
+  });
+
+  it('now and then holds a moment of tension mid-song on a fermata', () => {
+    const tense = [PreChorus, Bridge, Breakdown, Lift];
+    const songs = Array.from({ length: 300 }, (_, i) => Song.generate(`tension${i}`));
+    const holding = songs.filter((song) => song.form.sections.some((sec) => sec.fermata));
+    // Now and then: a song in three or so.
+    expect(holding.length).toBeGreaterThan(50);
+    expect(holding.length).toBeLessThan(140);
+    for (const song of holding) {
+      const held = song.form.sections.filter((sec) => sec.fermata);
+      expect(held).toHaveLength(1);
+      const [sec] = held;
+      expect(tense).toContain(sec.kind);
+      expect(sec.describe()).toContain('fermata');
+      // Its last bar: everything stops on the downbeat, where the band
+      // hits and holds a chord under a crash, a reverse cymbal swelling on.
+      const i = song.form.sections.indexOf(sec);
+      const last = song.form.starts[i] + sec.bars - 1;
+      const inLast = new ScoreArranger(song).arrange().notes.filter((n) => n.time >= last && n.time < last + 1);
+      const played = inLast.filter((n) => n.path);
+      expect(played.every((n) => Math.abs(n.time - last) < 1e-9)).toBe(true);
+      expect(played.some((n) => n.program === 'drums' && n.note === PERCUSSION.crash)).toBe(true);
+      expect(played.filter((n) => n.path === 'keys').length).toBeGreaterThan(1);
+      expect(inLast.some((n) => n.program === RISER)).toBe(true);
+    }
+  });
+
+  it('trills a chorus coming back by its own chance, whatever its length', () => {
+    const songs = Array.from({ length: 300 }, (_, i) => Song.generate(`trill${i}`));
+    const trilling = songs.filter((song) => song.part(Chorus)?.trill);
+    // About TRILL.chance of songs.
+    expect(trilling.length).toBeGreaterThan(300 * TRILL.chance * 0.6);
+    expect(trilling.length).toBeLessThan(300 * TRILL.chance * 1.4);
+    const lengths = new Set<number>();
+    for (const song of songs) {
+      const mat = defined(song.part(Chorus), 'a chorus');
+      // Whether its hook has a note to trill: the trill finds one.
+      const holds = mat.melody.trilled((s) => s + 2) !== mat.melody;
+      // (Unswung, so a note's length is as written.)
+      const { notes } = new ScoreArranger(new Song({ ...song, swing: 0 })).arrange();
+      song.form.sections.forEach((sec, i) => {
+        if (!(sec instanceof Chorus)) return;
+        const start = song.form.starts[i];
+        // A trill's notes are thirty-seconds: no other lead note is.
+        const shakes = notes.filter(
+          (n) => n.path === 'lead' && n.time >= start && n.time < start + sec.bars && Math.abs(n.dur - 1 / 32) < 1e-9,
+        );
+        const trills = mat.trill && holds && song.form.repeatOf(i) > 0;
+        expect(shakes.length > 0, `${song.seed} chorus ${i}`).toBe(trills);
+        if (trills) lengths.add(sec.bars);
+      });
+    }
+    // Not only the sixteen-bar themes.
+    expect([...lengths].some((bars) => bars < 16)).toBe(true);
   });
 });

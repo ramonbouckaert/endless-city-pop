@@ -1,7 +1,7 @@
 // The intro's chords in one of its textures, with the hook as a teaser,
 // or perhaps a riff of its own; the teaser (if any) on bells over the top.
 
-import { INTRO, INTRO_TEXTURES, MELODIES, type IntroHarmony, type IntroTexture } from '../../style';
+import { INTRO, INTRO_TEXTURES, MELODIES, RUN_INTO, type IntroHarmony, type IntroTexture } from '../../style';
 import type { Melody } from '../writers';
 import type { Part } from '../score';
 import type { BuildContext } from './build-context';
@@ -12,6 +12,8 @@ export interface IntroMaterial extends PlayedMaterial {
   harmony: IntroHarmony;
   variant: IntroTexture;
   melody?: Melody;
+  /** Whether it ends with the horns running up into the next downbeat. */
+  run: boolean;
 }
 
 export class Intro extends PlayedSection<IntroMaterial> {
@@ -34,11 +36,17 @@ export class Intro extends PlayedSection<IntroMaterial> {
         harmony,
         variant,
         ...(melody ? { melody } : {}),
+        run: rng.fork('run').chance(RUN_INTO),
       };
     });
   }
 
   protected play(ctx: PlayedScoreContext): Parts {
+    return [...this.texture(ctx), this.material.run && ctx.runInto()];
+  }
+
+  // The intro's texture.
+  private texture(ctx: PlayedScoreContext): Parts {
     const { band, C, B, underB, len } = ctx;
     const mat = this.material;
     const drums = ctx.drums();
@@ -69,6 +77,13 @@ export class Intro extends PlayedSection<IntroMaterial> {
         return [drums, B, halfway(band.softKeys(C)), halfway(band.pad(C)), ctx.teaser(mat.melody)];
       case 'pads':
         return [drums, band.softKeys(C), band.strings(C), underB, ctx.teaser(mat.melody)];
+      case 'ostinato': {
+        // Bells round the chords in sixteenths over swelling strings, hand
+        // percussion coming in one at a time, and the band in for the last
+        // bar, into its fill. (The bells have no room for a teaser.)
+        const last = (p: Part) => p.mask(ctx.from(len - 1));
+        return [last(drums), band.ostinato(C), ctx.swell(0.12), ctx.layers(), last(underB)];
+      }
     }
   }
 }

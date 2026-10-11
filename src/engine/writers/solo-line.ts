@@ -1,8 +1,9 @@
 // Solos: bebop-ish runs in chord-scale degrees, with grace notes flicked
-// or slid into, played against a section's changes.
+// or slid into, now and then a bar of a move of its own (a glissando, a
+// cascade, chord stabs), played against a section's changes.
 
 import type { Rng } from '../../lib/random';
-import { SLIDE_SECONDS, SOLO } from '../../style';
+import { SLIDE_SECONDS, SOLO, type SoloMove } from '../../style';
 import { Chord, Scale, type Bar } from '../../theory';
 import { Line, type Note } from './line';
 import { onChord, type Changes, type NoteSpec } from '../score';
@@ -10,6 +11,8 @@ import { onChord, type Changes, type NoteSpec } from '../score';
 export interface SoloNote extends Note {
   degree: number; // chord-scale degree
   grace?: Grace;
+  /** Degrees under it played with it, as a chord (a stab). */
+  stack?: readonly number[];
 }
 // A grace note into a note from above (1) or below (-1), the side the
 // line comes from: a semitone
@@ -24,12 +27,18 @@ export interface Grace {
 
 /** A line in chord-scale degrees. */
 export class Solo extends Line<SoloNote> {
-  /** The line over `bars` bars against some changes, two octaves up: grace notes flicked or slid into. */
-  play(changes: Changes, bars: number): NoteSpec[] {
+  /**
+   * The line over `bars` bars against some changes, two octaves up: grace
+   * notes flicked or slid into, and (if the soloist plays them, `chords`)
+   * a stab's chord.
+   */
+  play(changes: Changes, bars: number, chords = false): NoteSpec[] {
     return this.over(bars).flatMap(({ time, dur, note: n }): NoteSpec[] => {
       const chord = changes.at(time);
       const note = onChord(chord, n.degree) + 24;
-      const { grace } = n;
+      const { grace, stack } = n;
+      if (stack && chords)
+        return [n.degree, ...stack.map((d) => n.degree - d)].map((d) => ({ time, dur, note: onChord(chord, d) + 24 }));
       if (!grace) return [{ time, dur, note }];
       if (grace.slur) return [{ time, dur, note, slide: { semis: grace.semis, seconds: SLIDE_SECONDS } }];
       // A flick: a third of a sixteenth, then the note.
@@ -53,6 +62,11 @@ export class SoloWriter {
     // Each bar carries on from where the last left the line: its degree and direction.
     const { lines } = bars.reduce<{ deg: number; dir: number; lines: SoloNote[][] }>(
       ({ deg, dir, lines }, bar, b) => {
+        const { moves } = SOLO;
+        if (b > 0 && rng.chance(moves.chance)) {
+          const move = this.move(rng.weightedKey(moves.kinds), deg);
+          return { ...move, lines: [...lines, move.notes] };
+        }
         // Breathe at the end of every other bar.
         const picked = rng.pick(SOLO.rhythms);
         const rhythm = b % 2 ? picked.slice(0, 12) + '....' : picked;
@@ -71,6 +85,48 @@ export class SoloWriter {
       { deg: rng.int(lo + 2, lo + 6), dir: 1, lines: [] },
     );
     return new Solo(lines);
+  }
+
+  // A bar of a move, from where the line is, and where it leaves the line.
+  private move(kind: SoloMove, deg: number): { notes: SoloNote[]; deg: number; dir: number } {
+    const { lo, hi, moves } = SOLO;
+    // A chord tone (an even degree) above the line, with room under it
+    // for a glissando: never under lo + gliss, nor over hi.
+    const floor = lo + moves.gliss;
+    const reach = Math.min(hi, Math.max(deg + 4, floor));
+    let top = reach;
+    if (reach % 2 !== 0) top += reach + 1 <= hi || reach - 1 < floor ? 1 : -1;
+    switch (kind) {
+      case 'gliss': {
+        // Thirty-seconds up the scale, landing on a chord tone held to the barline.
+        const run = Array.from({ length: moves.gliss }, (_, i) => ({
+          start: i / 2,
+          len: 0.5,
+          degree: top - moves.gliss + i,
+        }));
+        return {
+          notes: [...run, { start: moves.gliss / 2, len: 16 - moves.gliss / 2, degree: top }],
+          deg: top,
+          dir: -1,
+        };
+      }
+      case 'cascade': {
+        // Sixteenths down the scale from high up, the last held.
+        const notes = Array.from({ length: moves.cascade }, (_, i) => ({
+          start: i,
+          len: i === moves.cascade - 1 ? 16 - i : 1,
+          degree: Math.max(lo, top - i),
+        }));
+        return { notes, deg: notes.at(-1)?.degree ?? deg, dir: 1 };
+      }
+      case 'stabs': {
+        // A chord on a rhythm, its top a chord tone.
+        const notes = [...moves.stabs].flatMap((ch, s) =>
+          ch === 'x' ? [{ start: s, len: 1, degree: top, stack: moves.stack }] : [],
+        );
+        return { notes, deg: top, dir: -1 };
+      }
+    }
   }
 
   // A grace note into `target` in the direction of the phrase: from below

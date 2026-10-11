@@ -2,14 +2,18 @@
 // strings, the lead doubled high on bells. (A key change after it is the
 // lift's to make.)
 
+import type { Program } from '../../lib/general-midi';
 import { ADVENTUROUS, GROOVES, MELODIES, tonalityOf } from '../../style';
+import type { Sounds } from '../song';
 import { Harmonizer, type Melody } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
-import { PlayedSection, type Plan, type PlayedMaterial } from './section';
+import { PlayedSection, swappedKeys, type Plan, type PlayedMaterial } from './section';
 
 export interface BridgeMaterial extends PlayedMaterial {
   melody: Melody;
+  /** Sounds for its keys of its own, in order of preference, if it has them (swappedKeys). */
+  keys?: readonly Program[];
 }
 
 export class Bridge extends PlayedSection<BridgeMaterial> {
@@ -27,11 +31,17 @@ export class Bridge extends PlayedSection<BridgeMaterial> {
       const body = ctx.progress(rng.pick(templates), 6, rng.fork('harmony'), { key });
       const cadence = new Harmonizer(ctx.key, rng.fork('cadence')).approach();
       const bars = [...body, ...cadence];
+      const keys = ctx.swap(rng.fork('swap'));
       return {
         ...ctx.band(key, bars, GROOVES.bridge, rng.fork('groove')),
         melody: ctx.melody(MELODIES.bridge, key, bars, rng.fork('melody')),
+        ...(keys === undefined ? {} : { keys }),
       };
     });
+  }
+
+  override sounds(song: Sounds): Partial<Sounds> | undefined {
+    return swappedKeys(this.material.keys, song);
   }
 
   protected play(ctx: PlayedScoreContext): Parts {

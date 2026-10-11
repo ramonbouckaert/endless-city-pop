@@ -1,12 +1,12 @@
 // The key's final chord, rung out in the finale's style over its two bars.
 
 import { PERCUSSION } from '../../lib/general-midi';
-import { FIGURES, FINALE_DEGREES, FINALE_HITS, FINALE_STYLES, type FinaleStyle } from '../../style';
+import { FERMATA, FIGURES, FINALE_DEGREES, FINALE_HITS, FINALE_STYLES, type FinaleStyle } from '../../style';
 import { Chord } from '../../theory';
 import { Changes, onChord, rise, spans, timed, type NoteSpec, type ScoreBand, type Span } from '../score';
 import type { BuildContext } from './build-context';
 import type { Parts } from './score-context';
-import { Section, type Plan } from './section';
+import { Section, type Plan, type TempoMark } from './section';
 
 // The last chord, rung out.
 export interface FinaleMaterial {
@@ -27,6 +27,16 @@ export class Finale extends Section<FinaleMaterial> {
       const [symbol, scale] = rng.pick(ctx.tonality.finale);
       return { chord: new Chord(key.tonic, symbol, scale), variant: rng.weightedKey(FINALE_STYLES) };
     });
+  }
+
+  // A fermata's first bar held at the fermata's tempo, then back to the song's.
+  override get tempo(): readonly TempoMark[] {
+    return this.material.variant === 'fermata'
+      ? [
+          { at: 0, scale: FERMATA.ending },
+          { at: 1, scale: 1 },
+        ]
+      : [];
   }
 
   parts(band: ScoreBand): Parts {
@@ -93,6 +103,39 @@ export class Finale extends Section<FinaleMaterial> {
           band.strings(held),
           root(2),
         ];
+      case 'fermata': {
+        // A chord held long under a crash (in a minor key its bVImaj7,
+        // else the V9sus), a run round the toms, then the band pushing
+        // the bVII twice into the last chord.
+        const minor = fin.cls === 'min';
+        const held = minor ? new Chord(fin.root + 8, '^7') : new Chord(fin.root + 7, '9sus');
+        const push = new Chord(fin.root + 10, 'add9');
+        const hits = [
+          { time: 1.5, dur: 1 / 8, chord: push },
+          { time: 1.625, dur: 1 / 8, chord: push },
+          { time: 1.75, dur: 1 / 4, chord: fin },
+        ];
+        const all = changes({ time: 0, dur: 1, chord: held }, { time: 1, dur: 0.5, chord: push }, ...hits);
+        const toms = [PERCUSSION.highTom, PERCUSSION.highTom, PERCUSSION.midTom, PERCUSSION.midTom];
+        return [
+          band.kit([PERCUSSION.kick, PERCUSSION.crash], [{ time: 0, dur: 1, gain: 0.5 }]),
+          ...[...toms, PERCUSSION.lowTom, PERCUSSION.lowTom, PERCUSSION.lowTom, PERCUSSION.lowTom].map((drum, i) =>
+            band.kit(drum, [{ time: 1 + i / 16, dur: 1 / 16, gain: 0.25 + 0.03 * i }]),
+          ),
+          band.kit(
+            [PERCUSSION.kick, PERCUSSION.snare],
+            hits.map((h) => ({ ...h, gain: 0.5 })),
+          ),
+          band.kit(PERCUSSION.crash, [{ time: 1.75, dur: 1 / 4, gain: 0.5 }]),
+          band.finaleKeys(all).mask((t) => t < 1 || t >= 1.5),
+          band.strings(changes({ time: 0, dur: 1, chord: held })),
+          band.stabs(all, hits),
+          band.bass([
+            { time: 0, dur: 1, note: held.bassMidi },
+            ...hits.map(({ time, dur, chord }) => ({ time, dur, note: chord.bassMidi })),
+          ]),
+        ];
+      }
       case 'cascade': {
         // The band holds the chord as the voices stack up it.
         const voices = band.finaleVoices();
