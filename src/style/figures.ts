@@ -66,16 +66,6 @@ const OSTINATO = run(0, [5, 0, 3, 4, 1, 5, 4, 2, 3, 1, 5, 4, 0, 2, 3, 4]);
 export const FIGURES = {
   // Up the chord's voicing in eighths, twice a bar.
   arp: [[0, 1, 2, 3, 0, 1, 2, 3].map((n, i) => [i * 2, 2, n] as const)],
-  clav: [
-    [
-      [1, 1, 0],
-      [3, 1, 2],
-      [6, 1, 1],
-      [9, 1, 0],
-      [11, 1, 2],
-      [13, 1, 3],
-    ],
-  ],
   scratch: [
     [
       [0, 1, 0],
@@ -124,6 +114,88 @@ export const FIGURES = {
   // Up the chord in sixteenths, then held into the second bar.
   finaleRun: [[...run(0, [0, 2, 4, 6, 7, 9, 11, 13]), [8, 24, 14]], []],
 } satisfies Record<string, Figure<number>>;
+
+// The clavinet's figures, on the chord's voicing (4 and up: an octave
+// up; two notes on a step sound together): a part picks one, by weight.
+// Its notes ring on to the next hit, or near it.
+export type ClavFigure = 'push' | 'chop' | 'gallop' | 'octaves' | 'held';
+export const CLAV: Readonly<Record<ClavFigure, { weight: number; figure: Figure<number> }>> = {
+  // A broken chord off the beat, never on one.
+  push: {
+    weight: 3,
+    figure: [
+      [
+        [1, 2, 0],
+        [3, 3, 2],
+        [6, 3, 1],
+        [9, 2, 0],
+        [11, 2, 2],
+        [13, 3, 3],
+      ],
+    ],
+  },
+  // Double stops on the offbeats.
+  chop: {
+    weight: 2,
+    figure: [
+      [
+        [2, 2, 0],
+        [2, 2, 2],
+        [6, 3, 1],
+        [6, 3, 3],
+        [10, 2, 0],
+        [10, 2, 2],
+        [14, 2, 1],
+        [14, 2, 3],
+      ],
+    ],
+  },
+  // Two bars, pushed across the bar line.
+  gallop: {
+    weight: 2,
+    figure: [
+      [
+        [0, 2, 0],
+        [3, 2, 2],
+        [6, 4, 3],
+        [10, 2, 1],
+        [12, 3, 2],
+      ],
+      [
+        [2, 2, 0],
+        [4, 2, 1],
+        [7, 3, 2],
+        [11, 4, 3],
+      ],
+    ],
+  },
+  // The lowest note against its octave, a funk clav's bounce.
+  octaves: {
+    weight: 2,
+    figure: [
+      [
+        [0, 3, 0],
+        [3, 3, 4],
+        [6, 2, 2],
+        [8, 3, 0],
+        [11, 2, 4],
+        [13, 3, 3],
+      ],
+    ],
+  },
+  // Two double stops a bar, held.
+  held: {
+    weight: 1,
+    figure: [
+      [
+        [2, 6, 1],
+        [2, 6, 3],
+        [10, 6, 0],
+        [10, 6, 2],
+      ],
+    ],
+  },
+};
 
 // The finale's two bars: the band's pushed hits, then a last stab.
 export const FINALE_HITS: Rhythm = [RHYTHMS.stops[0], [[0, 4]]];

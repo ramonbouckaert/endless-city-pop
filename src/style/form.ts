@@ -27,6 +27,10 @@ export const FORM = {
     [10, 4],
     [16, 2],
   ] as Weighted<number>,
+  // The faster the song, the likelier its sixteen-bar sections (choruses,
+  // verses and solos): at the fastest tempo a sixteen's weight is this
+  // many times its own, sliding to just its own at the slowest.
+  sixteenAtSpeed: 3,
   rounds: [
     [1, 2],
     [2, 5],

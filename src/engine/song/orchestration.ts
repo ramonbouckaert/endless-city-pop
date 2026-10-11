@@ -70,11 +70,15 @@ export class Instruments {
   }
 }
 
-// The melody voices first, all different; then each part in turn
+// The melody voices first, all different, in shuffled order: the lead
+// and soloists from those that aren't slow, the double from the rest;
+// then each part in turn
 // (PICKS's order), taking a sound no part before it plays, where its list
 // allows.
 function pickSounds(rng: Rng): Sounds {
-  const [lead, double, ...soloists] = rng.shuffle(VOICES.pool).slice(0, 2 + VOICES.soloists);
+  const voices = rng.shuffle(VOICES.pool);
+  const [lead, ...soloists] = voices.filter((v) => !VOICES.slow.has(v)).slice(0, 1 + VOICES.soloists);
+  const double = voices.find((v) => v !== lead && !soloists.includes(v)) ?? lead;
   const used = new Set([lead, double, ...soloists]);
   const picked = {} as Record<PickedPart, Program>;
   for (const part of Object.keys(PICKS) as PickedPart[]) {

@@ -64,7 +64,7 @@ export class SoloSection extends PlayedSection<SoloMaterial> {
       B,
       bossa ? band.keysUnder(C, spans(COMP.bossa, len)) : band.keysUnder(C),
       // (No clavinet over keys swapped to one.)
-      bossa ? band.strings(C) : !band.shares('keys', 'clav') && band.clav(C),
+      bossa ? band.strings(C) : !band.shares('keys', 'clav') && ctx.clav,
       band.soloist(this.soloist, ctx.soloLine(mat.solo, band.chordal(this.soloist))).pan(bossa ? 0.42 : 0.55),
       mat.run && ctx.runInto(),
     ];

@@ -30,6 +30,6 @@ export class Riff extends PlayedSection<RiffMaterial> {
 
   protected play(ctx: PlayedScoreContext): Parts {
     const { band, C, B } = ctx;
-    return [ctx.drums(), B, band.horns(ctx.harmonized(this.material.melody, 2)), band.keysUnder(C), band.clav(C)];
+    return [ctx.drums(), B, band.horns(ctx.harmonized(this.material.melody, 2)), band.keysUnder(C), ctx.clav];
   }
 }

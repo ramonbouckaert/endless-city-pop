@@ -113,21 +113,26 @@ export class Voicing {
   // The root and its fifth (perfect, flat or sharp) low, two octaves or
   // so under the anchor, below the close voicing of the rest (adding a
   // major 9th where the chord-scale has one and the chord has few
-  // colours). A note a semitone under the one above it drops an octave,
-  // where that keeps it over the fifth, so the top never clusters (D A E
-  // F C, not D A F C with E under the F).
+  // colours and no ninth of its own). A note a semitone over the one
+  // below it drops an octave, where that keeps it over the fifth (else
+  // the lower one rises over it, where that keeps it under the anchor),
+  // so the top never clusters, and the pair sounds as a major seventh,
+  // not a minor ninth (D A F C E, not D A E F C with E under the F).
   private static spread(chord: Chord, anchor: number): number[] {
     const scale = chord.chordScale;
     const five = chord.tones.find((t) => t >= 6 && t <= 8) ?? 7;
     const fifth = PitchClass.of(chord.root + five);
     const pcs = Voicing.pcs(chord).filter((pc) => pc !== chord.root && pc !== fifth);
     const ninth = PitchClass.of(chord.root + 2);
-    const colours = pcs.length < 4 && scale.has(2) && !pcs.includes(ninth) ? [...pcs, ninth] : pcs;
+    const hasNinth = chord.tones.some((t) => t >= 13 && t <= 15); // flat, natural or sharp
+    const colours = pcs.length < 4 && scale.has(2) && !hasNinth ? [...pcs, ninth] : pcs;
     const root = anchor - Voicing.SPREAD_DEPTH - PitchClass.of(anchor - Voicing.SPREAD_DEPTH - chord.root);
     const low = root + five;
     const upper = Voicing.close(colours, anchor);
     for (let i = upper.length - 2; i >= 0; i--) {
-      if (upper[i + 1] - upper[i] === 1 && upper[i] - 12 > low) upper[i] -= 12;
+      if (upper[i + 1] - upper[i] !== 1) continue;
+      if (upper[i + 1] - 12 > low) upper[i + 1] -= 12;
+      else if (upper[i] + 12 <= anchor) upper[i] += 12;
     }
     return [root, low, ...upper.sort((a, b) => a - b)];
   }

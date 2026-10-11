@@ -281,7 +281,9 @@ export class MelodyWriter {
       letter !== 'A' && occurrence > 0 && step === 0
         ? Math.max(-2, Math.min(2, drifted + this.rng.pick([-1, 0, 0, 1])))
         : drifted;
-    const notes = motif.notes.reduce<MelodyNote[]>((line, n, i) => {
+    // Notes the chord doesn't place (off the strong beats), which may turn chromatic.
+    const free = new Set<number>();
+    const placed = motif.notes.reduce<MelodyNote[]>((line, n, i) => {
       const prev = line.at(-1)?.semis ?? at.prevSemis;
       const chord = Chord.at(bar, n.start);
       const last = i === motif.notes.length - 1;
@@ -292,15 +294,23 @@ export class MelodyWriter {
         const dir = i === 0 ? 0 : Math.sign(n.offset - motif.notes[i - 1].offset);
         // A diatonic style (a riff's) keeps to the key: it is harmonised by scale steps.
         semis = chord.snap(semis, key, { prev, dir, diatonic });
-      } else if (!diatonic && Math.abs(semis - prev) === 2 && this.rng.chance(CHROMATIC_PROB)) {
-        semis = prev + Math.sign(semis - prev);
-      }
+      } else free.add(i);
       if (last && letter === 'D') {
         const w = this.rng.weighted(CADENCE_WEIGHTS);
         if (w >= 0) semis = Math.round((semis - w) / 12) * 12 + w;
       }
       return [...line, { start: n.start, len: n.len, semis }];
     }, []);
+    // A short free note stepping on a whole tone to the next, the line
+    // going the same way into it, may approach it from a semitone off
+    // (G F Eb as G E Eb): chromatic, but resolving at once.
+    const notes = placed.map((n, i) => {
+      const prev = placed[i - 1]?.semis ?? at.prevSemis;
+      const next = placed[i + 1]?.semis;
+      if (diatonic || !free.has(i) || n.len > 2 || next === undefined || Math.abs(next - n.semis) !== 2) return n;
+      if (Math.sign(n.semis - prev) !== Math.sign(next - n.semis) || !this.rng.chance(CHROMATIC_PROB)) return n;
+      return { ...n, semis: next - Math.sign(next - n.semis) };
+    });
     const prevSemis = notes.at(-1)?.semis ?? at.prevSemis;
     return {
       notes,

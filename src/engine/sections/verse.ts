@@ -46,7 +46,7 @@ export class Verse extends PlayedSection<VerseMaterial> {
       ctx.drums(),
       B,
       band.keys(C),
-      band.clav(C),
+      ctx.clav,
       band.lead(ctx.line(this.material.melody)),
       later && band.scratch(C),
       later && band.pad(C),

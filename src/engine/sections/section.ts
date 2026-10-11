@@ -14,7 +14,7 @@
 // section after a key change plays it shifted up (Section.shift).
 
 import type { Program } from '../../lib/general-midi';
-import { FERMATA } from '../../style';
+import { FERMATA, type ClavFigure } from '../../style';
 import type { Bar, Key } from '../../theory';
 import type { ScoreBand } from '../score';
 import type { Sounds } from '../song';
@@ -84,12 +84,13 @@ export interface TempoMark {
   readonly scale: number;
 }
 
-/** What a section the band plays through has: its chords in a key, groove and bass line. */
+/** What a section the band plays through has: its chords in a key, groove, bass line and clavinet figure. */
 export interface PlayedMaterial {
   key: Key;
   bars: Bar[];
   drums: Drums;
   bass: BassLine;
+  clav: ClavFigure;
 }
 
 /**

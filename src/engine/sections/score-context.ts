@@ -6,6 +6,7 @@
 import { PERCUSSION } from '../../lib/general-midi';
 import { lazy } from '../../lib/lazy';
 import {
+  CLAV,
   DOUBLE_TOP,
   FERMATA,
   FIGURES,
@@ -116,6 +117,11 @@ export class PlayedScoreContext extends ScoreContext {
   /** The bass line held back, under a sparser texture. */
   get underB(): Part {
     return this.B.gain(MIX.bassUnder.gain);
+  }
+
+  /** The clavinet on the part's figure. */
+  get clav(): Part {
+    return this.band.clav(this.C, CLAV[this.played.clav].figure);
   }
 
   /** The section's key. */

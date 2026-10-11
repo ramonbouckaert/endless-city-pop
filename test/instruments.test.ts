@@ -16,6 +16,8 @@ describe('instruments', () => {
     for (const song of songs) {
       expect(voicesOf(song)).toHaveLength(2 + soloists);
       for (const s of voicesOf(song)) expect(pool).toContain(s);
+      const { lead, soloists: picked } = song.instruments.sounds;
+      for (const s of [lead, ...picked]) expect(VOICES.slow.has(s)).toBe(false);
       for (const part of parts) {
         expect(PICKS[part]).toContain(soundOf(song, part));
         seen.set(part, (seen.get(part) ?? new Set()).add(soundOf(song, part)));

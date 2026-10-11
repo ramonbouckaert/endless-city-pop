@@ -79,7 +79,7 @@ export class Chorus extends PlayedSection<ChorusMaterial> {
       ctx.drums(),
       B,
       band.comp(C, spans(COMP.chorus, len)),
-      band.clav(C),
+      ctx.clav,
       band.pad(C),
       band.lead(ctx.line(melody)),
       band.double(ctx.line(melody), ctx.octaveUp(melody)),

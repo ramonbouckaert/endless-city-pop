@@ -170,8 +170,8 @@ export class ScoreBand {
   keysRun(specs: readonly NoteSpec[]): Part {
     return this.play('keys', specs, MIX.keysRun);
   }
-  clav(changes: Changes): Part {
-    return this.chords('clav', this.figure(changes, FIGURES.clav), 'clav').velocity(this.varied(0.7, 1));
+  clav(changes: Changes, figure: Figure<number>): Part {
+    return this.chords('clav', this.figure(changes, figure), 'clav').velocity(this.varied(0.7, 1));
   }
   scratch(changes: Changes): Part {
     return this.chords('guitar', this.figure(changes, FIGURES.scratch), 'scratch').velocity(this.varied(0.7, 1));

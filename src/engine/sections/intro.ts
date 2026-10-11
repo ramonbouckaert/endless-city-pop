@@ -62,7 +62,7 @@ export class Intro extends PlayedSection<IntroMaterial> {
           band.crash(len / 2),
           halfway(B),
           halfway(band.keysUnder(C)),
-          halfway(band.clav(C)),
+          halfway(ctx.clav),
           ctx.teaser(mat.melody),
         ];
       case 'fanfare':
@@ -72,7 +72,7 @@ export class Intro extends PlayedSection<IntroMaterial> {
       case 'keys':
         return [halfway(drums), band.keys(C).room(0.35), halfway(underB), ctx.teaser(mat.melody)];
       case 'groove':
-        return [drums, B, band.keysUnder(C), band.clav(C), ctx.teaser(mat.melody)];
+        return [drums, B, band.keysUnder(C), ctx.clav, ctx.teaser(mat.melody)];
       case 'bassFirst':
         return [drums, B, halfway(band.softKeys(C)), halfway(band.pad(C)), ctx.teaser(mat.melody)];
       case 'pads':

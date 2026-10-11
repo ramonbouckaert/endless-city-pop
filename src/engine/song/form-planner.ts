@@ -1,8 +1,8 @@
 // Plans a song's form: the ordered sections, their lengths, and what
 // each repeat changes. The odds are in style/form.ts.
 
-import type { Rng } from '../../lib/random';
-import { FORM, MAX_SHIFT, OUTRO_STYLES, type Turnaround } from '../../style';
+import type { Rng, Weighted } from '../../lib/random';
+import { FORM, MAX_SHIFT, OUTRO_STYLES, SONG, type Turnaround } from '../../style';
 import {
   Breakdown,
   Bridge,
@@ -28,15 +28,26 @@ export class FormPlanner {
   private readonly chorusBars: number;
   // Whether its rounds open with a verse (and a pre-chorus), or are choruses alone.
   private readonly verses: boolean;
+  // How much likelier a sixteen-bar section is at the song's tempo (1: as its odds say).
+  private readonly sixteens: number;
 
-  /** `turnarounds`: the lifts into a last chorus the song's tonality offers. */
+  /** `turnarounds`: the lifts into a last chorus the song's tonality offers; `bpm`: the song's tempo, which favours sixteen-bar sections the faster it is. */
   constructor(
     private readonly rng: Rng,
     private readonly turnarounds: Readonly<Record<string, Turnaround>>,
+    bpm: number,
   ) {
+    const [slow, fast] = SONG.tempo;
+    const pace = Math.min(1, Math.max(0, (bpm - slow) / (fast - slow)));
+    this.sixteens = 1 + (FORM.sixteenAtSpeed - 1) * pace;
     this.preBars = rng.weighted(FORM.preBars);
-    this.chorusBars = rng.weighted(FORM.chorusBars);
+    this.chorusBars = this.length(FORM.chorusBars);
     this.verses = rng.chance(FORM.verseChance);
+  }
+
+  // A section's length in bars, with sixteen weighted up by the tempo.
+  private length(lengths: Weighted<number>): number {
+    return this.rng.weighted(lengths.map(([bars, w]): [number, number] => [bars, bars === 16 ? w * this.sixteens : w]));
   }
 
   plan(): Form<Plan> {
@@ -86,7 +97,7 @@ export class FormPlanner {
     return Array.from({ length: rng.weighted(FORM.rounds) }, (_, r) => {
       const later = r > 0;
       const round: Plan[] = [];
-      if (this.verses) round.push(planned(Verse, rng.weighted(FORM.verseBars), { later }));
+      if (this.verses) round.push(planned(Verse, this.length(FORM.verseBars), { later }));
       if (this.verses && this.preBars) round.push(planned(PreChorus, this.preBars, { later }));
       round.push(planned(Chorus, this.chorusBars, { answer: later, big: false }));
       if (rng.chance(riffChance)) round.push(planned(Riff, 4));
@@ -106,7 +117,7 @@ export class FormPlanner {
       const soloists = rng.shuffle(FORM.soloists);
       parts.push(
         Array.from({ length: soloCount }, (_, i) =>
-          planned(SoloSection, rng.weighted(FORM.soloBars), { soloist: soloists[i], part: `${SoloSection.id}:${i}` }),
+          planned(SoloSection, this.length(FORM.soloBars), { soloist: soloists[i], part: `${SoloSection.id}:${i}` }),
         ),
       );
     }

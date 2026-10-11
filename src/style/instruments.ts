@@ -74,9 +74,15 @@ export const PICKS: Readonly<Record<PickedPart, readonly Program[]>> = {
 // ---- Melody voices ----------------------------------------------------
 
 // Each song picks its lead, the lead's octave double and its soloists
-// from `pool`, none twice. Their levels in style/mix.ts are set for the
-// alto sax (level 1).
-export const VOICES: { readonly pool: readonly Program[]; readonly soloists: number } = {
+// from `pool`, none twice; the lead and soloists never one that swells
+// in too slowly to carry a melody (`slow`: over 100 ms to half its level on the
+// soundfont, which CC73 can't shorten). Their levels in style/mix.ts are
+// set for the alto sax (level 1).
+export const VOICES: {
+  readonly pool: readonly Program[];
+  readonly slow: ReadonlySet<Program>;
+  readonly soloists: number;
+} = {
   pool: [
     // Reeds and brass
     GM.sopranoSax,
@@ -117,6 +123,7 @@ export const VOICES: { readonly pool: readonly Program[]; readonly soloists: num
     GM.sweepPad,
     GM.voiceOohs,
   ],
+  slow: new Set([GM.warmPad, GM.sweepPad, GM.metallicPad, GM.haloPad, GM.synthBrass2]),
   soloists: 4,
 };
 

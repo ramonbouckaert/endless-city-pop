@@ -324,7 +324,7 @@ export type SoloMove = 'gliss' | 'cascade' | 'stabs';
 // note (a lone note held half a bar or more), if it has one.
 export const TRILL = { chance: 0.3 };
 
-// How often a step in a melody is taken chromatically.
+// How often a melody approaches a note chromatically, from a semitone off, where it can.
 export const CHROMATIC_PROB = 0.15;
 // Where a full cadence's last note lands: the tonic, the fifth, or the chord tone it was on (-1).
 export const CADENCE_WEIGHTS: Weighted<number> = [

@@ -46,5 +46,5 @@ export const INTRO = {
 export type ThemeHarmony = 'vamp' | 'changes';
 export const THEME = {
   harmony: { vamp: 2, changes: 1 } as Odds<ThemeHarmony>,
-  longVerse: 0.3,
+  longVerse: 0.5,
 };

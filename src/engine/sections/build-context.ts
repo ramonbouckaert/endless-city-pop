@@ -8,6 +8,7 @@ import { lazy } from '../../lib/lazy';
 import type { Odds, Rng } from '../../lib/random';
 import {
   BASS_WITH,
+  CLAV,
   INTRO,
   MELODIES,
   SWAP,
@@ -137,7 +138,7 @@ export class BuildContext {
   band(key: Key, bars: Bar[], plan: GroovePlan, rng: Rng): PlayedMaterial {
     const drums = new DrumWriter(plan.drums, rng.fork('drums')).write();
     const bass = new BassWriter(bassFeels(plan.bass, drums.feel), key, this.bpm, rng.fork('bass')).write(bars);
-    return { key, bars, drums, bass };
+    return { key, bars, drums, bass, clav: rng.fork('clav').weightedKey(CLAV) };
   }
 
   /** Whether the chorus is a sixteen-bar theme, in four-bar phrases (a theme song's). */
