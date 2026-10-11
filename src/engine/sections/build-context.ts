@@ -1,4 +1,4 @@
-// What a section is built in: the song's key and plan, the other
+// What a section is built in: the song's key, tempo and plan, the other
 // sections, and the harmony several parts share (the chorus's chords and
 // its hook, the vamp's, the intro's). A section's constructor writes its
 // part's material from it.
@@ -36,6 +36,7 @@ export class BuildContext {
 
   constructor(
     readonly key: Key,
+    readonly bpm: number,
     readonly plan: Form<Plan>,
     private readonly rng: Rng,
   ) {
@@ -127,7 +128,7 @@ export class BuildContext {
   /** A section's chords in a key, with drums from its plan and a bass line in a feel that sits with them. */
   band(key: Key, bars: Bar[], plan: GroovePlan, rng: Rng): PlayedMaterial {
     const drums = new DrumWriter(plan.drums, rng.fork('drums')).write();
-    const bass = new BassWriter(bassFeels(plan.bass, drums.feel), key, rng.fork('bass')).write(bars);
+    const bass = new BassWriter(bassFeels(plan.bass, drums.feel), key, this.bpm, rng.fork('bass')).write(bars);
     return { key, bars, drums, bass };
   }
 

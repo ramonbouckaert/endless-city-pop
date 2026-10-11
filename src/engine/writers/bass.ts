@@ -5,7 +5,7 @@
 // groove follows the changes, and a bar's last note can approach the
 // next chord's root.
 
-import type { Odds, Rng } from '../../lib/random';
+import type { Odds, Range, Rng } from '../../lib/random';
 import {
   BASS,
   BASS_DEGREES,
@@ -14,6 +14,7 @@ import {
   type BassFeel,
   type BassFeelDef,
   type BassToken,
+  SONG,
 } from '../../style';
 import { Chord, type Bar, type Degree, type Key } from '../../theory';
 import { Line, type Note } from './line';
@@ -45,16 +46,23 @@ export class BassWriter {
   private readonly octave: number;
   private readonly legato: number;
   private readonly variety: number;
+  // How much of a feel's busy end the song's tempo leaves (1: all of it).
+  private readonly busy: number;
 
+  /** `bpm`: the song's tempo, which calms a line the faster it is. */
   constructor(
     feels: Odds<BassFeel>,
     private readonly key: Key,
+    bpm: number,
     private readonly rng: Rng,
   ) {
     this.feel = rng.weightedKey(feels);
     this.def = BASS_FEELS[this.feel];
-    this.density = rng.range(this.def.density);
-    this.sync = rng.range(this.def.sync);
+    const [slow, fast] = SONG.tempo;
+    const pace = Math.min(1, Math.max(0, (bpm - slow) / (fast - slow)));
+    this.busy = 1 - BASS.tempoCalm * pace;
+    this.density = rng.range(this.calmed(this.def.density));
+    this.sync = rng.range(this.calmed(this.def.sync));
     this.octave = rng.range(this.def.octave);
     this.legato = rng.range(this.def.legato);
     this.variety = rng.range(BASS.variety);
@@ -86,6 +94,11 @@ export class BassWriter {
       return this.notes(steps, (tok) => (tok === 'A' ? target : { step: BASS_DEGREES[tok], alter: 0 }));
     });
     return new BassLine(this.feel, lines);
+  }
+
+  // A range with its busy end cut back for the tempo.
+  private calmed([lo, hi]: Range): Range {
+    return [lo, lo + (hi - lo) * this.busy];
   }
 
   private get grid(): 8 | 16 {
@@ -131,8 +144,8 @@ export class BassWriter {
 
   // A busier second half to close a phrase.
   private fill(steps: readonly Step[], free: (i: number) => boolean): readonly Step[] {
-    const density = Math.min(1, this.density + BASS.fill.density);
-    const sync = Math.min(1, this.sync + BASS.fill.sync);
+    const density = Math.min(1, this.density + BASS.fill.density * this.busy);
+    const sync = Math.min(1, this.sync + BASS.fill.sync * this.busy);
     return steps.map((tok, i) => {
       if (i < 8 || !free(i)) return tok;
       return this.rng.chance(density * this.strength(i, sync)) ? this.note(i) : null;

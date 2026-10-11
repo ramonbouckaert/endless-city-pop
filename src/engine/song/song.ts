@@ -50,11 +50,12 @@ export class Song {
     const tonality = TONALITIES[mode];
     const key = new Key(rng.pick(tonality.tonics), mode);
     const plan = new FormPlanner(rng.fork('form'), tonality.turnarounds).plan();
-    const form = buildForm(plan, key, rng.fork('materials'));
+    const bpm = rng.int(...SONG.tempo);
+    const form = buildForm(plan, key, bpm, rng.fork('materials'));
     return new Song({
       seed: s,
       key,
-      bpm: rng.int(...SONG.tempo),
+      bpm,
       swing: Math.round(rng.range(SONG.swing) * 100) / 100,
       form,
       instruments: Instruments.pick(rng.fork('instruments')),

@@ -18,8 +18,12 @@ export interface BassFeelDef {
 
 export const BASS = {
   variety: [0.05, 0.3] as Range,
-  densityBoost: 1.3,
+  densityBoost: 1.15,
   fill: { density: 0.35, sync: 0.3 },
+  // The faster the song, the less busy its line: at the fastest tempo the
+  // busy end of a feel's density and syncopation (and a fill's boost) is
+  // cut by this share, sliding to none at the slowest.
+  tempoCalm: 0.75,
   approachSame: [7, 10, -2],
   approachChromatic: [
     [-1, 2],
