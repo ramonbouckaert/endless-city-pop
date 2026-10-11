@@ -94,6 +94,9 @@ class App implements MediaActions {
   /** A new song, playing at once if one was. */
   next(): void {
     this.act(() => this.transport.next());
+    const url = new URL(location.href);
+    url.searchParams.delete('seed');
+    history.replaceState(null, '', url);
   }
 
   /** To `to` seconds in: playing, at once; stopped, where Play starts. */
