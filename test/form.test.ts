@@ -5,6 +5,7 @@ import {
   Chorus,
   DrumBreak,
   HALF,
+  Intro,
   Lift,
   Link,
   Outro,
@@ -38,8 +39,9 @@ describe('form', () => {
     for (const form of forms) {
       const vamps = form.flatMap((s, i) => (s instanceof Vamp ? [i] : []));
       expect(vamps.length).toBeLessThanOrEqual(3);
-      // The first opens the song, after the intro (and perhaps a pickup).
-      if (vamps.length) expect(form.slice(1, vamps[0]).every((s) => s instanceof ShortBar)).toBe(true);
+      // The first opens the song, after the intros (and perhaps a pickup).
+      if (vamps.length)
+        expect(form.slice(0, vamps[0]).every((s) => s instanceof Intro || s instanceof ShortBar)).toBe(true);
       if (vamps.length > 1) returns++;
       if (vamps.length > 2) twice++;
       for (const back of vamps.slice(1)) {
@@ -108,7 +110,7 @@ describe('form', () => {
         if (sec.beats === 2) {
           expect(form[i + 1]).toBeInstanceOf(Chorus);
           expect([Verse, PreChorus]).toContain(form[i - 1].kind);
-        } else expect(i).toBe(1);
+        } else expect(form.slice(0, i).every((s) => s instanceof Intro)).toBe(true);
         expect(sec.shift).toBe(form[i + 1].shift);
       });
       if (whole.some((c) => c.bars === 20)) seen.add('20');

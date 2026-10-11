@@ -10,6 +10,7 @@ import {
   DrumBreak,
   Finale,
   Form,
+  FREE,
   Intro,
   HALF,
   Lift,
@@ -75,8 +76,12 @@ export class FormPlanner {
     return this.rng.weighted(lengths.map(([bars, w]): [number, number] => [bars, bars === 16 ? w * this.sixteens : w]));
   }
 
+  // Whether the song has an intro in time (set as its opening is planned).
+  private intro = false;
+
   plan(): Form<Plan> {
     const opening = this.opening();
+    this.intro = opening.some((p) => p.kind === Intro && p.part !== FREE);
     const body = [...this.rounds(), ...this.middle()];
     const vamp = opening.find((s) => s.kind === Vamp);
     const plans = [...opening, ...(vamp ? this.vampReturn(body, vamp.bars) : body), ...this.ending()];
@@ -85,26 +90,36 @@ export class FormPlanner {
 
   // Now and then, short bars: a 2/4 break before every chorus that
   // follows a verse or pre-chorus (each a part of the same), and a 1/4
-  // pickup into the first section after the intro.
+  // pickup into the first section after the intro (or into the song).
   private shortBars(plans: readonly Plan[]): Plan[] {
     const rng = this.rng.fork('shortBars');
     const breaks = rng.chance(FORM.shortBars.beforeChorus);
     const pickup = rng.chance(FORM.shortBars.pickup);
+    // The first section after the intros (the first, in a song without).
+    const opening = plans.findIndex((p) => p.kind !== Intro);
     return plans.flatMap((p, i) => {
       const before = plans[i - 1]?.kind;
       if (breaks && p.kind === Chorus && p.part !== HALF && (before === Verse || before === PreChorus))
         return [planned(ShortBar, 0.5, { shift: p.shift }), p];
-      if (pickup && i === 1 && plans[0].kind === Intro)
+      if (pickup && i === opening)
         return [planned(ShortBar, 0.25, { shift: p.shift, part: `${ShortBar.id}:pickup` }), p];
       return [p];
     });
   }
 
-  // The intro, and perhaps a vamp.
+  // The intro (perhaps after a free one, out of tempo; now and then
+  // none), and perhaps a vamp, perhaps leading on into the riff.
   private opening(): Plan[] {
     const { rng } = this;
-    const s: Plan[] = [planned(Intro, rng.weighted(FORM.introBars))];
-    if (rng.chance(FORM.vamp.chance)) s.push(planned(Vamp, rng.pick(FORM.vamp.bars), { returning: false }));
+    const s: Plan[] = [];
+    const starts = rng.fork('start');
+    if (starts.chance(FORM.freeIntro.chance))
+      s.push(planned(Intro, starts.pick(FORM.freeIntro.bars), { free: true, part: FREE }));
+    if (s.length || starts.chance(FORM.introChance)) s.push(planned(Intro, rng.weighted(FORM.introBars)));
+    if (rng.chance(FORM.vamp.chance)) {
+      s.push(planned(Vamp, rng.pick(FORM.vamp.bars), { returning: false }));
+      if (starts.chance(FORM.vamp.riffAfter)) s.push(planned(Riff, 4));
+    }
     return s;
   }
 
@@ -238,10 +253,14 @@ export class FormPlanner {
       const stop = this.stops && i < finals - 1;
       s.push(this.chorus({ answer: true, big, shift, stop }, fades && i > 0));
     }
+    // (A reprise needs an intro in time to play again.)
+    const reprises = this.intro;
     const styles = Object.fromEntries(
-      Object.entries(OUTRO_STYLES).filter(([, style]) => style.ends.includes(ending)),
+      Object.entries(OUTRO_STYLES).filter(
+        ([name, style]) => style.ends.includes(ending) && (name !== 'reprise' || reprises),
+      ),
     ) as Partial<typeof OUTRO_STYLES>;
-    if (rng.chance(fades ? FORM.fade.outroChance : FORM.outroChance)) {
+    if (Object.keys(styles).length && rng.chance(fades ? FORM.fade.outroChance : FORM.outroChance)) {
       const variant = rng.weightedKey(styles);
       s.push(planned(Outro, OUTRO_STYLES[variant].bars, { variant, shift }));
     }

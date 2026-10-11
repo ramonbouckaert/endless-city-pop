@@ -19,7 +19,16 @@ export interface Grooved extends Variant {
 }
 
 // Intro arrangements.
-export type IntroTexture = 'pads' | 'keys' | 'groove' | 'bassFirst' | 'arp' | 'drumsFirst' | 'fanfare' | 'ostinato';
+export type IntroTexture =
+  | 'pads'
+  | 'keys'
+  | 'groove'
+  | 'bassFirst'
+  | 'arp'
+  | 'drumsFirst'
+  | 'fanfare'
+  | 'ostinato'
+  | 'rubato';
 export const INTRO_TEXTURES: Variants<IntroTexture, Grooved> = {
   pads: {
     weight: 1,
@@ -56,7 +65,17 @@ export const INTRO_TEXTURES: Variants<IntroTexture, Grooved> = {
       bass: { pedal: 1, halfTime: 1 },
     },
   },
+  // Out of tempo: keys and a pad alone, slowing into each bar's last beat
+  // and holding the last chord (RUBATO); a free intro's always.
+  rubato: {
+    weight: 0.5,
+    groove: { drums: { feels: { introRide: 1 }, crash: 0, fill: 0 }, bass: { pedal: 1 } },
+  },
 };
+
+// A rubato intro's pace: each bar at `bar` of the song's tempo, its last
+// beat slowing to `beat`, the last bar's held chord to `hold`.
+export const RUBATO = { bar: 0.75, beat: 0.6, hold: 0.45 };
 
 // How the drums start the opening vamp: in after two bars, kick and hats
 // alone for two bars, or the whole kit from the first. (When the vamp

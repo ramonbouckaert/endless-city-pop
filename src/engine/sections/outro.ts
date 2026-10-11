@@ -55,7 +55,8 @@ export class Outro extends PlayedSection<OutroMaterial> {
       const { groove } = OUTRO_STYLES[this.variant];
       if (this.variant === 'reprise') {
         // The intro's chords, and its teaser if it had one.
-        const intro = ctx.first(Intro);
+        const plan = ctx.plan.ofType(Intro).find((i) => !i.free);
+        const intro = plan && (ctx.section(plan) as Intro);
         if (!intro) throw new Error('A reprise outro needs an intro to play again');
         const { key, bars, melody } = intro.material;
         return { ...ctx.band(key, bars, groove, rng.fork('groove')), ...(melody ? { melody } : {}) };

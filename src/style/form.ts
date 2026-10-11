@@ -74,11 +74,18 @@ export const FORM = {
     [4, 2],
     [8, 1],
   ] as Weighted<number>,
+  // How often a song has an intro at all (one without starts on its first
+  // verse or chorus), and how often it opens with a free intro (out of
+  // tempo: INTRO_TEXTURES' rubato) before its intro in time.
+  introChance: 0.9,
+  freeIntro: { chance: 0.12, bars: [2, 4] },
   vamp: {
     chance: 0.6,
     bars: [4, 8],
     returns: 0.45,
     returnsAgain: 0.3, // and, having come back, comes back once more
+    // How often an opening vamp leads on into the riff (Sparkle's intro in three stages).
+    riffAfter: 0.15,
   },
   verseBars: [
     [8, 2],

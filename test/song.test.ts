@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Chorus, DrumBreak, Finale, Intro, PreChorus, Song, Vamp, Verse } from '../src/engine';
+import { Chorus, DrumBreak, Finale, Intro, PreChorus, ShortBar, Song, Vamp, Verse } from '../src/engine';
 import { TONALITIES } from '../src/style';
 import { CHORDS, MODES, type Mode } from '../src/theory';
 import { defined, materials } from './helpers';
@@ -24,7 +24,9 @@ describe('Song', () => {
       }
       for (const s of song.form) expect(materials(song)).toHaveProperty([s.part]);
       const kinds = song.form.sections.map((s) => s.kind);
-      expect(kinds[0]).toBe(Intro);
+      // Its intros (if any) open it, after a pickup at most.
+      const intros = kinds.flatMap((k, i) => (k === Intro ? [i] : []));
+      intros.forEach((at, i) => expect(at).toBe(i + Number(kinds[0] === ShortBar)));
       // It ends on the finale, or fades out over its last sections (and has no finale).
       const fades = song.form.fadeFrom !== undefined;
       if (fades) {

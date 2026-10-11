@@ -16,6 +16,7 @@ export {
   DrumBreak,
   Finale,
   Form,
+  FREE,
   HALF,
   Intro,
   Lift,

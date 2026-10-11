@@ -121,7 +121,8 @@ export class Form<S extends Placed = AnySection> implements Iterable<S> {
     const marks = this.sections.flatMap((sec, i) =>
       sec.tempo.map(({ at, scale }) => ({ at: this.starts[i] + at, bpm: bpm * scale })),
     );
-    return [{ at: 0, bpm }, ...marks.filter((m) => m.at > 0)];
+    // (A section opening the song out of tempo sets the first tempo.)
+    return [marks.find((m) => m.at === 0) ?? { at: 0, bpm }, ...marks.filter((m) => m.at > 0)];
   }
 
   /** Each section in a line: "chorus (+2) 8", "lift (to +2, ii-V) 2". */

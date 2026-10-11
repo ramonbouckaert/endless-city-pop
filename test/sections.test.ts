@@ -237,9 +237,28 @@ describe('section materials', () => {
   });
 
   it('varies the intro', () => {
-    const intros = Array.from({ length: 150 }, (_, i) => defined(Song.generate(`intro${i}`).part(Intro), 'an intro'));
+    const songs = Array.from({ length: 200 }, (_, i) => Song.generate(`intro${i}`));
+    const intros = songs.flatMap((song) =>
+      song.form
+        .ofType(Intro)
+        .filter((s) => !s.free)
+        .map((s) => s.material),
+    );
     expect(new Set(intros.map((m) => m.variant))).toEqual(new Set(Object.keys(INTRO_TEXTURES)));
     expect(new Set(intros.map((m) => m.harmony))).toEqual(new Set(Object.keys(INTRO.harmony)));
+    // Some songs have none; some open with a free intro, out of tempo, before the one in time.
+    expect(songs.some((song) => !song.form.first(Intro))).toBe(true);
+    const free = songs.filter((song) => song.form.first(Intro)?.free);
+    expect(free.length).toBeGreaterThan(5);
+    for (const song of free) {
+      const [first, second] = song.form.sections;
+      expect(first.material).toMatchObject({ variant: 'rubato' });
+      expect(second).toBeInstanceOf(Intro);
+      // It opens the song slower than its tempo, and the song comes up to tempo after it.
+      const [start] = song.timeline.tempoChanges;
+      expect(start.bpm).toBeLessThan(song.bpm);
+      expect(song.timeline.bpmAt(first.bars)).toBe(song.bpm);
+    }
   });
 
   it('winds down in an outro of every style', () => {
@@ -268,7 +287,10 @@ describe('section materials', () => {
         expect(new Set(soloists).size).toBe(2);
         for (const i of song.soloists) expect(soloists.slice(0, song.soloists.length)).toContain(i);
       } else {
-        const intro = defined(song.part(Intro), 'an intro');
+        const intro = defined(
+          song.form.ofType(Intro).find((s) => !s.free),
+          'an intro in time',
+        ).material;
         expect(mat.bars).toBe(intro.bars);
         expect(mat.melody).toBe(intro.melody);
       }
