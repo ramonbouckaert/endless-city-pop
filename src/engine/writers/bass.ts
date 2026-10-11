@@ -106,7 +106,7 @@ export class BassWriter {
       const last = bar.at(-1);
       const next = bars[(b + 1) % bars.length]?.[0];
       const target = at < 16 && last && next ? this.approach(last, next, push) : ROOT;
-      return this.notes(steps, (tok) => (tok === 'A' ? target : { step: BASS_DEGREES[tok], alter: 0 }), push);
+      return this.notes(steps, (tok, i) => (tok === 'A' ? target : this.degree(tok, Chord.at(bar, i))), push);
     });
     return new BassLine(this.feel, lines);
   }
@@ -176,25 +176,40 @@ export class BassWriter {
     });
   }
 
-  // The note from `cur` into `next`'s root (or, `exact`, that root), as a degree of cur's scale.
+  // A token as a degree of a chord's scale. Over a slash chord the line
+  // sits on its bass: the root and fifth play the bass note, the octave
+  // its octave.
+  private degree(tok: BassToken, chord: Chord): Degree {
+    if (chord.bass === undefined || !(tok === 'R' || tok === 'O' || tok === 'F'))
+      return { step: BASS_DEGREES[tok], alter: 0 };
+    const bass = chord.bassDegree;
+    return tok === 'O' ? { ...bass, step: bass.step + BASS_DEGREES.O } : bass;
+  }
+
+  // The note from `cur` into `next`'s bass note (or, `exact`, that note),
+  // as a degree of cur's scale, counted from its root.
   private approach(cur: Chord, next: Chord, exact = false): Degree {
-    const root = cur.bassMidi;
+    const from = cur.bassMidi;
     let target = next.bassMidi;
-    if (target - root > 6) target -= 12;
-    if (root - target > 6) target += 12;
+    if (target - from > 6) target -= 12;
+    if (from - target > 6) target += 12;
     const { rng } = this;
     const approach = rng.chance(BASS.chromatic) ? BASS.approachChromatic : BASS.approachDiatonic;
     let pitch: number;
     if (exact) pitch = target;
-    else pitch = target === root ? root + rng.pick(BASS.approachSame) : target + rng.weighted(approach);
+    else pitch = target === from ? from + rng.pick(BASS.approachSame) : target + rng.weighted(approach);
     while (pitch < Chord.BASS_LOW) pitch += 12;
-    return cur.chordScale.degree(pitch - root, this.key.usesFlats);
+    return cur.chordScale.degree(pitch - cur.rootMidi, this.key.usesFlats);
   }
 
   // Notes ring to the next one, or are cut short when the feel is
   // choppy; the gap becomes a rest. A pop is a ghost of the note before
   // it an octave away; a pushed root rings over the barline.
-  private notes(steps: readonly Step[], degree: (tok: BassToken | 'A') => Degree, push: boolean): BassNote[] {
+  private notes(
+    steps: readonly Step[],
+    degree: (tok: BassToken | 'A', start: number) => Degree,
+    push: boolean,
+  ): BassNote[] {
     const starts = steps.flatMap((tok, i) => (tok ? [{ start: i, tok }] : []));
     return starts.reduce<BassNote[]>((out, { start, tok }, k) => {
       if (tok === 'pop') {
@@ -202,11 +217,11 @@ export class BassWriter {
         const up = prev.step < BASS_DEGREES.O ? 1 : -1;
         return [...out, { start, len: BASS.popLen, degree: { ...prev, step: prev.step + up * BASS_DEGREES.O } }];
       }
-      if (tok === 'A' && push) return [...out, { start, len: BASS.pushLen, degree: degree(tok) }];
+      if (tok === 'A' && push) return [...out, { start, len: BASS.pushLen, degree: degree(tok, start) }];
       const gap = (starts[k + 1]?.start ?? 16) - start;
       const maxLen = this.grid === 16 ? 1 : 2;
       const len = this.rng.chance(this.legato) ? gap : Math.min(gap, maxLen);
-      return [...out, { start, len, degree: degree(tok) }];
+      return [...out, { start, len, degree: degree(tok, start) }];
     }, []);
   }
 }

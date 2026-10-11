@@ -45,7 +45,9 @@ export class Harmonizer {
     const chords = flat.map((rn, i) => {
       const root = rn.root(this.key);
       const palette = this.palette(rn, flat[(i + 1) % flat.length]);
-      return new Chord(root, this.rng.weightedKey(PALETTE[palette]));
+      const chord = new Chord(root, this.rng.weightedKey(PALETTE[palette]));
+      const bass = rn.bassOf(this.key, chord);
+      return bass === undefined ? chord : new Chord(root, chord.symbol, undefined, bass);
     });
     return this.scaled(Chord.inBars(chords, bars));
   }
@@ -57,6 +59,11 @@ export class Harmonizer {
     // In jazz harmony an unadorned V is still a dominant.
     const cls = rn.cls === 'maj' && rn.offset === 7 && down5 ? 'dom' : rn.cls;
     const { tonic, tonicPalette, borrowedPalette } = this.tonality;
+    if (rn.bass) {
+      if (cls === 'min' || cls === 'hdim') return 'slashMin';
+      if (cls === 'dom') return 'slashDom';
+      if (cls === 'maj') return 'slashMaj';
+    }
     // A minor key's V is altered wherever it goes, even into the next section.
     const minorV = this.key.minor && rn.offset === 7;
     if (rn.offset === 0 && cls === tonic && tonicPalette) return tonicPalette;
@@ -76,6 +83,8 @@ export class Harmonizer {
       bars.map((bar, b) => {
         const target = bars[(b + 1) % bars.length][0];
         const last = bar.at(-1);
+        // A line over a moving bass (a cliché, a descent) is left as it is.
+        if (bar.some((c) => c.bass !== undefined) || target.bass !== undefined) return bar;
         if (
           last &&
           last.dominant &&
@@ -166,9 +175,11 @@ export class Harmonizer {
    */
   into(specs: readonly (readonly ChordSpec[])[], key = this.key): Bar[] {
     const bars = specs.map((bar) =>
-      bar.map((chord) => {
-        const { offset, symbols } = Roman.parseSpec(chord);
-        return new Chord(key.tonic + offset, this.rng.pick(symbols));
+      bar.map((spec) => {
+        const { offset, symbols, bass } = Roman.parseSpec(spec);
+        const chord = new Chord(key.tonic + offset, this.rng.pick(symbols));
+        const under = bass?.bassOf(key, chord);
+        return under === undefined ? chord : new Chord(chord.root, chord.symbol, undefined, under);
       }),
     );
     const flat = [...bars.flat(), new Chord(key.tonic, tonalityOf(key.mode).finaleSymbol)];
@@ -266,7 +277,12 @@ export class SoloChangesWriter {
     const { harmony, key: home } = this;
     const bars = harmony.realise(new Template(TONIC_CHORDS[harmony.tonality.tonic]).fit(n));
     const key = home.transpose(off);
-    return { bars: bars.map((bar) => bar.map((c) => new Chord(c.root + off, c.symbol))), key };
+    return {
+      bars: bars.map((bar) =>
+        bar.map((c) => new Chord(c.root + off, c.symbol, undefined, c.bass === undefined ? undefined : c.bass + off)),
+      ),
+      key,
+    };
   }
 
   // `n` of the mode's pairs, each in a key a step on from the one before.

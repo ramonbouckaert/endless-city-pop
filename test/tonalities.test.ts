@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../src/lib/random';
-import { Harmonizer } from '../src/engine';
+import { BassWriter, Harmonizer } from '../src/engine';
 import { PALETTE, PRE_FLAVOURS, TONALITIES } from '../src/style';
 import { Chord, CHORDS, Key, MODES, PitchClass, Roman, Template, type Bar, type Mode } from '../src/theory';
 
@@ -171,5 +171,31 @@ describe('tonalities', () => {
     expect(texts(2)).toEqual(['IVmaj7', 'V7sus']);
     expect(texts(4)).toEqual(['ii7', 'iii7', 'IVmaj7', 'V7sus']);
     expect(texts(6)).toEqual(['IVmaj7', 'V7sus', 'ii7', 'iii7', 'IVmaj7', 'V7sus']);
+  });
+
+  it('realises slash chords plainly, over their bass, and never reharmonises them', () => {
+    const key = new Key(0);
+    for (let i = 0; i < 40; i++) {
+      const harmony = new Harmonizer(key, new Rng(`s${i}`));
+      const bars = harmony.progression('I I/7 I/b7 IV/V', 4);
+      expect(bars.map((bar) => bar.length)).toEqual([1, 1, 1, 1]);
+      expect(bars.map(([c]) => c.bass)).toEqual([undefined, 11, 10, 7]);
+      expect([...symbols('slashMaj')]).toContain(bars[3][0].symbol);
+    }
+  });
+
+  it('plays the bass of a slash chord on its downbeat', () => {
+    const key = new Key(0);
+    for (let i = 0; i < 40; i++) {
+      const bars = new Harmonizer(key, new Rng(`b${i}`)).progression('I/3 IV/V vi/5 II/I', 4);
+      const line = new BassWriter({ funk: 1, disco: 1, drive: 1 }, key, 110, new Rng(`l${i}`)).write(bars);
+      line.bars.forEach((notes, b) => {
+        const [chord] = bars[b];
+        const first = notes.find((n) => n.start === 0);
+        if (!first) return; // pushed into from the bar before
+        const pitch = chord.rootMidi + chord.chordScale.semis(first.degree.step) + first.degree.alter;
+        expect(PitchClass.of(pitch)).toBe(chord.bass);
+      });
+    }
   });
 });

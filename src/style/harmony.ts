@@ -12,14 +12,18 @@ export type PaletteName =
   | 'susToMinor'
   | 'minTonic'
   | 'minPhrygianTonic'
-  | 'domTonic';
+  | 'domTonic'
+  | 'slashMaj'
+  | 'slashMin'
+  | 'slashDom';
 
 // Colours for each chord family; majLydian is a major chord away from
 // the tonic, majBorrowed one off the key where a tonality wants it plain
 // (Tonality.borrowedPalette), minPhrygian a minor chord on the key's
 // phrygian degree (whose 9th is off the key: Em7 in C), domToMinor a
 // dominant resolving to a minor chord (or a minor key's V), susToMinor a
-// minor key's sus V.
+// minor key's sus V; the slash palettes are for chords over a bass not
+// their root.
 export const PALETTE: Readonly<Record<PaletteName, Odds<string>>> = {
   maj: { '^9': 3, '^7': 1, '69': 1 },
   majLydian: { '^9#11': 2, '^7#11': 2, '^9': 1 },
@@ -41,6 +45,11 @@ export const PALETTE: Readonly<Record<PaletteName, Odds<string>>> = {
   minPhrygianTonic: { m7add11: 2, m7: 1 },
   // A mixolydian key's tonic: a dominant that doesn't resolve, sometimes the funk #9.
   domTonic: { '13': 3, '9': 2, '7#9': 1 },
+  // A chord over a bass not its root (an inversion, a line cliché, an
+  // upper structure such as A/B): plainer, so the bass note rings true.
+  slashMaj: { '': 2, add9: 2, '^7': 1 },
+  slashMin: { m7: 2, m: 1, madd9: 1 },
+  slashDom: { '7': 2, '9': 1 },
 };
 
 // Where a substitute goes in a bar its chord had to itself: in its

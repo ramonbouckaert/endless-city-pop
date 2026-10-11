@@ -1,26 +1,71 @@
 import { PitchClass } from './pitch';
-import { NUMERALS, type ChordClass, type ChordSymbol, type NumeralName } from './tables';
+import { MODES, NUMERALS, type ChordClass, type ChordSymbol, type NumeralName } from './tables';
+import type { Chord } from './chord';
 import type { Key } from './key';
 
-/** A roman numeral: semitones above the tonic and a chord family. */
+/**
+ * A slash chord's bass: an interval above its root (`I/3`, `i/b7`: in
+ * major-scale steps, a plain 3 or 7 being the chord's own third or
+ * seventh), or a degree of the key (`IV/V`, `II/I`).
+ */
+export type SlashBass = { interval: number; own?: 3 | 7 } | { offset: number };
+
+/** A roman numeral: semitones above the tonic and a chord family, perhaps over a bass of its own. */
 export class Roman {
   constructor(
     readonly offset: number,
     readonly cls: ChordClass,
     readonly text: string,
+    readonly bass?: SlashBass,
   ) {}
 
-  /** "I", "vi", "bVII", "V7", "ii7", "viiø", "#iv°", "IVmaj7", "Isus", "I5", "I+". */
+  /** "I", "vi", "bVII", "V7", "ii7", "viiø", "#iv°", "IVmaj7", "Isus", "I5", "I+"; over a bass, "I/3", "IV/V". */
   static parse(text: string): Roman {
-    const m = /^([b#]?)(iii|ii|iv|i|vii|vi|v|III|II|IV|I|VII|VI|V)(.*)$/.exec(text);
+    const [head, over] = text.split('/');
+    const m = /^([b#]?)(iii|ii|iv|i|vii|vi|v|III|II|IV|I|VII|VI|V)(.*)$/.exec(head);
     if (!m) throw new Error(`Not a roman numeral: ${text}`);
     const [, acc, numeral, suffix] = m;
     const upper = numeral === numeral.toUpperCase();
+    const offset = Roman.numeral(acc, numeral);
+    const bass = over === undefined ? undefined : Roman.slash(over, text);
+    return new Roman(PitchClass.of(offset), Roman.family(suffix, upper), text, bass);
+  }
+
+  // Semitones above the tonic of a numeral, sharpened or flattened.
+  private static numeral(acc: string, numeral: string): number {
     let accOffset = 0;
     if (acc === 'b') accOffset = -1;
     else if (acc === '#') accOffset = 1;
-    const offset = NUMERALS[numeral.toLowerCase() as NumeralName] + accOffset;
-    return new Roman(PitchClass.of(offset), Roman.family(suffix, upper), text);
+    return NUMERALS[numeral.toLowerCase() as NumeralName] + accOffset;
+  }
+
+  // What follows a slash: a numeral, or an interval as a step number.
+  private static slash(over: string, text: string): SlashBass {
+    const numeral = /^([b#]?)(iii|ii|iv|i|vii|vi|v)$/i.exec(over);
+    if (numeral) return { offset: PitchClass.of(Roman.numeral(numeral[1], numeral[2])) };
+    const step = /^([b#]?)(\d+)$/.exec(over);
+    if (!step) throw new Error(`Not a slash bass: ${text}`);
+    const [, acc, digits] = step;
+    const n = Number(digits) - 1;
+    const semis = MODES.major[n % 7] + (acc === '#' ? 1 : acc === 'b' ? -1 : 0);
+    const own = acc === '' && (n % 7 === 2 || n % 7 === 6) ? (((n % 7) + 1) as 3 | 7) : undefined;
+    return { interval: PitchClass.of(semis), ...(own ? { own } : {}) };
+  }
+
+  /**
+   * The bass under a chord built on this numeral in a key, if it has a
+   * slash bass: a plain 3 or 7 is the chord's own third or seventh (its
+   * family's, if it has none).
+   */
+  bassOf(key: Key, chord: Chord): number | undefined {
+    const { bass } = this;
+    if (!bass) return undefined;
+    if ('offset' in bass) return PitchClass.of(key.tonic + bass.offset);
+    const tones = chord.tones.map(PitchClass.of);
+    let interval = bass.interval;
+    if (bass.own === 3) interval = tones.find((t) => t === 3 || t === 4) ?? (chord.minorish ? 3 : 4);
+    if (bass.own === 7) interval = tones.find((t) => t === 10 || t === 11) ?? (chord.cls === 'maj' ? 11 : 10);
+    return PitchClass.of(chord.root + interval);
   }
 
   private static family(suffix: string, upper: boolean): ChordClass {
@@ -38,11 +83,14 @@ export class Roman {
     return PitchClass.of(key.tonic + this.offset);
   }
 
-  /** A chord spec's numeral, as semitones above the tonic, and its symbols to pick from. */
-  static parseSpec(spec: ChordSpec): { offset: number; symbols: string[] } {
-    const [numeral, symbols] = spec.split(':');
+  /** A chord spec's numeral, as semitones above the tonic, its symbols to pick from, and its slash bass if it has one. */
+  static parseSpec(spec: ChordSpec): { offset: number; symbols: string[]; bass?: Roman } {
+    const [chord, over] = spec.split('/');
+    const [numeral, symbols] = chord.split(':');
     if (!symbols) throw new Error(`Not a chord spec: ${spec}`);
-    return { offset: Roman.parse(numeral).offset, symbols: symbols.split('|') };
+    const { offset } = Roman.parse(numeral);
+    const bass = over === undefined ? undefined : Roman.parse(`${numeral}/${over}`);
+    return { offset, symbols: symbols.split('|'), ...(bass ? { bass } : {}) };
   }
 }
 
@@ -77,7 +125,10 @@ type Numeral = `${'' | 'b' | '#'}${NumeralName | Uppercase<NumeralName>}`;
 
 /**
  * A chord as "numeral:symbol", with alternative symbols split by "|":
- * "V:7alt|13b9". The type checks the numeral and the first symbol (every
+ * "V:7alt|13b9", perhaps over a slash bass: "V:9sus/IV". The type checks the numeral and the first symbol (every
  * combination of alternatives would be too many for TypeScript).
  */
-export type ChordSpec = `${Numeral}:${Exclude<ChordSymbol, ''>}` | `${Numeral}:${Exclude<ChordSymbol, ''>}|${string}`;
+export type ChordSpec =
+  | `${Numeral}:${Exclude<ChordSymbol, ''>}`
+  | `${Numeral}:${Exclude<ChordSymbol, ''>}|${string}`
+  | `${Numeral}:${Exclude<ChordSymbol, ''>}/${string}`;

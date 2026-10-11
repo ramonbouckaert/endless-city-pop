@@ -31,4 +31,4 @@ export {
   type Playhead,
 } from './sections';
 export { Instruments, joinAside, Song, type TitleParts } from './song';
-export { Harmonizer, type Grace } from './writers';
+export { BassWriter, Harmonizer, type Grace } from './writers';

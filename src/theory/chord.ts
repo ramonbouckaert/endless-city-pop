@@ -1,6 +1,6 @@
 import type { Key } from './key';
 import { PitchClass } from './pitch';
-import { Scale } from './scale';
+import { Scale, type Degree } from './scale';
 import { CHORDS, DOM_TO_MINOR_SCALE, FAMILY_SCALES, SYMBOL_SCALES, TRITONE_SUB_SCALE, type ChordClass } from './tables';
 
 /** The chords of one bar: one, or two splitting it. */
@@ -14,11 +14,14 @@ export class Chord {
   readonly cls: ChordClass;
   readonly tones: readonly number[];
   readonly scale?: string; // chord-scale, a name in MODES
+  /** A slash chord's bass (a pitch class), if it isn't the root: E under C for C/E. */
+  readonly bass?: number;
 
   constructor(
     root: number,
     readonly symbol: string,
     scale?: string,
+    bass?: number,
   ) {
     const def = CHORDS[symbol];
     if (!def) throw new Error(`Unknown chord symbol: ${symbol}`);
@@ -26,6 +29,7 @@ export class Chord {
     this.cls = def.cls;
     this.tones = def.tones;
     if (scale) this.scale = scale;
+    if (bass !== undefined && PitchClass.of(bass) !== this.root) this.bass = PitchClass.of(bass);
   }
 
   /** Its chord-scale: the one fitted to it, or failing that its family's usual one. */
@@ -34,7 +38,22 @@ export class Chord {
   }
 
   withScale(scale: string): Chord {
-    return new Chord(this.root, this.symbol, scale);
+    return new Chord(this.root, this.symbol, scale, this.bass);
+  }
+
+  /** The same chord moved up `semis` semitones, its bass with it. */
+  transpose(semis: number): Chord {
+    return new Chord(
+      this.root + semis,
+      this.symbol,
+      this.scale,
+      this.bass === undefined ? undefined : this.bass + semis,
+    );
+  }
+
+  /** The note the bass plays: its slash bass, else its root. */
+  get bassPc(): number {
+    return this.bass ?? this.root;
   }
 
   /** Each chord as a new chord with its scale set, given the one after it (wrapping round). */
@@ -73,7 +92,8 @@ export class Chord {
 
   /** The chord symbol spelled in a key: "Bbm7". */
   name(key: Key): string {
-    return `${key.spell(this.root)}${this.symbol}`;
+    const over = this.bass === undefined ? '' : `/${key.spell(this.bass)}`;
+    return `${key.spell(this.root)}${this.symbol}${over}`;
   }
 
   /** A tritone substitute's resolution: down a half step. */
@@ -142,9 +162,24 @@ export class Chord {
     return [...new Set(out)].sort((a, b) => Math.abs(a - semis) - Math.abs(b - semis) || a - b);
   }
 
-  /** The root's MIDI note in a bass's low range, E1 to Eb2. */
+  /** The root's MIDI note in a bass's low range, E1 to Eb2: what chord-scale degrees count up from. */
+  get rootMidi(): number {
+    return Chord.low(this.root);
+  }
+
+  /** The note the bass plays (a slash chord's bass, else its root), in its low range, E1 to Eb2. */
   get bassMidi(): number {
-    const m = 24 + this.root;
+    return Chord.low(this.bassPc);
+  }
+
+  /** A slash chord's bass as a degree of its chord-scale, from its root (in their low range): the root's, for others. */
+  get bassDegree(): Degree {
+    return this.chordScale.degree(this.bassMidi - this.rootMidi);
+  }
+
+  // A pitch class's MIDI note in a bass's low range.
+  private static low(pc: number): number {
+    const m = 24 + pc;
     return m < Chord.BASS_LOW ? m + 12 : m;
   }
 }

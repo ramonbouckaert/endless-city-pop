@@ -186,7 +186,7 @@ interface ChordSpan extends Span {
 
 /** A pitch a chord-scale degree up from a chord's bass root. */
 export const onChord = (chord: Chord, degree: number, alter = 0): number =>
-  chord.bassMidi + chord.chordScale.semis(degree) + alter;
+  chord.rootMidi + chord.chordScale.semis(degree) + alter;
 
 /** A section's chords over time: what plays when, and the melody over them. */
 export class Changes {

@@ -1,7 +1,9 @@
 // Chord voicings: which notes a keyboard, pad or horn section plays for
 // a chord. The bass has the root, so a chord of four notes or more leaves
-// it out, and one of five or more its perfect fifth too; the rest sit in
-// close position, the top note as near as it can be at or below an anchor.
+// it out, and one of five or more its perfect fifth too (over a slash
+// bass, the voicing leaves out the bass's note instead, and keeps the
+// root); the rest sit in close position, the top note as near as it can
+// be at or below an anchor.
 // Fusion voices them two other ways: stacked in fourths from a colour
 // tone (quartal), or spread wide, root and fifth low under the rest.
 
@@ -147,6 +149,11 @@ export class Voicing {
   // so the top never clusters, and the pair sounds as a major seventh,
   // not a minor ninth (D A F C E, not D A E F C with E under the F).
   private static spread(chord: Chord, anchor: number): number[] {
+    // Over a slash bass: the bass low, the rest close above.
+    if (chord.bass !== undefined) {
+      const bass = anchor - Voicing.SPREAD_DEPTH - PitchClass.of(anchor - Voicing.SPREAD_DEPTH - chord.bass);
+      return [bass, ...Voicing.close(Voicing.pcs(chord), anchor)];
+    }
     const scale = chord.chordScale;
     const five = chord.tones.find((t) => t >= 6 && t <= 8) ?? 7;
     const fifth = PitchClass.of(chord.root + five);
@@ -170,6 +177,15 @@ export class Voicing {
   // more are left.
   private static pcs(chord: Chord): number[] {
     let tones = chord.tones.map(PitchClass.of).filter((t, i, all) => all.indexOf(t) === i);
+    if (chord.bass !== undefined) {
+      // The bass plays its own note, so the voicing leaves it out (while
+      // three notes are left), and keeps the root.
+      const bass = PitchClass.of(chord.bass - chord.root);
+      const above = tones.filter((t) => t !== bass);
+      if (above.length >= 3) tones = above;
+      if (tones.length >= 5) tones = tones.filter((t) => t !== 7);
+      return tones.map((t) => PitchClass.of(chord.root + t));
+    }
     if (tones.length >= 4) tones = tones.filter((t) => t !== 0);
     if (tones.length >= 5) tones = tones.filter((t) => t !== 7);
     return tones.map((t) => PitchClass.of(chord.root + t));
