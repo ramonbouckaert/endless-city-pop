@@ -31,6 +31,7 @@ import {
   within,
   type NoteSpec,
   type ScoreBand,
+  type ScoreNote,
   type Timed,
 } from '../score';
 import { drumNotes, type Melody, type Solo } from '../writers';
@@ -239,6 +240,31 @@ export class PlayedScoreContext extends ScoreContext {
     ];
   }
 
+  /**
+   * The section's parts with the band stopping dead in its last bar: a
+   * hit on its downbeat, then silence under the melody voices (which sing
+   * on), and a snare pickup through the last beat into the next section.
+   */
+  stopBar(parts: Parts): Parts {
+    const { band, len } = this;
+    const last = len - 1;
+    const hit = [{ time: last, dur: 1 / 8 }];
+    const sings = (n: ScoreNote) => !!n.path && SINGING.some((p) => n.path?.startsWith(p));
+    return [
+      ...parts.map(
+        (p) => p && Part.stack(new Part(p.until(last).notes.filter((n) => !sings(n))), new Part(p.notes.filter(sings))),
+      ),
+      band.kit([PERCUSSION.kick, PERCUSSION.crash], [{ ...hit[0], gain: 0.5 }]),
+      band.keys(this.C, hit),
+      band.stabs(this.C, hit),
+      band.bass([{ ...hit[0], note: this.C.at(last).bassMidi }]),
+      band.kit(
+        PERCUSSION.snare,
+        [12, 13, 14, 15].map((step, i) => ({ time: last + step / 16, dur: 1 / 16, gain: 0.22 + 0.06 * i })),
+      ),
+    ];
+  }
+
   /** Strings swelling through the section, up to `top`. */
   swell(top: number): Part {
     return this.band.strings(this.C).gain(rise(0.04, top, this.len));
@@ -249,3 +275,6 @@ export class PlayedScoreContext extends ScoreContext {
     return solo.play(this.C, this.len, chords);
   }
 }
+
+// The melody voices, which sing on through a stop: their parts' paths.
+const SINGING = ['lead', 'double', 'echo', 'answer', 'bell', 'soloists.'];

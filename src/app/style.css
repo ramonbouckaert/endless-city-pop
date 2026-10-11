@@ -376,7 +376,8 @@ body.loading .when-loading {
 .sec-solo {
   --c: var(--sec-solo);
 }
-.sec-riff {
+.sec-riff,
+.sec-link {
   --c: var(--sec-riff);
 }
 .sec-drumBreak {

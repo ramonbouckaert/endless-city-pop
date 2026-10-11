@@ -34,6 +34,11 @@ export class BassLine extends Line<BassNote> {
   ) {
     super(bars);
   }
+
+  /** Its bars from bar `n` on. */
+  drop(n: number): BassLine {
+    return new BassLine(this.feel, this.bars.slice(n));
+  }
 }
 
 type Step = BassToken | 'A' | 'pop' | null; // A: the approach note; pop: the last note's octave, ghosted

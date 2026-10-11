@@ -57,3 +57,12 @@ export const THEME = {
   harmony: { vamp: 2, changes: 1 } as Odds<ThemeHarmony>,
   longVerse: 0.5,
 };
+
+// Where a verse gets its harmony: a verse template of its own, the
+// chorus's first eight bars (a verse and chorus sharing their changes:
+// Flyday Chinatown's, Tokai's), or a two-chord vamp (IV-V, IV-I/3) with
+// the approach home at its end.
+export type VerseHarmony = 'template' | 'chorus' | 'vamp';
+export const VERSE = {
+  harmony: { template: 6, chorus: 1.5, vamp: 2 } as Odds<VerseHarmony>,
+};

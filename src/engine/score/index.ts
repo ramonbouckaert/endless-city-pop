@@ -16,6 +16,7 @@ export {
   within,
   type NoteSpec,
   type Score,
+  type ScoreNote,
   type Span,
   type Timed,
 } from './score';

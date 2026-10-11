@@ -14,6 +14,7 @@ export interface Turnaround {
 // a bridge's only where the mode has its own.
 export interface Templates {
   vamp: readonly string[];
+  verseVamp: readonly string[];
   verse: readonly string[];
   chorus: readonly string[];
   tag: readonly string[];

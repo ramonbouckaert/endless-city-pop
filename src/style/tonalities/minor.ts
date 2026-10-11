@@ -16,6 +16,8 @@ export const MINOR: TonalityDef = {
   ],
   approach: [['iv:m9|m11'], ['bVII:13|9']],
   templates: {
+    // A verse's two-chord vamp (the approach home follows).
+    verseVamp: ['iv7 v7', 'bVImaj7 bVII7', 'i7 IV7', 'iv7 bVII7', 'i7 i/b7'],
     vamp: [
       'i7 IV7',
       'i7 bVII7',

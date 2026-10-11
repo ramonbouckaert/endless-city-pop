@@ -38,7 +38,7 @@ describe('Song', () => {
       // A pre-chorus only follows a verse; every chorus is as long as the others.
       if (!kinds.includes(Verse)) expect(kinds).not.toContain(PreChorus);
       const choruses = song.form.ofType(Chorus);
-      expect(new Set(choruses.map((c) => c.bars)).size).toBe(1);
+      expect(new Set(choruses.filter((c) => !c.half).map((c) => c.bars)).size).toBe(1);
       expect(choruses.at(-1)?.big).toBe(true);
       const brk = kinds.indexOf(DrumBreak);
       if (brk >= 0) expect(kinds[brk + 1]).not.toBe(Finale);

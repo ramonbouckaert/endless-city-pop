@@ -45,6 +45,8 @@ export const MAJOR: TonalityDef = {
   finale: [['^9', 'lydian']],
   approach: [['ii:m9|m11'], ['V:13|7alt|9sus']],
   templates: {
+    // A verse's two-chord vamp (the approach home follows).
+    verseVamp: ['IVmaj7 V7sus', 'IVmaj7 I/3', 'II/I Imaj7', 'IVmaj7 iii7', 'ii7 IV/V', 'IVmaj7 IVmaj7 IV/V IV/V'],
     vamp: [
       'ii7 V7',
       'ii7 [ii7 V7]',

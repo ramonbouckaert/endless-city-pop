@@ -153,16 +153,17 @@ export class BuildContext {
   }
 
   /**
-   * The chorus's chords (the intro's and breakdown's too): eight bars, and
-   * a tag if the chorus runs longer; a theme's sixteen.
+   * The chorus's chords (the intro's and breakdown's too): eight bars (a
+   * theme's sixteen), and a tag if the chorus runs longer.
    */
   readonly chorusBars = lazy((): Bar[] => {
     const rng = this.shared.fork(`${Chorus.id}Harmony`);
-    if (this.theme) return this.themeBars(rng.fork('theme'));
-    const bars = this.progress(rng.pick(this.tonality.templates.chorus), 8, rng.fork('harmony'));
+    const bars = this.theme
+      ? this.themeBars(rng.fork('theme'))
+      : this.progress(rng.pick(this.tonality.templates.chorus), 8, rng.fork('harmony'));
     const len = this.plan.first(Chorus)?.bars ?? 8;
-    if (len <= 8) return bars;
-    const tag = new Template(rng.pick(this.tonality.templates.tag)).fit(len - 8);
+    if (len <= bars.length) return bars;
+    const tag = new Template(rng.pick(this.tonality.templates.tag)).fit(len - bars.length);
     return [...bars, ...new Harmonizer(this.key, rng.fork('tag')).realise(tag)];
   });
 

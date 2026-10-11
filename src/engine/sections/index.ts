@@ -9,11 +9,12 @@ import type { Form } from './form';
 import { BuildContext } from './build-context';
 import { Breakdown } from './breakdown';
 import { Bridge } from './bridge';
-import { Chorus } from './chorus';
+import { Chorus, HALF } from './chorus';
 import { DrumBreak } from './drum-break';
 import { Finale } from './finale';
 import { Intro } from './intro';
 import { Lift } from './lift';
+import { Link } from './link';
 import { Outro } from './outro';
 import { PreChorus } from './pre';
 import { Riff } from './riff';
@@ -26,6 +27,7 @@ import { Verse } from './verse';
 const KINDS = [
   Intro,
   Vamp,
+  Link,
   Verse,
   PreChorus,
   Chorus,
@@ -49,6 +51,22 @@ export function buildForm(plan: Form<Plan>, key: Key, bpm: number, rng: Rng): Fo
   return new BuildContext(key, bpm, plan, rng).build();
 }
 
-export { Breakdown, Bridge, Chorus, DrumBreak, Finale, Intro, Lift, Outro, PreChorus, Riff, SoloSection, Vamp, Verse };
+export { HALF };
+export {
+  Breakdown,
+  Bridge,
+  Chorus,
+  DrumBreak,
+  Finale,
+  Intro,
+  Lift,
+  Link,
+  Outro,
+  PreChorus,
+  Riff,
+  SoloSection,
+  Vamp,
+  Verse,
+};
 export { Form, type Playhead } from './form';
 export { planned, type Plan, type SectionKind, type TempoMark } from './section';

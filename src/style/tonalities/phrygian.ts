@@ -18,6 +18,8 @@ export const PHRYGIAN: TonalityDef = {
   approach: [['bVII:m9|m7'], ['bII:^7#11|^9#11']],
   // A bare major bIII would take a #11 off the key, so it is always a bIII7.
   templates: {
+    // A verse's two-chord vamp (the approach home follows).
+    verseVamp: ['i7 bIImaj7', 'bIImaj7 i7', 'iv7 bIImaj7'],
     vamp: [
       'i7 bIImaj7',
       'i7 i7 bIImaj7 bIImaj7',

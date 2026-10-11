@@ -35,6 +35,7 @@ export const GROOVES = {
     bass: { disco: 1, halfTime: 1, pedal: 1 },
   },
   lift: { drums: { feels: { build: 1 }, crash: 1, fill: 0 }, bass: { disco: 1, drive: 1 } },
+  link: { drums: { feels: { funk: 1, halfTime: 1 }, crash: 0, fill: 1 }, bass: { pedal: 1, funk: 1 } },
 } satisfies Record<string, GroovePlan>;
 
 // A drum break's drums: it has no bass line.

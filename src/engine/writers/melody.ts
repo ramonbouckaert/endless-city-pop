@@ -87,6 +87,11 @@ export class Melody extends Line<MelodyNote> {
   take(n: number): Melody {
     return new Melody(this.bars.slice(0, n), this.form);
   }
+
+  /** Its bars from bar `n` on. */
+  drop(n: number): Melody {
+    return new Melody(this.bars.slice(n), this.form);
+  }
 }
 
 type Figure = (typeof ANSWER.figures)[number];
@@ -502,9 +507,11 @@ export class MelodyWriter {
   }
 }
 
-// A phrase form over `n` bars: its last bars if shorter, else tagged
-// before its full cadence.
+// A phrase form over `n` bars: a bar short, without the bar before its
+// cadence; shorter still, its last bars; longer, tagged before its full
+// cadence.
 function phrasePlan(plan: readonly MotifLetter[], n: number): MotifLetter[] {
+  if (n === plan.length - 1 && n > 1) return [...plan.slice(0, -2), ...plan.slice(-1)];
   if (n <= plan.length) return plan.slice(plan.length - n);
   return [...plan, ...new Array<MotifLetter>(n - plan.length - 1).fill('E'), 'D'];
 }

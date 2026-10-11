@@ -15,7 +15,12 @@ export interface ChorusFields {
   answer: boolean;
   /** The last chorus has everything. */
   big: boolean;
+  /** Whether it plays just the chorus's second half (a part of its own: HALF). */
+  half?: boolean;
 }
+
+/** The part of choruses playing only the chorus's second half. */
+export const HALF = 'chorus:half';
 
 export interface ChorusMaterial extends PlayedMaterial {
   melody: Melody;
@@ -42,6 +47,7 @@ export class Chorus extends PlayedSection<ChorusMaterial> {
   constructor(plan: Plan<ChorusFields>, ctx: BuildContext) {
     super(plan);
     this.material = ctx.material(this, (rng) => {
+      if (this.half) return this.second(ctx);
       const { key } = ctx;
       const bars = ctx.chorusBars();
       const hook = ctx.hook();
@@ -57,6 +63,25 @@ export class Chorus extends PlayedSection<ChorusMaterial> {
         variant,
       };
     });
+  }
+
+  // A whole chorus's material, from where its last `bars` start.
+  private second(ctx: BuildContext): ChorusMaterial {
+    const whole = ctx.plan.ofType(Chorus).find((c) => !c.half);
+    if (!whole) throw new Error('A half chorus needs a whole one');
+    const mat = (ctx.section(whole) as Chorus).material;
+    const from = mat.bars.length - this.bars;
+    return {
+      ...mat,
+      bars: mat.bars.slice(from),
+      bass: mat.bass.drop(from),
+      melody: mat.melody.drop(from),
+      answer: mat.answer.drop(from),
+    };
+  }
+
+  protected override get details(): string[] {
+    return this.half ? ['second half'] : [];
   }
 
   // What of the answer plays: all of it in the last chorus (or a held

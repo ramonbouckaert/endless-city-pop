@@ -156,7 +156,7 @@ describe('section materials', () => {
       return mat && sec ? [{ mat, bars: sec.bars }] : [];
     });
     expect(new Set(pres.map((p) => p.mat.variant))).toEqual(new Set(Object.keys(PRE_FLAVOURS)));
-    expect(new Set(pres.map((p) => p.bars))).toEqual(new Set([2, 4, 6, 8]));
+    expect(new Set(pres.map((p) => p.bars))).toEqual(new Set([2, 4, 6, 7, 8]));
     for (const { mat, bars } of pres) {
       expect(mat.bars).toHaveLength(bars);
       expect(mat.melody.bars).toHaveLength(bars);
@@ -301,8 +301,10 @@ describe('section materials', () => {
       .filter((c) => c?.melody.form === 'theme');
     expect(themes.length).toBeGreaterThan(0);
     for (const chorus of themes) {
-      const rests = defined(chorus, 'a theme').melody.rests;
-      expect(rests).toHaveLength(16);
+      // (A twenty-bar chorus is a theme with a tag.)
+      const all = defined(chorus, 'a theme').melody.rests;
+      expect([16, 20]).toContain(all.length);
+      const rests = all.slice(0, 16);
       expect([3, 7, 11].every((b) => rests[b])).toBe(true);
       expect(rests.filter(Boolean)).toHaveLength(3);
     }

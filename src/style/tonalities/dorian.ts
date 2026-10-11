@@ -15,6 +15,8 @@ export const DORIAN: TonalityDef = {
   ],
   approach: [['bVII:^9|69'], ['IV:13|9']],
   templates: {
+    // A verse's two-chord vamp (the approach home follows).
+    verseVamp: ['i7 IV7', 'iv7 bVII7', 'i7 ii7', 'bIIImaj7 IV7'],
     vamp: [
       'i7 IV7',
       'i7 i7',

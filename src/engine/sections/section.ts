@@ -40,6 +40,7 @@ export interface SectionKind<S extends Section = Section> {
 // `shift`: semitones up, after a key change (a lift's: the key it lifts to).
 // `fermata`: its last bar held, slowed (a moment of tension mid-song).
 // `fade`: the song fades out over it (and every section after it).
+// `stop`: the band stops dead in its last bar, under the melody.
 export interface PlanBase {
   /** Its section's class. */
   readonly kind: SectionKind;
@@ -48,6 +49,7 @@ export interface PlanBase {
   readonly shift: number;
   readonly fermata?: boolean;
   readonly fade?: boolean;
+  readonly stop?: boolean;
 }
 
 /** One section of a form's plan, with its kind's own fields (`F`, each class's own, documented there). */
@@ -58,7 +60,8 @@ export type PlanOf<K extends SectionKind> = ConstructorParameters<K>[0];
 
 /** A kind's own fields in its plan. */
 type FieldsOf<K extends SectionKind> = Omit<PlanOf<K>, keyof PlanBase>;
-type Fields<K extends SectionKind> = FieldsOf<K> & { part?: string; shift?: number; fermata?: boolean; fade?: boolean };
+type Fields<K extends SectionKind> = FieldsOf<K> &
+  Partial<Pick<PlanBase, 'part' | 'shift' | 'fermata' | 'fade' | 'stop'>>;
 
 /** A section of a kind in a plan: its kind's own part (unless given) and unshifted (unless given). */
 export function planned<K extends SectionKind>(
@@ -126,6 +129,8 @@ export abstract class Section<M = unknown> {
   declare readonly fermata?: boolean;
   /** Whether the song fades out over it. */
   declare readonly fade?: boolean;
+  /** Whether the band stops dead in its last bar. */
+  declare readonly stop?: boolean;
   /** The plan it was built from. */
   readonly plan: Plan;
   /** Its part's material: every section of the part has the same. */
@@ -159,6 +164,7 @@ export abstract class Section<M = unknown> {
       this.shift ? `+${this.shift}` : '',
       this.fermata ? 'fermata' : '',
       this.fade ? 'fade' : '',
+      this.stop ? 'stop' : '',
       ...this.details,
     ].filter(Boolean);
     const aside = details.length ? ` (${details.join(', ')})` : '';
@@ -181,7 +187,8 @@ export abstract class PlayedSection<M extends PlayedMaterial = PlayedMaterial> e
   parts(band: ScoreBand, repeat: number): Parts {
     const ctx = new PlayedScoreContext(this, band, repeat);
     const parts = this.play(ctx);
-    return this.fermata ? ctx.fermata(parts) : parts;
+    if (this.fermata) return ctx.fermata(parts);
+    return this.stop ? ctx.stopBar(parts) : parts;
   }
 
   /** Which instruments play its material, and how. */
