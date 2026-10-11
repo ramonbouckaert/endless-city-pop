@@ -40,8 +40,11 @@ export class MediaControls {
     this.handle('play', () => controls.play());
     this.handle('pause', () => controls.pause());
     this.handle('stop', () => controls.stop());
-    // A new song; there's no going back to one.
-    this.handle('nexttrack', () => controls.next());
+    // A new song; there's no going back to one. Not in Safari: its controls
+    // send a page playing only Web Audio just play and pause (WebKit's
+    // AudioContext drops every other command), and the handler alone is
+    // what shows the button. Safari is the browser with navigator.audioSession.
+    if (!('audioSession' in navigator)) this.handle('nexttrack', () => controls.next());
     // Dragging the progress bar, and the skip buttons.
     this.handle('seekto', ({ seekTime }) => {
       if (seekTime !== undefined) controls.seek(seekTime);
