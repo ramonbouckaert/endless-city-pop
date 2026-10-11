@@ -15,5 +15,5 @@
     "noUnusedParameters": true,
     "skipLibCheck": true
   },
-  "include": ["src", "test", "scripts", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src", "test", "scripts", "artwork", "vite.config.ts", "vitest.config.ts"]
 }

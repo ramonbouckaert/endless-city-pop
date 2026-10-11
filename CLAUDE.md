@@ -59,6 +59,8 @@ src/
 src/app/soundfont/  the app's soundfont: GeneralUser GS trimmed and compressed by scripts/build-soundfont.ts
 public/licenses/   the licences of what the app ships (GeneralUser GS, SpessaSynth); vite.config.ts writes
                     licenses/index.html listing them, linked from the footer
+artwork/           artwork.svg, the app's picture; images.ts makes favicon.svg (on a rounded tile) and artwork.png (the
+                    media controls', rendered by Playwright's Chromium) from it, which vite.config.ts builds and serves
 ```
 
 Dependency rules:

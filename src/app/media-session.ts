@@ -78,7 +78,9 @@ export class MediaControls {
       session.metadata = new MediaMetadata({
         title: song.title,
         artist: 'Endless City Pop',
-        artwork: [{ src: new URL('favicon.svg', document.baseURI).href, sizes: 'any', type: 'image/svg+xml' }],
+        // Square and full-bleed (the controls round their own corners), and a
+        // PNG at its size: iOS draws an SVG at its own tiny intrinsic size.
+        artwork: [{ src: new URL('artwork.png', document.baseURI).href, sizes: '512x512', type: 'image/png' }],
       });
     }
     session.playbackState = playing ? 'playing' : 'paused';
