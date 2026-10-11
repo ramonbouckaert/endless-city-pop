@@ -189,6 +189,7 @@ export function songToMidi(song: Song, instruments: Instruments = song.instrumen
     tempos: timeline.tempoChanges.map(({ quarter, bpm }) => ({ tick: quarter * PPQ, bpm })),
     key: song.key,
     markers,
+    meters: song.form.meters.map(({ at, beats }) => ({ tick: ticks(at), beats })),
     tracks: tracksFor(
       midiNotes(score, timeline),
       instruments.kit,

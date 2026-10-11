@@ -19,6 +19,7 @@ import { Link } from './link';
 import { Outro } from './outro';
 import { PreChorus } from './pre';
 import { Riff } from './riff';
+import { ShortBar } from './short-bar';
 import type { Plan } from './section';
 import { SoloSection } from './solo';
 import { Vamp } from './vamp';
@@ -39,6 +40,7 @@ const KINDS = [
   Lift,
   Outro,
   DrumBreak,
+  ShortBar,
   Finale,
 ] as const;
 
@@ -65,6 +67,7 @@ export {
   Outro,
   PreChorus,
   Riff,
+  ShortBar,
   SoloSection,
   Vamp,
   Verse,

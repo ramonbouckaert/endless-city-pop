@@ -63,6 +63,10 @@ export const FORM = {
   // How often a song has a link (a bar or two of planing chords) before
   // every verse after the first, and how long.
   link: { chance: 0.2, bars: [1, 2] },
+  // Short bars: how often a song breaks for a 2/4 bar before each chorus
+  // that follows its verse or pre-chorus, and how often it starts its
+  // first section after the intro with a 1/4 pickup.
+  shortBars: { beforeChorus: 0.15, pickup: 0.12 },
   // How often a song stops dead in the last bar of its later choruses (a
   // band hit, then silence under the lead, and a drum pickup).
   stopChance: 0.25,

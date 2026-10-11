@@ -18,6 +18,7 @@ import {
   planned,
   PreChorus,
   Riff,
+  ShortBar,
   SoloSection,
   Vamp,
   Verse,
@@ -77,7 +78,25 @@ export class FormPlanner {
     const opening = this.opening();
     const body = [...this.rounds(), ...this.middle()];
     const vamp = opening.find((s) => s.kind === Vamp);
-    return new Form(this.held([...opening, ...(vamp ? this.vampReturn(body, vamp.bars) : body), ...this.ending()]));
+    const plans = [...opening, ...(vamp ? this.vampReturn(body, vamp.bars) : body), ...this.ending()];
+    return new Form(this.held(this.shortBars(plans)));
+  }
+
+  // Now and then, short bars: a 2/4 break before every chorus that
+  // follows a verse or pre-chorus (each a part of the same), and a 1/4
+  // pickup into the first section after the intro.
+  private shortBars(plans: readonly Plan[]): Plan[] {
+    const rng = this.rng.fork('shortBars');
+    const breaks = rng.chance(FORM.shortBars.beforeChorus);
+    const pickup = rng.chance(FORM.shortBars.pickup);
+    return plans.flatMap((p, i) => {
+      const before = plans[i - 1]?.kind;
+      if (breaks && p.kind === Chorus && p.part !== HALF && (before === Verse || before === PreChorus))
+        return [planned(ShortBar, 0.5, { shift: p.shift }), p];
+      if (pickup && i === 1 && plans[0].kind === Intro)
+        return [planned(ShortBar, 0.25, { shift: p.shift, part: `${ShortBar.id}:pickup` }), p];
+      return [p];
+    });
   }
 
   // The intro, and perhaps a vamp.

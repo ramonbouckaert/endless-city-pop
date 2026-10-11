@@ -380,7 +380,8 @@ body.loading .when-loading {
 .sec-link {
   --c: var(--sec-riff);
 }
-.sec-drumBreak {
+.sec-drumBreak,
+.sec-break {
   --c: var(--sec-break);
 }
 

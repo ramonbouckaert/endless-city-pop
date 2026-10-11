@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Key } from '../src/theory';
 import { channelsFor, songToMidi } from '../src/midi/from-score';
 import { CC, DRUM_CHANNEL, keySignature, PPQ, vlq, writeMidi, type MidiSong } from '../src/midi/writer';
-import { Chorus, Finale, PreChorus, Song, Vamp } from '../src/engine';
+import { Chorus, Finale, PreChorus, ShortBar, Song, Vamp } from '../src/engine';
 import { songLength } from '../src/app/time';
 import { defined, heldBars, songWhere } from './helpers';
 
@@ -344,5 +344,23 @@ describe('MIDI', () => {
     const ends = songWhere((s) => s.form.fadeFrom === undefined, 'a song with a finale');
     const all = read(songToMidi(ends)).tracks.flat();
     expect(all.some((e) => (e.status & 0xf0) === 0xb0 && e.data[0] === CC.expression)).toBe(false);
+  });
+
+  it('writes a short bar as a change of meter, and back to 4/4', () => {
+    for (const beats of [2, 1]) {
+      const song = songWhere(
+        (s) => s.form.sections.some((sec) => sec instanceof ShortBar && sec.beats === beats),
+        `a song with a ${beats}/4 bar`,
+      );
+      const [conductor] = read(songToMidi(song)).tracks;
+      const meters = conductor.filter((e) => e.type === 0x58).map((e) => ({ tick: e.tick, beats: e.data[0] }));
+      expect(meters[0]).toEqual({ tick: 0, beats: 4 });
+      const index = song.form.sections.findIndex((sec) => sec instanceof ShortBar && sec.beats === beats);
+      const at = song.form.starts[index] * 4 * PPQ;
+      expect(meters).toContainEqual({ tick: at, beats });
+      expect(meters).toContainEqual({ tick: at + beats * PPQ, beats: 4 });
+      // Every section after it starts on a whole beat.
+      for (const start of song.form.starts) expect(Number.isInteger(start * 4)).toBe(true);
+    }
   });
 });

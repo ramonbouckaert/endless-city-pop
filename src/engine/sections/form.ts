@@ -94,6 +94,23 @@ export class Form<S extends Placed = AnySection> implements Iterable<S> {
     return index < 0 ? undefined : this.starts[index];
   }
 
+  /**
+   * Where the meter changes: to a short bar's (2/4, 1/4: a section
+   * shorter than a bar), and back to 4/4 after it. The song starts in 4/4.
+   */
+  get meters(): { at: number; beats: number }[] {
+    const marks = this.sections.flatMap((sec, i) =>
+      sec.bars < 1
+        ? [
+            { at: this.starts[i], beats: sec.bars * 4 },
+            { at: this.starts[i] + sec.bars, beats: 4 },
+          ]
+        : [],
+    );
+    // A change straight into another short bar gives way to it.
+    return marks.filter((m, i) => marks[i + 1]?.at !== m.at);
+  }
+
   /** The song's tempo through the form: `bpm`, changed where a section slows or speeds up. */
   tempos(this: Form<AnySection>, bpm: number): TempoChange[] {
     const marks = this.sections.flatMap((sec, i) =>

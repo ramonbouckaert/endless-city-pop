@@ -24,6 +24,7 @@ export {
   planned,
   PreChorus,
   Riff,
+  ShortBar,
   SoloSection,
   Vamp,
   Verse,

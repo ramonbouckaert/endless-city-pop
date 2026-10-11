@@ -10,6 +10,7 @@ import {
   Outro,
   PreChorus,
   Riff,
+  ShortBar,
   SoloSection,
   Song,
   Vamp,
@@ -37,7 +38,8 @@ describe('form', () => {
     for (const form of forms) {
       const vamps = form.flatMap((s, i) => (s instanceof Vamp ? [i] : []));
       expect(vamps.length).toBeLessThanOrEqual(3);
-      if (vamps.length) expect(vamps[0]).toBe(1); // the first opens the song, after the intro
+      // The first opens the song, after the intro (and perhaps a pickup).
+      if (vamps.length) expect(form.slice(1, vamps[0]).every((s) => s instanceof ShortBar)).toBe(true);
       if (vamps.length > 1) returns++;
       if (vamps.length > 2) twice++;
       for (const back of vamps.slice(1)) {
@@ -99,11 +101,21 @@ describe('form', () => {
       }
       // A tune: choruses alone (in pairs, eight bars), a bridge, and a fade.
       if (!verses.length && whole.length >= 6 && whole[0].bars === 8 && song.form.first(Bridge)) seen.add('tune?');
+      // A 2/4 break comes before a whole chorus after a verse or pre-chorus; a 1/4 pickup after the intro.
+      form.forEach((sec, i) => {
+        if (!(sec instanceof ShortBar)) return;
+        seen.add(`${sec.beats}/4`);
+        if (sec.beats === 2) {
+          expect(form[i + 1]).toBeInstanceOf(Chorus);
+          expect([Verse, PreChorus]).toContain(form[i - 1].kind);
+        } else expect(i).toBe(1);
+        expect(sec.shift).toBe(form[i + 1].shift);
+      });
       if (whole.some((c) => c.bars === 20)) seen.add('20');
       if (whole.some((c) => c.bars === 12)) seen.add('12');
     }
     expect(seen).toEqual(
-      new Set(['half', 'link', 'stop', 'side-step', 'verse twice', 'short verse', 'tune?', '20', '12']),
+      new Set(['half', 'link', 'stop', 'side-step', 'verse twice', 'short verse', 'tune?', '20', '12', '2/4', '1/4']),
     );
   });
 });

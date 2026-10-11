@@ -200,3 +200,12 @@ export const FINALE_STYLES: Odds<FinaleStyle> = { cascade: 3, hits: 2, slide: 2,
 export type FinaleChord = 'tonic' | 'picardy' | 'sus' | 'ii' | 'V' | 'section';
 export const FINALE_CHORDS: Odds<FinaleChord> = { tonic: 6, picardy: 0.7, sus: 1.5, ii: 1, V: 1, section: 1 };
 export const RESOLVED_FINALES: readonly FinaleStyle[] = ['slide', 'fermata'];
+
+// How a short bar plays: a 2/4 break, the band hitting the next chord
+// then a snare pickup, or the drums round the toms; a 1/4 pickup on the
+// snare, or a horn run up into the downbeat.
+export type ShortBarStyle = 'hit' | 'toms' | 'snare' | 'run';
+export const SHORT_BARS: { break: Odds<ShortBarStyle>; pickup: Odds<ShortBarStyle> } = {
+  break: { hit: 3, toms: 1 },
+  pickup: { snare: 2, run: 1 },
+};

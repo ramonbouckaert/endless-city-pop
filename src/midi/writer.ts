@@ -58,6 +58,8 @@ export interface MidiSong {
   tempos: MidiTempo[];
   key: Key;
   markers: { tick: number; text: string }[];
+  /** Where the meter changes from 4/4 (and back), in beats of a quarter note. */
+  meters?: { tick: number; beats: number }[];
   tracks: MidiTrack[];
 }
 
@@ -73,7 +75,10 @@ export function writeMidi(song: MidiSong): Uint8Array {
   const conductor: TrackEvent[] = [
     { tick: 0, data: meta(0x03, text(song.title)) },
     ...song.tempos.map(({ tick, bpm }) => ({ tick: Math.round(tick), data: tempo(bpm) })),
-    { tick: 0, data: meta(0x58, [4, 2, 24, 8]) }, // 4/4
+    ...[{ tick: 0, beats: 4 }, ...(song.meters ?? [])].map(({ tick, beats }) => ({
+      tick: Math.round(tick),
+      data: meta(0x58, [beats, 2, 24, 8]), // beats/4
+    })),
     { tick: 0, data: meta(0x59, [sf & 0xff, minor ? 1 : 0]) },
     ...song.markers.map((m) => ({ tick: m.tick, data: meta(0x06, text(m.text)) })),
   ];

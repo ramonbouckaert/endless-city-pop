@@ -61,7 +61,7 @@ export class FormStrip {
         li.className = `sec sec-${id}`;
         li.style.flexGrow = String(s.bars);
         const shiftNote = s.shift ? `, up ${s.shift}` : '';
-        li.title = `${label}, ${s.bars} bars${shiftNote}`;
+        li.title = `${label}, ${s.bars < 1 ? `a ${s.bars * 4}/4 bar` : `${s.bars} bars`}${shiftNote}`;
         const span = (text: string, className: string) =>
           Object.assign(document.createElement('span'), { className, textContent: text });
         li.append(span(label, 'full'), span(short, 'short'));

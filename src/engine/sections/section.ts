@@ -168,7 +168,12 @@ export abstract class Section<M = unknown> {
       ...this.details,
     ].filter(Boolean);
     const aside = details.length ? ` (${details.join(', ')})` : '';
-    return `${this.label}${aside} ${this.bars}`;
+    return `${this.label}${aside} ${this.length}`;
+  }
+
+  // How describe() gives its length: in bars.
+  protected get length(): string {
+    return String(this.bars);
   }
 
   // What describe() calls the section.
