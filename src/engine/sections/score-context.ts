@@ -16,6 +16,7 @@ import {
   RHYTHMS,
   RISER,
   RISER_SECONDS,
+  SEASHORE,
   type DrumRole,
   type Rhythm,
 } from '../../style';
@@ -67,6 +68,11 @@ export class ScoreContext {
   riserAt(scale = 1): Part {
     const dur = (RISER_SECONDS * this.band.bpm * scale) / 240; // seconds in bars of 4 beats
     return new Part([scoreNote({ time: this.len - dur, dur, program: RISER, note: 60, gain: 0.35 })]);
+  }
+
+  /** Waves on the shore through the section (an effect: never transposed, nor swung). */
+  seashore(): Part {
+    return new Part([scoreNote({ time: 0, dur: this.len, program: SEASHORE, note: 60, gain: 0.25 })]);
   }
 
   /** A reverse cymbal swelling into the next section, its peak on the downbeat. */

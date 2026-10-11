@@ -89,8 +89,10 @@ export const VOICES: {
     GM.altoSax,
     GM.tenorSax,
     GM.clarinet,
+    GM.oboe,
     GM.flute,
     GM.harmonica,
+    GM.accordion,
     GM.trumpet,
     GM.mutedTrumpet,
     GM.trombone,
@@ -160,6 +162,8 @@ export const WALKING_BASS: Program = GM.acousticBass;
 
 // The riser into a pre-chorus's chorus or a lift's: a reverse cymbal.
 export const RISER: Program = GM.reverseCymbal;
+// Waves on the shore under a quiet intro (Sea Line's).
+export const SEASHORE: Program = GM.seashore;
 // How long its sample swells before it stops (on the app's soundfont, at
 // any tempo): it starts this long before the downbeat, to peak on it.
 export const RISER_SECONDS = 1.4;
@@ -204,6 +208,7 @@ export const SOUNDFONT_PROGRAMS: ReadonlySet<Program> = new Set([
   ...Object.values(PICKS).flat(),
   ...VOICES.pool,
   RISER,
+  SEASHORE,
 ]);
 export const SOUNDFONT_KITS: ReadonlySet<number> = new Set([...KITS, ...BALLAD_KITS].map(([kit]) => kit.program));
 
@@ -230,6 +235,7 @@ export const SOUND_LEVELS: Readonly<Partial<Record<Program, number>>> = {
   [GM.percussiveOrgan]: 1.09,
   [GM.rockOrgan]: 1.09,
   [GM.reedOrgan]: 0.99,
+  [GM.accordion]: 1.44,
   [GM.harmonica]: 1.29,
   [GM.acousticGuitarNylon]: 1.27,
   [GM.electricGuitarJazz]: 1.3,
@@ -262,6 +268,7 @@ export const SOUND_LEVELS: Readonly<Partial<Record<Program, number>>> = {
   [GM.altoSax]: 1,
   [GM.tenorSax]: 0.81,
   [GM.baritoneSax]: 0.9,
+  [GM.oboe]: 0.94,
   [GM.clarinet]: 0.77,
   [GM.flute]: 0.87,
   [GM.squareLead]: 1.06,

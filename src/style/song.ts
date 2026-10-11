@@ -50,11 +50,14 @@ export const SONG = {
 
 // How an intro gets its harmony: the hook's chords, the chorus's first
 // four bars (with the hook as a teaser), planing add9 chords, or an
-// intro template (perhaps with a riff of its own, `melodyChance`).
+// intro template (perhaps with a riff of its own, `melodyChance`). A
+// quiet intro (pads, rubato) has waves on the shore under it this often
+// (`seashoreChance`: Sea Line's).
 export type IntroHarmony = 'hook' | 'planing' | 'template';
 export const INTRO = {
   harmony: { hook: 3, planing: 2, template: 6 } as Odds<IntroHarmony>,
   melodyChance: 0.5,
+  seashoreChance: 0.25,
 };
 
 // How a sixteen-bar theme (a theme song's chorus) gets its harmony: the

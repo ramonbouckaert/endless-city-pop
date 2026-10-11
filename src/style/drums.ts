@@ -70,7 +70,7 @@ const EXTRAS: readonly DrumVoice[] = [
 const percussion = (chance: number) => ({ op: 'voice', chance, voices: EXTRAS }) as const;
 
 // Latin percussion over the kit, as fusion layers it: maracas in eighths,
-// wood blocks on a cross figure, or congas.
+// wood blocks on a cross figure, congas or bongos.
 const LATIN: readonly DrumVoice[] = [
   {
     drum: PERCUSSION.maracas,
@@ -97,6 +97,16 @@ const LATIN: readonly DrumVoice[] = [
     role: 'perc',
     bars: [at({ 4: 0.09, 10: 0.07, 12: 0.09 }), at({ 2: 0.08, 10: 0.08 })],
   },
+  // Bongos (Stay With Me's): the martillo's eighths, high and low.
+  {
+    drum: PERCUSSION.highBongo,
+    role: 'perc',
+    bars: [
+      at({ 0: 0.08, 2: 0.06, 4: 0.07, 6: 0.06, 8: 0.08, 10: 0.06, 12: 0.07 }),
+      at({ 2: 0.07, 3: 0.05, 10: 0.07, 11: 0.05 }),
+    ],
+  },
+  { drum: PERCUSSION.lowBongo, role: 'perc', bars: [at({ 6: 0.08, 14: 0.08 }), at({ 7: 0.07, 14: 0.08, 15: 0.06 })] },
 ];
 const latin = (chance: number) => ({ op: 'voice', chance, voices: LATIN }) as const;
 

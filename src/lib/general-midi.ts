@@ -182,6 +182,8 @@ export const PERCUSSION = {
   rideBell: 53,
   tambourine: 54,
   cowbell: 56,
+  highBongo: 60,
+  lowBongo: 61,
   muteHighConga: 62,
   openHighConga: 63,
   lowConga: 64,

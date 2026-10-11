@@ -16,6 +16,8 @@ export interface IntroMaterial extends PlayedMaterial {
   melody?: Melody;
   /** Whether it ends with the horns running up into the next downbeat. */
   run: boolean;
+  /** Whether waves on the shore play under it (a quiet one's, now and then). */
+  seashore: boolean;
 }
 
 export interface IntroFields {
@@ -46,6 +48,7 @@ export class Intro extends PlayedSection<IntroMaterial> {
           variant: 'rubato',
           melody: ctx.hook().take(this.bars),
           run: false,
+          seashore: rng.fork('seashore').chance(INTRO.seashoreChance),
         };
       }
       const { harmony, bars } = ctx.introBars();
@@ -63,6 +66,7 @@ export class Intro extends PlayedSection<IntroMaterial> {
         variant,
         ...(melody ? { melody } : {}),
         run: rng.fork('run').chance(RUN_INTO),
+        seashore: QUIET.includes(variant) && rng.fork('seashore').chance(INTRO.seashoreChance),
       };
     });
   }
@@ -90,7 +94,7 @@ export class Intro extends PlayedSection<IntroMaterial> {
   }
 
   protected play(ctx: PlayedScoreContext): Parts {
-    return [...this.texture(ctx), this.material.run && ctx.runInto()];
+    return [...this.texture(ctx), this.material.run && ctx.runInto(), this.material.seashore && ctx.seashore()];
   }
 
   // The intro's texture.
@@ -138,3 +142,6 @@ export class Intro extends PlayedSection<IntroMaterial> {
     }
   }
 }
+
+// The quiet textures, which may have waves on the shore under them.
+const QUIET: readonly IntroTexture[] = ['pads', 'rubato'];

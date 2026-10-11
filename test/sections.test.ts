@@ -263,6 +263,10 @@ describe('section materials', () => {
     );
     expect(new Set(intros.map((m) => m.variant))).toEqual(new Set(Object.keys(INTRO_TEXTURES)));
     expect(new Set(intros.map((m) => m.harmony))).toEqual(new Set(Object.keys(INTRO.harmony)));
+    // A quiet one may have waves on the shore under it; no other does.
+    const shores = intros.filter((m) => m.seashore);
+    expect(shores.length).toBeGreaterThan(0);
+    for (const m of shores) expect(['pads', 'rubato']).toContain(m.variant);
     // Some songs have none; some open with a free intro, out of tempo, before the one in time.
     expect(songs.some((song) => !song.form.first(Intro))).toBe(true);
     const free = songs.filter((song) => song.form.first(Intro)?.free);
