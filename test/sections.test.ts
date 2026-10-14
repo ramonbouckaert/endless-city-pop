@@ -6,20 +6,27 @@ import {
   Finale,
   Intro,
   Lift,
+  Link,
   OWN,
   Outro,
   PreChorus,
+  Riff,
   ScoreArranger,
+  sings,
   SoloSection,
   Song,
+  Swell,
   Vamp,
   Verse,
   type Grace,
 } from '../src/engine';
 import {
+  BALLAD,
+  FINALE_AFTER,
   FINALE_CHORDS,
+  FINALE_EASE,
   FINALE_STYLES,
-  RESOLVED_FINALES,
+  FINALE_SUITS,
   INTRO,
   INTRO_TEXTURES,
   LIFT_STYLES,
@@ -32,7 +39,7 @@ import {
   TONALITIES,
 } from '../src/style';
 import { PERCUSSION } from '../src/lib/general-midi';
-import { MODES, type Bar, type Mode } from '../src/theory';
+import { MODES, Roman, type Bar, type Mode } from '../src/theory';
 import { defined } from './helpers';
 
 describe('section materials', () => {
@@ -143,6 +150,8 @@ describe('section materials', () => {
       const names = (chords: readonly Bar[]) => chords.map((bar) => bar.map((c) => c.name(song.key)).join(' '));
       overs.add(over);
       if (over === 'verse') expect(song.form.first(Verse)).toBeDefined();
+      // Over the chorus only in a song that has one.
+      if (over === 'chorus') expect(song.part(Chorus)).toBeDefined();
       // An interlude is in a key of its own, and comes home; the rest are in the song's.
       if (over === 'interlude') expect(sec.material.key).not.toEqual(song.key);
       else expect(sec.material.key).toEqual(song.key);
@@ -157,7 +166,7 @@ describe('section materials', () => {
 
   it("plays some minor songs' choruses in the relative major", () => {
     const minor = Array.from({ length: 300 }, (_, i) => Song.generate(`rel${i}`)).filter(
-      (song) => song.key.mode === 'minor' || song.key.mode === 'dorian',
+      (song) => (song.key.mode === 'minor' || song.key.mode === 'dorian') && song.part(Chorus),
     );
     let relative = 0;
     for (const song of minor) {
@@ -198,7 +207,7 @@ describe('section materials', () => {
       return mat && sec ? [{ mat, bars: sec.bars }] : [];
     });
     expect(new Set(pres.map((p) => p.mat.variant))).toEqual(new Set(Object.keys(PRE_FLAVOURS)));
-    expect(new Set(pres.map((p) => p.bars))).toEqual(new Set([2, 4, 6, 7, 8]));
+    expect(new Set(pres.map((p) => p.bars))).toEqual(new Set([2, 4, 6, 7, 8, 16]));
     for (const { mat, bars } of pres) {
       expect(mat.bars).toHaveLength(bars);
       expect(mat.melody.bars).toHaveLength(bars);
@@ -219,18 +228,23 @@ describe('section materials', () => {
       const mats = song.parts(Lift);
       expect(mats).toHaveLength(lifts.length);
       if (lifts.length > 1) multiple++;
-      // Each lift goes up from the key before it, never past the cap.
+      // Each lift goes up from the key before it, never past the cap, into
+      // a chorus or (at the end) a verse; or, mid-song, turns round into
+      // the chorus again in the same key.
       let shift = 0;
       for (const [i, sec] of song.form.sections.entries()) {
         if (sec instanceof Lift) {
-          expect(sec.shift).toBeGreaterThan(shift);
+          const next = defined(song.form.at(i + 1), 'a chorus or verse');
+          if (sec.shift === shift) {
+            expect(next).toBeInstanceOf(Chorus);
+            expect(song.form.at(i - 1)).toBeInstanceOf(Chorus);
+          } else expect(sec.shift).toBeGreaterThan(shift);
           expect(sec.shift).toBeLessThanOrEqual(MAX_SHIFT);
-          const next = defined(song.form.at(i + 1), 'a chorus');
-          expect(next).toBeInstanceOf(Chorus);
+          expect([Chorus, Verse]).toContain(next.kind);
           expect(next.shift).toBe(sec.shift);
-          if (next instanceof Chorus) expect(sec.material.into).toBe(next.material.bars[0][0]);
+          if (next instanceof Chorus || next instanceof Verse) expect(sec.material.into).toBe(next.material.bars[0][0]);
           shift = sec.shift;
-        } else if (song.form.sections.slice(0, i).some((s) => s instanceof Lift)) {
+        } else if (song.form.sections.slice(0, i).some((s) => s instanceof Lift && s.shift > 0)) {
           expect(sec.shift).toBe(shift);
         }
       }
@@ -290,15 +304,14 @@ describe('section materials', () => {
       if (!sec) continue;
       const mat = sec.material;
       styles.add(sec.variant);
-      expect(sec.bars).toBe(OUTRO_STYLES[sec.variant].bars);
+      // It leads only to an ending it may (a reprise to the finale, a loop or an obbligato to a fade), in one of
+      // its lengths before that ending (a coda fifteen bars only before the finale).
+      expect(OUTRO_STYLES[sec.variant].bars[sec.fade ? 'fade' : 'finale']).toContain(sec.bars);
       expect(!!mat.trade).toBe(sec.variant === 'trade');
-      expect(!!mat.adLib).toBe(sec.variant === 'coda');
+      expect(!!mat.adLib).toBe(['coda', 'cadence', 'obbligato'].includes(sec.variant));
       expect(!!mat.hook).toBe(sec.variant === 'loop');
-      // Only a trade leads to either ending; a reprise to the finale, a coda or a loop to a fade.
-      if (sec.variant !== 'trade') expect(!!sec.fade).toBe(sec.variant !== 'reprise');
       if (mat.adLib || mat.hook) {
         expect(mat.bars).toHaveLength(sec.bars);
-        expect(sec.fade).toBe(true);
       } else if (mat.trade) {
         // A line for every bar, over a vamp, for the soloists to trade.
         const { solo, soloists } = mat.trade;
@@ -325,11 +338,33 @@ describe('section materials', () => {
       return mat ? [{ song, mat }] : [];
     });
     expect(new Set(finales.map(({ mat }) => mat.variant))).toEqual(new Set(Object.keys(FINALE_STYLES)));
-    expect(new Set(finales.map(({ mat }) => mat.ends))).toEqual(new Set(Object.keys(FINALE_CHORDS)));
+    // (The bare tonic only after a riff.)
+    expect(new Set(finales.map(({ mat }) => mat.ends))).toEqual(new Set([...Object.keys(FINALE_CHORDS), 'unison']));
     for (const { song, mat } of finales) {
       const { chord, ends, variant } = mat;
-      // Only the key's own chord slides or ends on a fermata.
-      if (ends !== 'tonic') expect(RESOLVED_FINALES).not.toContain(variant);
+      const finale = defined(song.form.first(Finale), 'a finale');
+      const before = song.form.before(finale);
+      // After a riff, the bare tonic, hit; after some outros, a chord that suits them.
+      expect(ends === 'unison').toBe(before instanceof Riff);
+      if (ends === 'unison') {
+        expect(variant).toBe('hits');
+        expect(chord.root).toBe(song.key.tonic);
+        expect(chord.symbol).toBe('5');
+      }
+      const after = before instanceof Outro && FINALE_AFTER[before.variant];
+      if (after) expect(Object.keys(after)).toContain(ends);
+      // Easing, slower through its first bar (but a fermata, which has its own tempo).
+      if (mat.eases) {
+        expect(variant).not.toBe('fermata');
+        expect(finale.tempo.map((m) => m.scale)).toEqual([...FINALE_EASE.scale]);
+      } else if (variant !== 'fermata') expect(finale.tempo).toEqual([]);
+      // Each style rings out a chord it suits: only the tonic slides or ends on a fermata; the neapolitan slides
+      // onto the tonic's 9sus.
+      expect(FINALE_SUITS[variant] ?? [ends]).toContain(ends);
+      if (variant === 'neapolitan') {
+        expect(chord.root).toBe(song.key.tonic);
+        expect(chord.symbol).toBe('9sus');
+      }
       if (ends === 'V') expect(chord.root).toBe((song.key.tonic + 7) % 12);
       if (ends === 'sus') {
         expect(chord.root).toBe(song.key.tonic);
@@ -349,8 +384,8 @@ describe('section materials', () => {
     expect(forms(Verse)).toEqual(new Set([...all, ...long]));
     expect(forms(Bridge)).toEqual(new Set(all.filter((f) => f !== 'callResponse')));
     for (const song of songs) {
-      const chorus = defined(song.part(Chorus), 'a chorus');
-      expect(chorus.melody.bars).toHaveLength(chorus.bars.length);
+      const chorus = song.part(Chorus);
+      if (chorus) expect(chorus.melody.bars).toHaveLength(chorus.bars.length);
     }
   });
 
@@ -380,9 +415,9 @@ describe('section materials', () => {
   });
 
   it('answers a hook in its gaps, one note at a time, until the hook comes back', () => {
-    const choruses = Array.from({ length: 150 }, (_, i) =>
-      defined(Song.generate(`answer${i}`).part(Chorus), 'a chorus'),
-    ).filter((c) => c.variant !== 'line' && c.variant !== 'echo');
+    const choruses = Array.from({ length: 150 }, (_, i) => Song.generate(`answer${i}`).part(Chorus))
+      .filter((c) => c !== undefined)
+      .filter((c) => c.variant !== 'line' && c.variant !== 'echo');
     expect(choruses.length).toBeGreaterThan(0);
     const spans = (bars: { start: number; len: number }[][]) =>
       bars.flatMap((notes, b) => notes.map((n) => [b * 16 + n.start, b * 16 + n.start + n.len] as const));
@@ -398,7 +433,7 @@ describe('section materials', () => {
   });
 
   it('now and then holds a moment of tension mid-song on a fermata', () => {
-    const tense = [PreChorus, Bridge, Breakdown, Lift];
+    const tense = [PreChorus, Bridge, Breakdown, Lift, Vamp, Link];
     const songs = Array.from({ length: 300 }, (_, i) => Song.generate(`tension${i}`));
     const holding = songs.filter((song) => song.form.sections.some((sec) => sec.fermata));
     // Now and then: a song in three or so.
@@ -450,5 +485,102 @@ describe('section materials', () => {
     }
     // Not only the sixteen-bar themes.
     expect([...lengths].some((bars) => bars < 16)).toBe(true);
+  });
+
+  it('starts a verse bare after a lift into it: only the keys and the melody, the band (and its drums) in after', () => {
+    const songs = Array.from({ length: 400 }, (_, i) => Song.generate(`bare${i}`)).filter((song) =>
+      song.form.sections.some((s) => s.bare),
+    );
+    expect(songs.length).toBeGreaterThan(0);
+    for (const song of songs.slice(0, 5)) {
+      const i = song.form.sections.findIndex((s) => s.bare);
+      const start = song.form.starts[i];
+      const notes = new ScoreArranger(song).arrange().notes;
+      const early = notes.filter((n) => n.time >= start - 1e-9 && n.time < start + 2 - 1e-9 && n.path);
+      for (const n of early) expect(n.path === 'keys' || sings(n)).toBe(true);
+      const back = notes.filter((n) => Math.abs(n.time - (start + 2)) < 1e-9);
+      // (A verse on the keys alone has no drums to crash back in.)
+      const verse = song.form.sections[i];
+      const drums = !(verse instanceof Verse && verse.material.variant === 'alone');
+      expect(back.some((n) => n.note === PERCUSSION.crash && n.program === 'drums')).toBe(drums);
+      // The band's chords back with it, even those it held over from before.
+      expect(back.some((n) => n.program !== 'drums' && n.path !== 'keys' && !sings(n))).toBe(true);
+    }
+  });
+
+  it('slides onto a suspended tonic from a bar of the bIImaj7#11 above it', () => {
+    const songs = Array.from({ length: 400 }, (_, i) => Song.generate(`neapolitan${i}`)).filter(
+      (song) => song.part(Finale)?.variant === 'neapolitan',
+    );
+    expect(songs.length).toBeGreaterThan(0);
+    for (const song of songs.slice(0, 5)) {
+      const i = song.form.sections.findIndex((s) => s instanceof Finale);
+      const start = song.form.starts[i];
+      const shift = song.form.sections[i].shift;
+      const bass = new ScoreArranger(song)
+        .arrange()
+        .notes.filter((n) => n.path === 'bass' && n.time >= start && n.time < start + 2);
+      // The bass on the bII for a bar, then on the tonic.
+      const pcs = (from: number) =>
+        bass.filter((n) => n.time >= start + from && n.time < start + from + 1).map((n) => n.note % 12);
+      expect(pcs(0)).toEqual([(song.key.tonic + shift + 1) % 12]);
+      expect(pcs(1)).toEqual([(song.key.tonic + shift) % 12]);
+    }
+  });
+
+  it("ends an intro a bar longer than its phrases on its key's approach home, a teaser resting over it", () => {
+    const intros = Array.from({ length: 300 }, (_, i) => Song.generate(`odd${i}`)).flatMap((song) =>
+      song.form
+        .ofType(Intro)
+        .filter((s) => s.extended)
+        .map((sec) => ({ song, sec })),
+    );
+    expect(intros.length).toBeGreaterThan(0);
+    for (const { song, sec } of intros) {
+      const { bars, key, melody, harmony } = sec.material;
+      expect(bars).toHaveLength(sec.bars);
+      const [spec] = TONALITIES[key.mode].approach.at(-1) ?? [];
+      expect(bars.at(-1)?.[0].root).toBe((key.tonic + Roman.parseSpec(spec).offset) % 12);
+      expect(key.tonic === song.key.tonic || key.tonic === song.key.majorTonic).toBe(true);
+      // The hook's teaser over its phrases, never over the bar home.
+      if (melody && harmony === 'hook') {
+        expect(melody.bars).toHaveLength(sec.bars);
+        expect(melody.rests.at(-1)).toBe(true);
+      }
+    }
+  });
+
+  it('swells strings on a held chord before the intro', () => {
+    const songs = Array.from({ length: 300 }, (_, i) => Song.generate(`swell${i}`)).filter((song) =>
+      song.form.first(Swell),
+    );
+    expect(songs.length).toBeGreaterThan(0);
+    for (const song of songs.slice(0, 5)) {
+      const swell = defined(song.form.first(Swell), 'a swell');
+      expect(song.form.sections[0]).toBe(swell);
+      const notes = new ScoreArranger(song).arrange().notes.filter((n) => n.time < swell.bars);
+      for (const n of notes) expect([undefined, 'strings', 'pad']).toContain(n.path);
+      expect(notes.some((n) => n.program === RISER)).toBe(true);
+      // The chord held through it, never struck again.
+      const held = notes.filter((n) => n.path);
+      expect(held.length).toBeGreaterThan(0);
+      for (const n of held) expect([n.time, n.dur]).toEqual([0, swell.bars]);
+    }
+  });
+
+  it('plays the keys alone under a verse only in a song leaning towards a ballad', () => {
+    const songs = Array.from({ length: 600 }, (_, i) => Song.generate(`alone${i}`));
+    const alone = songs.filter((song) => song.part(Verse)?.variant === 'alone');
+    expect(alone.length).toBeGreaterThan(0);
+    for (const song of alone) expect(song.bpm).toBeLessThan(BALLAD.tempo[1]);
+    for (const song of alone.slice(0, 5)) {
+      const i = song.form.sections.findIndex((s) => s instanceof Verse);
+      const start = song.form.starts[i];
+      const notes = new ScoreArranger(song)
+        .arrange()
+        .notes.filter((n) => n.time >= start && n.time < start + song.form.sections[i].bars);
+      expect(notes.some((n) => n.path === 'kit')).toBe(false);
+      expect(notes.some((n) => n.path === 'keys')).toBe(true);
+    }
   });
 });

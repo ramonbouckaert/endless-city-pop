@@ -2,8 +2,9 @@
 // where an intro gets its harmony. The ways each section can be played
 // are in variants.ts.
 
-import type { Odds, Range } from '../lib/random';
-import type { VoicingStyle } from '../theory';
+import { along } from '../lib/math';
+import type { Odds, Range, Weighted } from '../lib/random';
+import type { ChordSpec, VoicingStyle } from '../theory';
 import type { Colour } from './harmony';
 
 // How a song voices its chords: the keys, clav and stabs (`comp`) close
@@ -28,7 +29,12 @@ export const MELODY_HELD = 1 / 4;
 export const FERMATA = { ending: 0.5, midSong: 0.9 };
 
 export const SONG = {
-  tempo: [92, 134] as Range, // BPM: city pop's easy end to its uptempo disco
+  // BPM: now and then a slow one (BALLAD.tempo), mostly city pop's easy
+  // end to its uptempo disco.
+  tempo: [
+    [[70, 98], 1],
+    [[92, 134], 5],
+  ] as Weighted<Range>,
   // The tempos that pace a song's form and bass: from here to there a
   // song gets busier sixteen-bar sections and a calmer line, and no more
   // beyond.
@@ -72,8 +78,8 @@ export const THEME = {
 
 // Where a verse gets its harmony: a verse template of its own, the
 // chorus's first eight bars (a verse and chorus sharing their changes:
-// Flyday Chinatown's, Tokai's), or a two-chord vamp (IV-V, IV-I/3) with
-// the approach home at its end.
+// Flyday Chinatown's, Tokai's; in a song with a chorus), or a two-chord
+// vamp (IV-V, IV-I/3) with the approach home at its end.
 export type VerseHarmony = 'template' | 'chorus' | 'vamp';
 export const VERSE = {
   harmony: { template: 6, chorus: 1.5, vamp: 2 } as Odds<VerseHarmony>,
@@ -83,15 +89,37 @@ export const VERSE = {
 // theme's never is).
 export const CHORUS = { relativeMajor: 0.25 };
 
-// A ballad (Last Summer Whisper's, Oh No, Oh Yes!'s): this often, slower,
-// swung in eighths rather than sixteenths, every groove eased into a
-// ballad's (BALLAD_FEELS), on brushes more often than not; `paired`, how
-// often its verses and choruses move two chords a bar; `ritard`, the
-// share of its tempo the last beat of each four-bar phrase eases back to.
+// How a bridge comes home: through the key's own approach (ii-V), or
+// this often through `sus`, V/V suspended then V suspended (Sea Line's).
+export const BRIDGE = {
+  susExit: 0.3,
+  sus: [['II:9sus'], ['V:9sus']] as readonly (readonly ChordSpec[])[],
+};
+
+// How a song leans towards a ballad (Last Summer Whisper's, Oh No, Oh
+// Yes!'s), the slower it is: from not at all at `tempo`'s top to fully
+// at its bottom. Each thing a ballad does is rolled on its own, likelier
+// the further it leans: swung in eighths rather than sixteenths (by
+// `swing`, in eighths), its grooves eased into a ballad's (BALLAD_FEELS),
+// on brushes (BALLAD_KITS), easing back on the last beat of each
+// four-bar phrase (to `ritard` of its tempo, fully leaning; never leaning
+// less than `ritardFrom`, too slight to hear), its verses and choruses
+// moving two chords a bar (`paired`, fully leaning), its kick never
+// following its bass, fewer rounds and solos and no drum break
+// (FORM.ballad), its melodies in longer notes (a rhythm cell's weight
+// divided by its notes to the power `melody`, fully leaning), and its
+// verses now and then the keys alone under the lead (Oh No, Oh Yes!'s
+// piano: VERSE_TEXTURES.alone).
 export const BALLAD = {
-  chance: 0.12,
-  tempo: [70, 86] as Range,
+  tempo: [80, 98] as Range,
   swing: [0.2, 0.45] as Range,
   paired: 0.5,
   ritard: 0.94,
+  ritardFrom: 0.3,
+  melody: 3,
 };
+
+/** How far a song at `bpm` leans towards a ballad: 0 (not at all) to 1 (fully), through BALLAD.tempo. */
+export function balladLean(bpm: number): number {
+  return 1 - along(bpm, BALLAD.tempo);
+}

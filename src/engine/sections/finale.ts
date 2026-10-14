@@ -1,30 +1,37 @@
-// The key's final chord (or one left open), rung out in the finale's
-// style over its two bars.
+// The key's final chord (or one left open, or after the riff the bare
+// tonic), rung out in the finale's style over its two bars, perhaps
+// slower: a style that suits the chord. After some outros, the chord is
+// one that suits them.
 
 import { PERCUSSION } from '../../lib/general-midi';
-import type { Odds, Rng } from '../../lib/random';
+import { only, type Odds, type Rng } from '../../lib/random';
 import {
   FERMATA,
   FIGURES,
+  FINALE_AFTER,
   FINALE_CHORDS,
   FINALE_DEGREES,
+  FINALE_EASE,
   FINALE_HITS,
   FINALE_STYLES,
-  RESOLVED_FINALES,
+  FINALE_SUITS,
   type FinaleChord,
   type FinaleStyle,
 } from '../../style';
 import { Chord } from '../../theory';
 import { Changes, onChord, rise, spans, timed, type NoteSpec, type ScoreBand, type Span } from '../score';
 import type { BuildContext } from './build-context';
+import { Outro } from './outro';
+import { Riff } from './riff';
 import type { Parts } from './score-context';
 import { Section, type Plan, type TempoMark } from './section';
 
-// The last chord (`ends` says which), rung out.
+// The last chord (`ends` says which), rung out; `eases`, slower.
 export interface FinaleMaterial {
   chord: Chord;
   ends: FinaleChord;
   variant: FinaleStyle;
+  eases?: boolean;
 }
 
 export class Finale extends Section<FinaleMaterial> {
@@ -36,15 +43,26 @@ export class Finale extends Section<FinaleMaterial> {
   constructor(plan: Plan, ctx: BuildContext) {
     super(plan);
     this.material = ctx.material(this, (rng) => {
-      const ends = rng.fork('ends').weightedKey(FINALE_CHORDS);
-      const chord = this.chord(ends, ctx, rng.fork('chord'));
-      const styles = ends === 'tonic' ? FINALE_STYLES : without(FINALE_STYLES, RESOLVED_FINALES);
-      return { chord, ends, variant: rng.weightedKey(styles) };
+      const ends = this.ends(ctx, rng.fork('ends'));
+      // (The bare tonic is always hit.)
+      const variant = ends === 'unison' ? 'hits' : rng.weightedKey(suiting(ends));
+      const chord = this.chord(ends, variant, ctx, rng.fork('chord'));
+      const eases = variant !== 'fermata' && rng.fork('eases').chance(FINALE_EASE.chance);
+      return { chord, ends, variant, ...(eases ? { eases } : {}) };
     });
   }
 
-  // The last chord: the key's own, or one left open.
-  private chord(ends: FinaleChord, ctx: BuildContext, rng: Rng): Chord {
+  // Which last chord: the bare tonic after the riff, one that suits the
+  // outro before (FINALE_AFTER), or any.
+  private ends(ctx: BuildContext, rng: Rng): FinaleChord {
+    const before = ctx.before(this);
+    if (before instanceof Riff) return 'unison';
+    const after = before instanceof Outro ? FINALE_AFTER[before.variant] : undefined;
+    return rng.weightedKey(after ?? FINALE_CHORDS);
+  }
+
+  // The last chord: the key's own, or one left open (a neapolitan's, the 9sus).
+  private chord(ends: FinaleChord, variant: FinaleStyle, ctx: BuildContext, rng: Rng): Chord {
     const { key } = ctx;
     const tonic = () => {
       const [symbol, scale] = rng.pick(ctx.tonality.finale);
@@ -57,11 +75,13 @@ export class Finale extends Section<FinaleMaterial> {
       case 'picardy':
         return key.minor ? new Chord(key.tonic, '^9', 'major') : tonic();
       case 'sus':
-        return sus();
+        return variant === 'neapolitan' ? new Chord(key.tonic, '9sus', 'mixolydian') : sus();
       case 'ii':
         return key.minor ? sus() : new Chord(key.tonic + 2, 'madd9', 'dorian');
       case 'V':
         return new Chord(key.tonic + 7, '9sus', 'mixolydian');
+      case 'unison':
+        return new Chord(key.tonic, '5');
       case 'section': {
         // The first chord of the section before, if the band played one.
         const before = ctx.before(this)?.material;
@@ -71,17 +91,24 @@ export class Finale extends Section<FinaleMaterial> {
   }
 
   protected override get details(): string[] {
-    return this.material.ends === 'tonic' ? [] : [`on ${this.material.ends}`];
+    const { ends, eases } = this.material;
+    return [ends === 'tonic' ? '' : `on ${ends}`, eases ? 'easing' : ''].filter(Boolean);
   }
 
-  // A fermata's first bar held at the fermata's tempo, then back to the song's.
+  // A fermata's first bar held at the fermata's tempo, then back to the
+  // song's; or (easing) slower, and slower again halfway through its first bar.
   override get tempo(): readonly TempoMark[] {
-    return this.material.variant === 'fermata'
-      ? [
-          { at: 0, scale: FERMATA.ending },
-          { at: 1, scale: 1 },
-        ]
-      : [];
+    if (this.material.variant === 'fermata')
+      return [
+        { at: 0, scale: FERMATA.ending },
+        { at: 1, scale: 1 },
+      ];
+    if (!this.material.eases) return [];
+    const [first, then] = FINALE_EASE.scale;
+    return [
+      { at: 0, scale: first },
+      { at: 0.5, scale: then },
+    ];
   }
 
   parts(band: ScoreBand): Parts {
@@ -105,7 +132,18 @@ export class Finale extends Section<FinaleMaterial> {
           Array.from({ length: 32 }, (_, i) => ({ time: i / 16, dur: 1 / 16, gain: 0.09 })),
         )
         .velocity(rise(0.3, 1, 2));
-    const ring = () => [band.kit([PERCUSSION.kick, PERCUSSION.crash], [{ time: 0, dur: 2, gain: 0.55 }]), ride()];
+    // A kick and crash at `at`, and the ride.
+    const ring = (at = 0) => [band.kickCrash(at, 2 - at, 0.55), ride()];
+    // A chord above sliding down onto the last one, landing at `lands`.
+    const slide = (above: Chord, lands: number): Parts => {
+      const both = changes({ time: 0, dur: lands, chord: above }, { time: lands, dur: 2 - lands });
+      return [
+        ...ring(lands),
+        band.finaleKeys(both),
+        band.strings(both),
+        band.bass(both.spans.map(({ time, dur, chord }) => ({ time, dur, note: chord.bassMidi }))),
+      ];
+    };
     // Degrees up the chord, from its root two octaves up.
     const line = (degrees: readonly { time: number; dur: number; value: number }[]): NoteSpec[] =>
       degrees.map(({ time, dur, value }) => ({ time, dur, note: onChord(fin, value) + 24 }));
@@ -125,20 +163,12 @@ export class Finale extends Section<FinaleMaterial> {
           band.strings(eachBar).mask((t) => t >= 1),
         ];
       }
-      case 'slide': {
-        // The same chord a semitone up, slipping down onto the last one
-        // on the and of two.
-        const above = new Chord(fin.root + 1, fin.symbol, fin.scale);
-        const both = changes({ time: 0, dur: 3 / 8, chord: above }, { time: 3 / 8, dur: 13 / 8 });
-        const landing = { time: 3 / 8, dur: 13 / 8, gain: 0.55 };
-        return [
-          band.kit([PERCUSSION.kick, PERCUSSION.crash], [landing]),
-          ride(),
-          band.finaleKeys(both),
-          band.strings(both),
-          band.bass(both.spans.map(({ time, dur, chord }) => ({ time, dur, note: chord.bassMidi }))),
-        ];
-      }
+      case 'slide':
+        // The same chord a semitone up, slipping down onto the last one on the and of two.
+        return slide(new Chord(fin.root + 1, fin.symbol, fin.scale), 3 / 8);
+      case 'neapolitan':
+        // A bar of the bIImaj7#11, then down onto the tonic suspended.
+        return slide(new Chord(fin.root + 1, '^9#11', 'lydian'), 1);
       case 'run':
         // A run up the chord on the keys, landing on it held.
         return [
@@ -163,7 +193,7 @@ export class Finale extends Section<FinaleMaterial> {
         const all = changes({ time: 0, dur: 1, chord: held }, { time: 1, dur: 0.5, chord: push }, ...hits);
         const toms = [PERCUSSION.highTom, PERCUSSION.highTom, PERCUSSION.midTom, PERCUSSION.midTom];
         return [
-          band.kit([PERCUSSION.kick, PERCUSSION.crash], [{ time: 0, dur: 1, gain: 0.5 }]),
+          band.kickCrash(0, 1),
           ...[...toms, PERCUSSION.lowTom, PERCUSSION.lowTom, PERCUSSION.lowTom, PERCUSSION.lowTom].map((drum, i) =>
             band.kit(drum, [{ time: 1 + i / 16, dur: 1 / 16, gain: 0.25 + 0.03 * i }]),
           ),
@@ -195,7 +225,7 @@ export class Finale extends Section<FinaleMaterial> {
   }
 }
 
-// Odds without some of their keys.
-function without<K extends string>(odds: Odds<K>, keys: readonly K[]): Odds<K> {
-  return Object.fromEntries(Object.entries(odds).filter(([k]) => !keys.includes(k as K))) as Odds<K>;
+// The styles that suit a last chord (FINALE_SUITS).
+function suiting(ends: FinaleChord): Odds<FinaleStyle> {
+  return only(FINALE_STYLES, (style) => FINALE_SUITS[style]?.includes(ends) ?? true);
 }

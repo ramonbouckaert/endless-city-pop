@@ -3,6 +3,7 @@
 // the song in a Score and of the section in a Part.
 
 import type { Program } from '../../lib/general-midi';
+import { cycle } from '../../lib/math';
 import { loopBars } from '../../lib/steps';
 import { MELODY_HELD, type Figure, type Rhythm } from '../../style';
 import type { PartPath } from '../song';
@@ -98,7 +99,7 @@ export function lastBar<H>(
   last: readonly (readonly H[])[],
   rest: readonly (readonly H[])[] = [[]],
 ): (readonly H[])[] {
-  return [...Array.from({ length: bars - 1 }, (_, b) => rest[b % rest.length] ?? []), last[0] ?? []];
+  return [...cycle(rest, bars - 1), last[0] ?? []];
 }
 
 /** Some notes of a section, and what can be done to them. Each change gives a new Part. */
@@ -114,6 +115,16 @@ export class Part {
     return new Part(this.notes.map(f));
   }
 
+  /** The notes `keep` keeps. */
+  filter(keep: (n: ScoreNote) => boolean): Part {
+    return new Part(this.notes.filter(keep));
+  }
+
+  /** The notes `spared` says as they are, and the rest as `change` makes them. */
+  sparing(spared: (n: ScoreNote) => boolean, change: (rest: Part) => Part): Part {
+    return Part.stack(change(this.filter((n) => !spared(n))), this.filter(spared));
+  }
+
   /** The notes that start where `keep` says. */
   mask(keep: (time: number) => boolean): Part {
     return new Part(this.notes.filter((n) => keep(n.time)));
@@ -123,6 +134,17 @@ export class Part {
   until(time: number): Part {
     return new Part(
       this.notes.filter((n) => n.time < time).map((n) => (n.time + n.dur > time ? { ...n, dur: time - n.time } : n)),
+    );
+  }
+
+  /** The notes from `time` on, any (but a drum's) still sounding then struck again there. */
+  from(time: number): Part {
+    return new Part(
+      this.notes.flatMap((n) => {
+        if (n.time >= time) return [n];
+        const end = n.time + n.dur;
+        return end > time && n.program !== 'drums' ? [{ ...n, time, dur: end - time }] : [];
+      }),
     );
   }
 
@@ -214,10 +236,9 @@ export class Changes {
 
   /** `bars` bars of a material's chords, looping them; two in a bar share it. */
   static of(material: readonly Bar[], bars: number): Changes {
-    const spans = loopBars(material, bars, (chord, b, i) => {
-      const { length } = material[b % material.length];
-      return { time: b + i / length, dur: 1 / length, chord };
-    });
+    const spans = cycle(material, bars).flatMap((bar, b) =>
+      bar.map((chord, i) => ({ time: b + i / bar.length, dur: 1 / bar.length, chord })),
+    );
     return new Changes(spans, bars);
   }
 

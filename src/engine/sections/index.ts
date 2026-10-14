@@ -9,11 +9,11 @@ import type { Form } from './form';
 import { BuildContext, type Traits } from './build-context';
 import { Breakdown } from './breakdown';
 import { Bridge } from './bridge';
-import { Chorus, HALF } from './chorus';
+import { Chorus } from './chorus';
 import { DrumBreak } from './drum-break';
 import { Finale } from './finale';
-import { FREE, Intro } from './intro';
-import { Lift, OWN } from './lift';
+import { Intro } from './intro';
+import { Lift } from './lift';
 import { Link } from './link';
 import { Outro } from './outro';
 import { PreChorus } from './pre';
@@ -21,11 +21,13 @@ import { Riff } from './riff';
 import { ShortBar } from './short-bar';
 import type { Plan } from './section';
 import { SoloSection } from './solo';
+import { Swell } from './swell';
 import { Vamp } from './vamp';
 import { Verse } from './verse';
 
 /** Every kind of section. */
 const KINDS = [
+  Swell,
   Intro,
   Vamp,
   Link,
@@ -53,7 +55,6 @@ export function buildForm(plan: Form<Plan>, key: Key, bpm: number, rng: Rng, tra
   return new BuildContext(key, bpm, plan, rng, traits).build();
 }
 
-export { FREE, HALF, OWN };
 export {
   Breakdown,
   Bridge,
@@ -68,9 +69,14 @@ export {
   Riff,
   ShortBar,
   SoloSection,
+  Swell,
   Vamp,
   Verse,
 };
 export { PLAIN_TRAITS, type Traits } from './build-context';
+export { HALF } from './chorus';
 export { Form, type Playhead } from './form';
+export { FREE } from './intro';
+export { OWN } from './lift';
+export { sings } from './score-context';
 export { planned, type Plan, type SectionKind, type TempoMark } from './section';

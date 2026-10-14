@@ -354,6 +354,7 @@ body.loading .when-loading {
 }
 
 /* Each section type's colour. */
+.sec-swell,
 .sec-intro,
 .sec-outro,
 .sec-finale {

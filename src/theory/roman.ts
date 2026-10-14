@@ -1,3 +1,4 @@
+import { cycle } from '../lib/math';
 import { PitchClass } from './pitch';
 import { LITERAL_SUFFIXES, MODES, NUMERALS, type ChordClass, type ChordSymbol, type NumeralName } from './tables';
 import type { Chord } from './chord';
@@ -36,10 +37,13 @@ export class Roman {
 
   // Semitones above the tonic of a numeral, sharpened or flattened.
   private static numeral(acc: string, numeral: string): number {
-    let accOffset = 0;
-    if (acc === 'b') accOffset = -1;
-    else if (acc === '#') accOffset = 1;
-    return NUMERALS[numeral.toLowerCase() as NumeralName] + accOffset;
+    return NUMERALS[numeral.toLowerCase() as NumeralName] + Roman.accidental(acc);
+  }
+
+  // The semitones a sharp or flat (or neither) moves a note.
+  private static accidental(acc: string): number {
+    if (acc === '#') return 1;
+    return acc === 'b' ? -1 : 0;
   }
 
   // What follows a slash: a numeral, or an interval as a step number.
@@ -50,7 +54,7 @@ export class Roman {
     if (!step) throw new Error(`Not a slash bass: ${text}`);
     const [, acc, digits] = step;
     const n = Number(digits) - 1;
-    const semis = MODES.major[n % 7] + (acc === '#' ? 1 : acc === 'b' ? -1 : 0);
+    const semis = MODES.major[n % 7] + Roman.accidental(acc);
     return { interval: PitchClass.of(semis), ...(acc === '' && n % 7 === 2 ? { ownThird: true as const } : {}) };
   }
 
@@ -109,7 +113,7 @@ export class Template {
 
   /** `n` bars of the template, repeating it as needed. */
   fit(n: number): Roman[][] {
-    return Array.from({ length: n }, (_, i) => this.bars[i % this.bars.length]);
+    return cycle(this.bars, n);
   }
 
   /**

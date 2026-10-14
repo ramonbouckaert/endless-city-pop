@@ -7,7 +7,7 @@
 import type { Odds } from '../lib/random';
 import type { SongEnding } from './form';
 import { PRE_MELODIES, type MelodyStyle } from './melody';
-import type { GroovePlan } from './rhythm';
+import { RIDE_ALONE, type GroovePlan } from './rhythm';
 
 export interface Variant {
   weight: number;
@@ -32,11 +32,11 @@ export type IntroTexture =
 export const INTRO_TEXTURES: Variants<IntroTexture, Grooved> = {
   pads: {
     weight: 1,
-    groove: { drums: { feels: { introRide: 1 }, crash: 0, fill: 0 }, bass: { pedal: 1, halfTime: 1 } },
+    groove: { drums: RIDE_ALONE, bass: { pedal: 1, halfTime: 1 } },
   },
   keys: {
     weight: 1,
-    groove: { drums: { feels: { introRide: 1 }, crash: 0, fill: 0 }, bass: { pedal: 1, halfTime: 1 } },
+    groove: { drums: RIDE_ALONE, bass: { pedal: 1, halfTime: 1 } },
   },
   groove: {
     weight: 1,
@@ -69,7 +69,7 @@ export const INTRO_TEXTURES: Variants<IntroTexture, Grooved> = {
   // and holding the last chord (RUBATO); a free intro's always.
   rubato: {
     weight: 0.5,
-    groove: { drums: { feels: { introRide: 1 }, crash: 0, fill: 0 }, bass: { pedal: 1 } },
+    groove: { drums: RIDE_ALONE, bass: { pedal: 1 } },
   },
 };
 
@@ -78,9 +78,11 @@ export const INTRO_TEXTURES: Variants<IntroTexture, Grooved> = {
 export const RUBATO = { bar: 0.75, beat: 0.6, hold: 0.45 };
 
 // How a verse is played: the band in full; sparse, bass, side-stick and
-// soft keys under the lead; or building, the band coming in through it,
-// a part at a time, into the chorus (RIDE ON TIME's).
-export type VerseTexture = 'full' | 'sparse' | 'build';
+// soft keys under the lead; building, the band coming in through it, a
+// part at a time, into the chorus (RIDE ON TIME's); or the keys alone
+// under the lead (Oh No, Oh Yes!'s piano: only in a song leaning towards
+// a ballad, its weight scaled by how far, BALLAD).
+export type VerseTexture = 'full' | 'sparse' | 'build' | 'alone';
 export const VERSE_TEXTURES: Variants<VerseTexture, Grooved> = {
   full: {
     weight: 4,
@@ -99,6 +101,11 @@ export const VERSE_TEXTURES: Variants<VerseTexture, Grooved> = {
   build: {
     weight: 1.5,
     groove: { drums: { feels: { funk: 1, disco: 1 }, crash: 0, fill: 1 }, bass: { funk: 1, disco: 1, drive: 1 } },
+  },
+  // (Its weight fully leaning; its drums never play; its bass joins in later verses.)
+  alone: {
+    weight: 2,
+    groove: { drums: RIDE_ALONE, bass: { pedal: 1, ballad: 1 } },
   },
 };
 
@@ -178,9 +185,10 @@ export const SOLO_COMPS: Variants<SoloComp, Grooved> = {
 
 // What changes a solo is played over: the mode's own solo changes
 // (pairs cycling through keys, SoloChangesWriter); one of the song's own
-// progressions looped (as most real songs do): the chorus's, the verse's
-// (in a song with verses), the intro's or the vamp's; or an interlude, a
-// vamp in a borrowed key (a bridge's), leading home.
+// progressions looped (as most real songs do): the chorus's (in a song
+// with a chorus), the verse's (in a song with verses), the intro's or the
+// vamp's; or an interlude, a vamp in a borrowed key (a bridge's), leading
+// home.
 export type SoloOver = 'cycle' | 'chorus' | 'verse' | 'intro' | 'vamp' | 'interlude';
 export const SOLO_OVER: Odds<SoloOver> = { cycle: 3, chorus: 3, verse: 2, intro: 1, vamp: 2, interlude: 1 };
 
@@ -192,23 +200,29 @@ export const LIFT_STYLES: Odds<LiftStyle> = { horns: 3, stops: 2, drop: 2, run: 
 
 // How the song winds down: before the finale, the intro's chords again,
 // quietly, or a pared-back vamp (ride or half-time drums) while two
-// soloists trade two-bar lines, each getting two turns; in a song that
-// fades out, two soloists trading, a coda (a soloist over its two-bar
-// approach home, never landing), or a loop of the verse's chords under a
-// new hook. Picked with the form, as it sets the outro's length; `ends`
-// is the ending it may lead to.
-export type OutroStyle = 'reprise' | 'trade' | 'coda' | 'loop';
-export const OUTRO_STYLES: Variants<OutroStyle, Grooved & { bars: number; ends: readonly SongEnding[] }> = {
+// soloists trade two-bar lines, each getting two turns; before the
+// finale or fading out, a coda (a soloist over its two-bar approach home,
+// never landing: before the finale, fifteen bars end on its ii,
+// Sparkle's), or a soloist over a cadence home looping (one of the key's
+// outro templates: Summer Suspicion's bVI-V+-i); in a song that fades
+// out, two soloists trading, a loop of the verse's chords under a new
+// hook, or the chorus's chords looping with a soloist over them in place
+// of the lead (Sea Line's trombone). Picked with the form, as it sets the
+// outro's length: `bars`, the lengths it may have before each ending it
+// may lead to.
+export type OutroStyle = 'reprise' | 'trade' | 'coda' | 'cadence' | 'loop' | 'obbligato';
+export const OUTRO_STYLES: Variants<
+  OutroStyle,
+  Grooved & { bars: Readonly<Partial<Record<SongEnding, readonly number[]>>> }
+> = {
   reprise: {
     weight: 1,
-    bars: 4,
-    ends: ['finale'],
+    bars: { finale: [4] },
     groove: { drums: { feels: { introRide: 1, halfTime: 1 }, crash: 1, fill: 0 }, bass: { pedal: 1 } },
   },
   trade: {
     weight: 1,
-    bars: 8,
-    ends: ['finale', 'fade'],
+    bars: { finale: [8], fade: [8] },
     groove: {
       drums: { feels: { introRide: 1, halfTime: 1, bossa: 1 }, crash: 0, fill: 1 },
       bass: { halfTime: 1, pedal: 1, bossa: 1 },
@@ -216,38 +230,82 @@ export const OUTRO_STYLES: Variants<OutroStyle, Grooved & { bars: number; ends: 
   },
   coda: {
     weight: 1,
-    bars: 16,
-    ends: ['fade'],
+    bars: { finale: [16, 15], fade: [16] },
     groove: {
       drums: { feels: { funk: 2, disco: 1 }, crash: 1, fill: 0.5 },
       bass: { funk: 2, disco: 1, pop: 1 },
     },
   },
+  cadence: {
+    weight: 0.7,
+    bars: { finale: [8, 12], fade: [8, 12] },
+    groove: {
+      drums: { feels: { halfTime: 2, funk: 1 }, crash: 1, fill: 0.5 },
+      bass: { halfTime: 1, pedal: 1 },
+    },
+  },
   loop: {
     weight: 1,
-    bars: 16,
-    ends: ['fade'],
+    bars: { fade: [16] },
     groove: {
       drums: { feels: { funk: 1, disco: 1 }, crash: 1, fill: 0.5 },
       bass: { funk: 1, disco: 1, riff: 1 },
     },
   },
+  obbligato: {
+    weight: 0.7,
+    bars: { fade: [16] },
+    groove: {
+      drums: { feels: { funk: 2, disco: 2, halfTime: 1 }, crash: 1, fill: 0.5 },
+      bass: { funk: 2, disco: 1, push: 1 },
+    },
+  },
 };
 
 // How the last chord rings out: voices stacking up it one by one, band
-// hits, a slide down from a semitone above, or a run up it.
-export type FinaleStyle = 'cascade' | 'hits' | 'slide' | 'run' | 'fermata';
-export const FINALE_STYLES: Odds<FinaleStyle> = { cascade: 3, hits: 2, slide: 2, run: 2, fermata: 1.5 };
+// hits, a slide down from a semitone above, a run up it, a fermata, or
+// (onto the tonic suspended) a bar of the bIImaj7#11 above it first, the
+// neapolitan (J-Cycle's ending, Oh No, Oh Yes!'s colour).
+export type FinaleStyle = 'cascade' | 'hits' | 'slide' | 'run' | 'fermata' | 'neapolitan';
+export const FINALE_STYLES: Odds<FinaleStyle> = {
+  cascade: 3,
+  hits: 2,
+  slide: 2,
+  run: 2,
+  fermata: 1.5,
+  // (Only ever against the others that suit the tonic suspended, FINALE_SUITS.)
+  neapolitan: 3.3,
+};
 
 // What the last chord is: the key's own final chord; in a minor key, a
 // major one (a picardy third, Plastic Love's); or one left open: the
 // tonic suspended (sus2, or a 9sus: J-Cycle's I7sus), the ii (add9; in a
 // minor key, the tonic suspended instead), the V suspended, or the first
-// chord of the section before, as if it went round again. Only the tonic
-// slides or ends on a fermata (FINALE_STYLES), whose figures resolve it.
-export type FinaleChord = 'tonic' | 'picardy' | 'sus' | 'ii' | 'V' | 'section';
-export const FINALE_CHORDS: Odds<FinaleChord> = { tonic: 6, picardy: 0.7, sus: 1.5, ii: 1, V: 1, section: 1 };
-export const RESOLVED_FINALES: readonly FinaleStyle[] = ['slide', 'fermata'];
+// chord of the section before, as if it went round again; or (only after
+// the riff played to the end, Flyday Chinatown's) the bare tonic, root
+// and fifth, always hit.
+export type FinaleChord = 'tonic' | 'picardy' | 'sus' | 'ii' | 'V' | 'section' | 'unison';
+export const FINALE_CHORDS: Odds<FinaleChord> = { tonic: 6, picardy: 0.7, sus: 2.2, ii: 1, V: 1, section: 1 };
+// The last chords some styles suit (a style not named here suits any):
+// only the tonic slides or ends on a fermata, whose figures resolve it;
+// the neapolitan slides onto the tonic suspended.
+export const FINALE_SUITS: Readonly<Partial<Record<FinaleStyle, readonly FinaleChord[]>>> = {
+  slide: ['tonic'],
+  fermata: ['tonic'],
+  neapolitan: ['sus'],
+};
+// What the last chord is after some outros, in place of FINALE_CHORDS:
+// after a coda, its own first chord (its ii, as Sparkle's ends), the ii,
+// or at last the tonic; after a cadence, the tonic suspended (Summer
+// Suspicion's) or the tonic.
+export const FINALE_AFTER: Readonly<Partial<Record<OutroStyle, Odds<FinaleChord>>>> = {
+  coda: { section: 2, ii: 1, tonic: 2 },
+  cadence: { sus: 2, tonic: 2 },
+};
+// How often a last chord (but a fermata's) is rung out slower, the tempo
+// easing to `scale`'s first then its second halfway through its first
+// bar (Sparkle's, 102 down to 71).
+export const FINALE_EASE = { chance: 0.3, scale: [0.85, 0.7] as const };
 
 // How a short bar plays: a 2/4 break, the band hitting the next chord
 // then a snare pickup, or the drums round the toms; a 1/4 pickup on the

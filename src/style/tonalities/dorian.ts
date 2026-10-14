@@ -89,6 +89,8 @@ export const DORIAN: TonalityDef = {
       'bVIImaj7 bVIImaj7 IV7 IV7',
       'IV7sus IV7sus IV7sus IV7',
     ],
+    // Cadences home looped as an outro.
+    outro: ['bVIImaj7 bVIImaj7 i7 i7 bVIImaj7 IV7 i7 i7', 'IV7 IV7 i7 i7'],
   },
   pre: {
     climb: [

@@ -7,6 +7,21 @@ export type Odds<K extends string> = Readonly<Partial<Record<K, number>>>;
 /** A [lo, hi) range to roll a number in. */
 export type Range = readonly [number, number];
 
+/** Two sets of choices as one: `a`'s weights scaled by 1 - t, `b`'s by t. */
+export function blend<T>(a: Weighted<T>, b: Weighted<T>, t: number): Weighted<T> {
+  return [...a.map(([item, w]) => [item, w * (1 - t)] as const), ...b.map(([item, w]) => [item, w * t] as const)];
+}
+
+/** Just the choices of a record (Odds, or Variants) that `keep` keeps. */
+export function only<K extends string, V>(
+  choices: Readonly<Partial<Record<K, V>>>,
+  keep: (key: K, value: V) => boolean,
+): Readonly<Partial<Record<K, V>>> {
+  return Object.fromEntries(
+    Object.entries<V | undefined>(choices).filter(([k, v]) => v !== undefined && keep(k as K, v)),
+  ) as Partial<Record<K, V>>;
+}
+
 // Hash any string into a 32-bit seed (xmur3).
 function hashSeed(text: string): number {
   let h = 1779033703 ^ text.length;
@@ -66,14 +81,15 @@ export class Rng {
     return items.length === 1 ? items[0] : items[Math.floor(this.next() * items.length)];
   }
 
-  weighted<T>(entries: Weighted<T>): T {
+  // (Choices weighing nothing are never picked.)
+  weighted<T>(choices: Weighted<T>): T {
+    const entries = choices.filter(([, w]) => w > 0);
+    if (!entries.length) throw new Error('Nothing to choose from');
     if (entries.length === 1) return entries[0][0];
     const total = entries.reduce((sum, [, w]) => sum + w, 0);
     let r = this.next() * total;
     for (const [item, w] of entries) if ((r -= w) < 0) return item;
-    const last = entries.at(-1);
-    if (!last) throw new Error('Nothing to choose from');
-    return last[0];
+    return entries.at(-1)![0];
   }
 
   /** A key of a record, weighted by its entry (Odds) or its entry's `weight`, other than `except`. */

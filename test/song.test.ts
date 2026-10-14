@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Chorus, DrumBreak, Finale, Intro, PreChorus, ShortBar, Song, Vamp, Verse } from '../src/engine';
+import { Chorus, DrumBreak, Finale, Intro, PreChorus, ShortBar, Song, Swell, Vamp, Verse } from '../src/engine';
 import { BALLAD, BALLAD_FEELS, TONALITIES } from '../src/style';
 import { CHORDS, MODES, type Mode } from '../src/theory';
 import { defined, materials } from './helpers';
@@ -24,8 +24,8 @@ describe('Song', () => {
       }
       for (const s of song.form) expect(materials(song)).toHaveProperty([s.part]);
       const kinds = song.form.sections.map((s) => s.kind);
-      // Its intros (if any) open it, after a pickup at most.
-      const intros = kinds.flatMap((k, i) => (k === Intro ? [i] : []));
+      // Its intros (and a swell before them, if any) open it, after a pickup at most.
+      const intros = kinds.flatMap((k, i) => (k === Intro || k === Swell ? [i] : []));
       intros.forEach((at, i) => expect(at).toBe(i + Number(kinds[0] === ShortBar)));
       // It ends on the finale, or fades out over its last sections (and has no finale).
       const fades = song.form.fadeFrom !== undefined;
@@ -36,12 +36,14 @@ describe('Song', () => {
         expect(song.form.sections.slice(from).every((s) => s.fade)).toBe(true);
         expect(song.bars - defined(song.form.fadeFrom, 'a fade')).toBeGreaterThanOrEqual(12);
       } else expect(kinds.at(-1)).toBe(Finale);
-      expect(kinds).toContain(Chorus);
+      // It has a chorus, or (Sparkle's way) verses and their B.
+      if (!kinds.includes(Chorus)) expect(kinds).toEqual(expect.arrayContaining([Verse, PreChorus]));
       // A pre-chorus only follows a verse; every chorus is as long as the others.
       if (!kinds.includes(Verse)) expect(kinds).not.toContain(PreChorus);
       const choruses = song.form.ofType(Chorus);
-      expect(new Set(choruses.filter((c) => !c.half).map((c) => c.bars)).size).toBe(1);
-      expect(choruses.at(-1)?.big).toBe(true);
+      if (choruses.length) expect(new Set(choruses.filter((c) => !c.half).map((c) => c.bars)).size).toBe(1);
+      // The last chorus has everything.
+      if (choruses.length) expect(choruses.at(-1)?.big).toBe(true);
       const brk = kinds.indexOf(DrumBreak);
       if (brk >= 0) expect(kinds[brk + 1]).not.toBe(Finale);
       expect(song.describe().bars).toBe(song.bars);
@@ -105,13 +107,15 @@ describe('Song', () => {
     ).toBe(true);
   });
 
-  it('writes some songs as ballads: slow, swung in eighths, eased grooves, easing back each phrase', () => {
-    const ballads = Array.from({ length: 300 }, (_, i) => Song.generate(`ballad${i}`)).filter((s) => s.traits.ballad);
-    expect(ballads.length).toBeGreaterThan(300 * BALLAD.chance * 0.5);
+  it('leans slower songs towards ballads: swung in eighths, eased grooves, easing back each phrase', () => {
+    const songs = Array.from({ length: 400 }, (_, i) => Song.generate(`ballad${i}`));
+    const [slowest, fastest] = BALLAD.tempo;
+    const ballads = songs.filter((s) => s.bpm <= slowest);
+    const between = songs.filter((s) => s.bpm > slowest && s.bpm < fastest);
+    expect(ballads.length).toBeGreaterThan(5);
+    // Fully leaning: everything a ballad does.
     let paired = 0;
     for (const song of ballads) {
-      expect(song.bpm).toBeGreaterThanOrEqual(BALLAD.tempo[0]);
-      expect(song.bpm).toBeLessThanOrEqual(BALLAD.tempo[1]);
       expect(song.swingUnit).toBe(8);
       expect(song.traits.lock).toBe(false);
       expect(song.form.first(DrumBreak)).toBeUndefined();
@@ -125,8 +129,25 @@ describe('Song', () => {
       const chorus = defined(song.part(Chorus), 'a chorus');
       if (song.traits.paired && chorus.bars.slice(0, 8).every((bar) => bar.length === 2)) paired++;
       // Easing back at the end of a four-bar phrase.
+      expect(song.traits.ritard).toBe(BALLAD.ritard);
       expect(song.timeline.tempoChanges.some((t) => Math.abs(t.bpm - song.bpm * BALLAD.ritard) < 1e-9)).toBe(true);
     }
     expect(paired).toBeGreaterThan(0);
+    // Not leaning at all: none of it.
+    for (const song of songs.filter((s) => s.bpm >= fastest)) {
+      expect(song.swingUnit).toBe(16);
+      expect(song.traits.ritard).toBeUndefined();
+      expect(song.traits.paired).toBeUndefined();
+    }
+    // In between, some of it: each rolled on its own.
+    expect(new Set(between.map((s) => s.swingUnit))).toEqual(new Set([8, 16]));
+    expect(between.some((s) => (s.swingUnit === 8) !== (s.traits.ritard !== undefined))).toBe(true);
+    for (const song of between) if (song.traits.ritard) expect(song.traits.ritard).toBeGreaterThan(BALLAD.ritard);
+    // Its melodies in longer notes: fewer notes a bar, the slower it is.
+    const perBar = (group: readonly Song[]) => {
+      const bars = group.flatMap((song) => song.part(Verse)?.melody.bars ?? []);
+      return bars.reduce((n, notes) => n + notes.length, 0) / bars.length;
+    };
+    expect(perBar(ballads)).toBeLessThan(perBar(songs.filter((s) => s.bpm >= fastest)) * 0.85);
   });
 });

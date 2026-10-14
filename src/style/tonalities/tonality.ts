@@ -24,11 +24,23 @@ export class Tonality {
     return bridge;
   }
 
-  /** A pre-chorus flavour's templates: those `bars` long, if there are any, else all of them. */
+  /**
+   * A pre-chorus flavour's templates: those that fill `bars` in whole
+   * repeats, once or twice over (a four-bar one twice in eight) if any
+   * do, else up to four times (a four-bar one in sixteen); else all of
+   * them.
+   */
   preTemplates(flavour: PreFlavour, bars: number): readonly string[] {
     const options = this.pre[flavour];
-    const fitting = options.filter((t) => new Template(t).length === bars);
-    return fitting.length ? fitting : options;
+    const fills = (t: string, most: number) => {
+      const { length } = new Template(t);
+      return bars % length === 0 && bars / length <= most;
+    };
+    for (const most of [2, 4]) {
+      const fitting = options.filter((t) => fills(t, most));
+      if (fitting.length) return fitting;
+    }
+    return options;
   }
 
   /** A named turnaround into the key's tonic. */

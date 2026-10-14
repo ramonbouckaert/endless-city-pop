@@ -55,7 +55,7 @@ export class PreChorus extends PlayedSection<PreChorusMaterial> {
     switch (this.material.variant) {
       case 'pedal':
         // Long notes over a held bass, strings swelling.
-        return [drums, riser, B, band.softKeysUnder(C), ctx.swell(0.14), lead, later && band.choir(C)];
+        return [drums, riser, B, band.softKeysUnder(C), band.swell(C, 0.14), lead, later && band.choir(C)];
       case 'drop':
         // The drums drop out, then come back halfway.
         return [

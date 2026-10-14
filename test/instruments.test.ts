@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Song } from '../src/engine';
 import { GM, type Program } from '../src/lib/general-midi';
-import { BALLAD_KITS, BAND, KITS, PICKS, SOUND_LEVELS, VOICES, type PickedPart } from '../src/style';
+import { BALLAD, BALLAD_KITS, BAND, KITS, PICKS, SOUND_LEVELS, VOICES, type PickedPart } from '../src/style';
 import { defined } from './helpers';
 
 describe('instruments', () => {
@@ -74,11 +74,15 @@ describe('instruments', () => {
     }
   });
 
-  it("plays each song on one of the soundfont's drum kits (a ballad's, for a ballad)", () => {
+  it("plays each song on one of the soundfont's drum kits (perhaps a ballad's, for a slow one)", () => {
     const kits = KITS.map(([k]) => k);
     const ballads = BALLAD_KITS.map(([k]) => k);
-    for (const song of songs) expect(song.traits.ballad ? ballads : kits).toContainEqual(song.instruments.kit);
-    expect(new Set(songs.filter((s) => !s.traits.ballad).map((s) => s.instruments.kit))).toEqual(new Set(kits));
+    const slow = (song: Song) => song.bpm <= BALLAD.tempo[0];
+    const fast = (song: Song) => song.bpm >= BALLAD.tempo[1];
+    for (const song of songs) {
+      expect(slow(song) ? ballads : fast(song) ? kits : [...kits, ...ballads]).toContainEqual(song.instruments.kit);
+    }
+    expect(new Set(songs.filter(fast).map((s) => s.instruments.kit))).toEqual(new Set(kits));
     for (const { program } of [...kits, ...ballads]) expect(program).toBeGreaterThanOrEqual(0);
   });
 });

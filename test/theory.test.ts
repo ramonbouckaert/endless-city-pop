@@ -68,6 +68,16 @@ describe('music', () => {
     expect(Roman.parse('V7')).toMatchObject({ offset: 7, cls: 'dom' });
     expect(Roman.parse('#iv°')).toMatchObject({ offset: 6, cls: 'dim' });
     expect(Roman.parse('viiø')).toMatchObject({ offset: 11, cls: 'hdim' });
+    expect(Roman.parse('bVmaj7')).toMatchObject({ offset: 6, cls: 'maj' });
+    // Exact colours: an altered dominant, a plain sus4 or sus2 triad on a minor numeral.
+    expect(Roman.parse('VII7alt')).toMatchObject({ offset: 11, cls: 'dom', symbol: '7alt' });
+    expect(Roman.parse('isus')).toMatchObject({ offset: 0, cls: 'sus', symbol: 'sus' });
+    expect(Roman.parse('isus2')).toMatchObject({ symbol: 'sus2' });
+    // ANRI's tag in E minor: B7/D#, G/D, A7/C#.
+    const em = new Key(4, 'minor');
+    expect(Roman.parse('V7/3').bassOf(em, new Chord(11, '7'))).toBe(3);
+    expect(Roman.parse('bIII/5').bassOf(em, new Chord(7, ''))).toBe(2);
+    expect(Roman.parse('IV7/3').bassOf(em, new Chord(9, '7'))).toBe(1);
   });
 
   it('spells chromatic notes as flattened degrees', () => {

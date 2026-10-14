@@ -40,10 +40,12 @@ export const LIFT_TURNAROUNDS: Readonly<Record<string, Turnaround>> = {
 };
 
 // Jazz-funk in a major key: ii-V-I, secondary dominants, borrowed iv
-// (and iv6, and the bVII7 backdoor); slash chords (the Pachelbel bass
-// line, IV over I's third, IV/V for a V11, II/I's lydian vamp); dominant
-// chains round the circle, a ii-V to bII, maj7s planing down by
-// semitones, and passing #ivm7, #i° and III7#5.
+// (and iv6, the bVII7 backdoor and a minor i); slash chords (the
+// Pachelbel bass line, IV over I's third, IV/V for a V11, II/I's lydian
+// vamp); dominant chains round the circle, a ii-V to bII, maj7s planing
+// down by semitones, passing #ivm7, #i° and III7#5, a deceptive VII7alt
+// into I6, an altered V held as a pedal, and Sparkle's chromatic B (V/V
+// over its third, a passing diminished, III7#5, iv6, #ivø).
 export const MAJOR: TonalityDef = {
   tonics: [5, 10, 3, 0, 7, 2, 4, 9], // F Bb Eb C G D E A
   tonic: 'maj',
@@ -79,6 +81,10 @@ export const MAJOR: TonalityDef = {
       'Imaj7 iii7 IVmaj7 iv7 iii7 VI7 ii7 V7',
       'ii7 iii7 IVmaj7 V7 ii7 iii7 IVmaj7 V7sus',
       'IVmaj7 Imaj7 IVmaj7 Imaj7 vi7 iii7 ii7 V7sus',
+      // The backdoor, a chain of dominants and a borrowed minor i (Last Summer Whisper's).
+      'IVmaj7 bVII7 VI7 II7 ii7 V7 i7 [ii7 V7]',
+      // V/iii's altered dominant resolving deceptively to I6, and iv to close (Sea Line's).
+      'IVmaj7 [IVmaj7 VII7alt] I6 vi7 IVmaj7 iii7 IVmaj7 iv7',
     ],
     chorus: [
       'IVmaj7 I/3 ii7 IV/V IVmaj7 I/3 ii7 IV/V',
@@ -145,7 +151,11 @@ export const MAJOR: TonalityDef = {
       'ii7 bII7',
       'Imaj7 iii7 IVmaj7 V7sus',
       'IVmaj7 iv7 iii7 VI7',
+      // An altered dominant held two bars before the song comes in (Tokai's).
+      'IVmaj7 iv7 V7alt V7alt',
     ],
+    // Cadences home looped as an outro.
+    outro: ['IVmaj7 IVmaj7 Imaj7 Imaj7 IVmaj7 V7sus Imaj7 Imaj7', 'IVmaj7 V7sus Imaj7 vi7'],
   },
   pre: {
     climb: [
@@ -157,6 +167,10 @@ export const MAJOR: TonalityDef = {
       'IVmaj7 #iv° V7sus V7',
       'ii7 [iii7 IVmaj7] V7sus V7',
       'Imaj7 ii7 iii7 IVmaj7 #iv° V7sus',
+      // Secondary dominants into vi and back (Stay With Me's).
+      '[ii7 III7] [vi7 V7] [IVmaj7 III7] [ii7 V7]',
+      // The bass falling chromatically under inversions and borrowed chords (Sparkle's B).
+      'II7/3 iv° III7#5 iv6 I/5 #ivø [ii7 IVmaj7] IV/V',
     ],
     pedal: [
       'IV/V IV/V IV/V V7',
@@ -166,6 +180,7 @@ export const MAJOR: TonalityDef = {
       'ii7 ii7 V7sus V7sus',
       'V7sus V7',
       'bVImaj7 bVImaj7 bVII7 V7sus',
+      'IVmaj7 IVmaj7 V7alt V7alt',
     ],
     drop: ['IVmaj7 iii7 ii7 V7sus', 'vi7 IVmaj7 ii7 V7sus', 'IVmaj7 V7 iii7 vi7 ii7 V7sus', 'IVmaj7 iv7 ii7 V7sus'],
     stops: [

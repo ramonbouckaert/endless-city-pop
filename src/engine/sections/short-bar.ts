@@ -60,7 +60,7 @@ export class ShortBar extends Section<ShortBarMaterial> {
         const hit = [{ time: 0, dur: 1 / 8 }];
         const chord = new Changes([{ time: 0, dur: len, chord: into }], len);
         return [
-          band.kit([PERCUSSION.kick, PERCUSSION.crash], [{ ...hit[0], gain: 0.5 }]),
+          band.kickCrash(0, 1 / 8),
           band.keys(chord, hit),
           band.stabs(chord, hit),
           band.bass([{ ...hit[0], note: into.bassMidi }]),

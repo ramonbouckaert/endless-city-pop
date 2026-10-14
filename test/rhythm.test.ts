@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { DrumBreak, Finale, HALF, ShortBar, Song } from '../src/engine';
+import { DrumBreak, Finale, HALF, ShortBar, Song, Swell, type AnySection } from '../src/engine';
 import { BASS_FEELS, WALKING_BASS } from '../src/style';
 import { partSections } from './helpers';
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => `seed${i}`);
+
+// The sections with drums: all but the finale, a short bar and a swell.
+type Drummed = Exclude<AnySection, Finale | ShortBar | Swell>;
+const drummed = (sec: AnySection): sec is Drummed =>
+  !(sec instanceof Finale || sec instanceof ShortBar || sec instanceof Swell);
+// The sections with drums and a bass line: all those but a drum break.
+const grooving = (sec: AnySection): sec is Exclude<Drummed, DrumBreak> => drummed(sec) && !(sec instanceof DrumBreak);
 
 describe('rhythm', () => {
   const songs = SEEDS.map((seed) => Song.generate(seed));
@@ -11,7 +18,7 @@ describe('rhythm', () => {
   it('gives every playing section drums with at least one part', () => {
     for (const song of songs) {
       for (const sec of partSections(song)) {
-        if (sec instanceof Finale || sec instanceof ShortBar) continue;
+        if (!drummed(sec)) continue;
         expect(sec.material.drums, sec.kind.label).toBeDefined();
         expect(sec.material.drums.parts.length, sec.kind.label).toBeGreaterThan(0);
       }
@@ -21,7 +28,7 @@ describe('rhythm', () => {
   it('gives each drum part exactly 4 bars of 16 steps', () => {
     for (const song of songs) {
       for (const sec of partSections(song)) {
-        if (sec instanceof Finale || sec instanceof ShortBar) continue;
+        if (!drummed(sec)) continue;
         for (const part of sec.material.drums.parts) {
           expect(part.bars).toHaveLength(4);
           for (const bar of part.bars) expect(bar).toHaveLength(16);
@@ -33,7 +40,7 @@ describe('rhythm', () => {
   it('produces well-formed fills', () => {
     for (const song of songs) {
       for (const sec of partSections(song)) {
-        if (sec instanceof Finale || sec instanceof ShortBar) continue;
+        if (!drummed(sec)) continue;
         for (const f of sec.material.drums.fills) {
           expect(f.start).toBeGreaterThanOrEqual(0);
           expect(f.start).toBeLessThan(16);
@@ -46,8 +53,7 @@ describe('rhythm', () => {
   it('gives every section with chords a bass line', () => {
     for (const song of songs) {
       for (const sec of partSections(song)) {
-        // The finale has the final chord but no bass line; a short bar, neither.
-        if (sec instanceof Finale || sec instanceof DrumBreak || sec instanceof ShortBar) continue;
+        if (!grooving(sec)) continue;
         expect(sec.material.bass.bars, sec.kind.label).toHaveLength(sec.material.bars.length);
         expect(sec.material.bass.bars.flat().length, sec.kind.label).toBeGreaterThan(0);
       }
@@ -68,7 +74,7 @@ describe('rhythm', () => {
     for (const song of songs) {
       const { lock, riff, ostinato } = song.traits;
       for (const sec of partSections(song)) {
-        if (sec instanceof Finale || sec instanceof DrumBreak || sec instanceof ShortBar) continue;
+        if (!grooving(sec)) continue;
         const mat = sec.material;
         const kick = mat.drums.parts.find((p) => p.role === 'kick');
         const grooves = ['funk', 'disco', 'fusion', 'halfTime'].includes(mat.drums.feel);
@@ -90,22 +96,32 @@ describe('rhythm', () => {
     expect(seen).toEqual(new Set(['lock', 'riff', 'guitar']));
   });
 
-  it('walks a bass line in quarter notes, on the upright', () => {
+  it('walks a bass line in quarter notes (or eighths, each beat twice), on the upright', () => {
     const songs = Array.from({ length: 300 }, (_, i) => Song.generate(`walk${i}`));
     let walks = 0;
+    let eighths = 0;
     for (const song of songs) {
       for (const sec of song.form.sections) {
-        if (sec instanceof Finale || sec instanceof DrumBreak || sec instanceof ShortBar) continue;
+        if (!grooving(sec)) continue;
         if (sec.material.bass.feel !== 'walk') continue;
         walks++;
         expect(sec.sounds(song.instruments.sounds)?.bass).toBe(WALKING_BASS);
+        const unit = sec.material.bass.bars[0][0].len;
+        if (unit === 2) eighths++;
         for (const [b, notes] of sec.material.bass.bars.entries()) {
-          expect(notes.every((n) => n.len === 4 && n.start % 4 === 0)).toBe(true);
-          expect(notes).toHaveLength(4);
+          expect(notes.every((n) => n.len === unit && n.start % unit === 0)).toBe(true);
+          expect(notes).toHaveLength(16 / unit);
           expect(notes[0].start, `bar ${b}`).toBe(0);
+          // In eighths, each beat's note twice, but a chord's last beat, whose second eighth approaches the next.
+          const each = 16 / sec.material.bars[b].length;
+          for (let beat = 0; unit === 2 && beat < 4; beat++) {
+            if (((beat + 1) * 4) % each) expect(notes[beat * 2].degree).toEqual(notes[beat * 2 + 1].degree);
+          }
         }
       }
     }
     expect(walks).toBeGreaterThan(5);
+    expect(eighths).toBeGreaterThan(0);
+    expect(eighths).toBeLessThan(walks);
   });
 });

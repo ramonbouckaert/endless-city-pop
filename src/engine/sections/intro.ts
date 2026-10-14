@@ -1,11 +1,16 @@
 // The intro's chords in one of its textures, with the hook as a teaser,
 // or perhaps a riff of its own; the teaser (if any) on bells over the top.
-// A free intro, before the intro in time, plays the hook's chords out of
-// tempo (rubato) under its teaser.
+// An intro a bar longer than its phrases (five bars, or nine) ends on a
+// bar of its key's approach home, the teaser resting over it. A free
+// intro, before the intro in time, plays the hook's chords out of tempo
+// (rubato) under its teaser.
 
+import type { Rng } from '../../lib/random';
+import { cycle } from '../../lib/math';
 import { INTRO, INTRO_TEXTURES, MELODIES, RUBATO, RUN_INTO, type IntroHarmony, type IntroTexture } from '../../style';
 import type { Melody } from '../writers';
 import type { NoteSpec, Part } from '../score';
+import type { Bar, Key } from '../../theory';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection, type Plan, type PlayedMaterial, type TempoMark } from './section';
@@ -51,24 +56,40 @@ export class Intro extends PlayedSection<IntroMaterial> {
           seashore: rng.fork('seashore').chance(INTRO.seashoreChance),
         };
       }
-      const { harmony, bars } = ctx.introBars();
+      const { harmony, bars: phrase, key } = ctx.introBars();
+      const { extended } = this;
+      const bars = extended ? this.homeward(phrase, key, ctx, rng.fork('dominant')) : phrase;
       // (After a free intro, never out of tempo again.)
       const variant = rng.weightedKey(INTRO_TEXTURES, ctx.plan.first(Intro)?.free ? 'rubato' : undefined);
       let melody: Melody | undefined;
-      if (harmony === 'hook') melody = ctx.hook().take(4);
-      else if (harmony === 'template' && rng.chance(INTRO.melodyChance))
+      if (harmony === 'hook') {
+        // (The hook's teaser rests over the bar of the approach home.)
+        const teaser = ctx.hook().take(4);
+        melody = extended ? teaser.looped(this.bars - 1, 1) : teaser;
+      } else if (harmony === 'template' && rng.chance(INTRO.melodyChance))
         melody = ctx.melody(MELODIES.riff, ctx.key, bars, rng.fork('melody'));
-      // Playing the hook, it is in the chorus's key.
-      const key = harmony === 'hook' ? ctx.chorusKey() : ctx.key;
       return {
         ...ctx.band(key, bars, INTRO_TEXTURES[variant].groove, rng.fork('groove')),
         harmony,
         variant,
         ...(melody ? { melody } : {}),
         run: rng.fork('run').chance(RUN_INTO),
-        seashore: QUIET.includes(variant) && rng.fork('seashore').chance(INTRO.seashoreChance),
+        seashore: QUIET.has(variant) && rng.fork('seashore').chance(INTRO.seashoreChance),
       };
     });
+  }
+
+  /** Whether it is a bar longer than its phrases (five bars, or nine), ending on a bar of the approach home. */
+  get extended(): boolean {
+    return !this.free && this.bars % 4 === 1;
+  }
+
+  // The intro's phrases, then a bar of their key's approach home. (A
+  // hook's, in the chorus's key, leads home through it: in a
+  // relative-major chorus, bVII-i.)
+  private homeward(phrase: readonly Bar[], key: Key, ctx: BuildContext, rng: Rng): Bar[] {
+    const [, home] = ctx.harmonizer(rng, key).approach();
+    return [...cycle(phrase, this.bars - 1), home];
   }
 
   // Rubato, out of tempo: each bar slower than the song, slowing into its
@@ -137,11 +158,11 @@ export class Intro extends PlayedSection<IntroMaterial> {
         // percussion coming in one at a time, and the band in for the last
         // bar, into its fill. (The bells have no room for a teaser.)
         const last = (p: Part) => p.mask(ctx.from(len - 1));
-        return [last(drums), band.ostinato(C), ctx.swell(0.12), ctx.layers(), last(underB)];
+        return [last(drums), band.ostinato(C), band.swell(C, 0.12), ctx.layers(), last(underB)];
       }
     }
   }
 }
 
 // The quiet textures, which may have waves on the shore under them.
-const QUIET: readonly IntroTexture[] = ['pads', 'rubato'];
+const QUIET: ReadonlySet<IntroTexture> = new Set(['pads', 'rubato']);

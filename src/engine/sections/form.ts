@@ -5,7 +5,6 @@
 
 import type { TempoChange } from '../../lib/timeline';
 import type { AnySection } from './index';
-import { BALLAD } from '../../style';
 import type { Plan, PlanOf, Section, SectionKind, TempoMark } from './section';
 
 /** Where the playhead is: the section, and how far through it (0..1). */
@@ -119,28 +118,30 @@ export class Form<S extends Placed = AnySection> implements Iterable<S> {
 
   /**
    * The song's tempo through the form: `bpm`, changed where a section
-   * slows or speeds up; in a ballad, easing back (BALLAD.ritard) through
-   * the last beat of each four-bar phrase of a section that keeps time.
+   * slows or speeds up; in a song that eases back, to `ritard` of it
+   * through the last beat of each four-bar phrase of a section that keeps
+   * time.
    */
-  tempos(this: Form<AnySection>, bpm: number, ballad = false): TempoChange[] {
+  tempos(this: Form, bpm: number, ritard?: number): TempoChange[] {
     const marks = this.sections.flatMap((sec, i) => {
-      const own = sec.tempo.length ? sec.tempo : ballad ? Form.ritards(sec.bars) : [];
+      const eased = ritard ? Form.ritards(sec.bars, ritard) : [];
+      const own = sec.tempo.length ? sec.tempo : eased;
       return own.map(({ at, scale }) => ({ at: this.starts[i] + at, bpm: bpm * scale }));
     });
     // (A section opening the song out of tempo sets the first tempo.)
     return [marks.find((m) => m.at === 0) ?? { at: 0, bpm }, ...marks.filter((m) => m.at > 0)];
   }
 
-  // A ballad section's ritardandos: the last beat of each four bars eased back.
-  private static ritards(bars: number): TempoMark[] {
+  // A section's ritardandos: the last beat of each four bars eased back to `scale`.
+  private static ritards(bars: number, scale: number): TempoMark[] {
     return Array.from({ length: Math.floor(bars / 4) }, (_, p) => [
-      { at: p * 4 + 3.75, scale: BALLAD.ritard },
+      { at: p * 4 + 3.75, scale },
       { at: p * 4 + 4, scale: 1 },
     ]).flat();
   }
 
   /** Each section in a line: "chorus (+2) 8", "lift (to +2, ii-V) 2". */
-  describe(this: Form<AnySection>): string[] {
+  describe(this: Form): string[] {
     return this.sections.map((sec) => sec.describe());
   }
 }

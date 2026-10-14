@@ -128,10 +128,11 @@ export const TRITONE_SUB_SCALE = 'lydian:dominant';
 
 // Numeral suffixes that name their chord exactly, so a template keeps
 // that colour rather than drawing one: an upper-case numeral's, then a
-// lower-case one's ("iv6" is a minor sixth, "Iadd9" a plain add9).
+// lower-case one's ("iv6" is a minor sixth, "Iadd9" a plain add9,
+// "V7alt" an altered dominant, "isus" a plain sus4 triad).
 export const LITERAL_SUFFIXES: Readonly<Record<'upper' | 'lower', Readonly<Record<string, string>>>> = {
-  upper: { '6': '6', add9: 'add9', sus2: 'sus2' },
-  lower: { '6': 'm6', add9: 'madd9' },
+  upper: { '6': '6', add9: 'add9', sus2: 'sus2', '7alt': '7alt' },
+  lower: { '6': 'm6', add9: 'madd9', sus: 'sus', sus2: 'sus2' },
 };
 
 export const NUMERALS = { i: 0, ii: 2, iii: 4, iv: 5, v: 7, vi: 9, vii: 11 } as const satisfies Record<string, number>;

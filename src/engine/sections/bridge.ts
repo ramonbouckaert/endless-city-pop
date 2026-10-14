@@ -1,9 +1,9 @@
-// A related key's progression, then the cadence home, on an arpeggio and
-// strings, the lead doubled high on bells. (A key change after it is the
-// lift's to make.)
+// A related key's progression, then the cadence home (the key's approach,
+// or V/V and V suspended: BRIDGE), on an arpeggio and strings, the lead
+// doubled high on bells. (A key change after it is the lift's to make.)
 
 import type { Program } from '../../lib/general-midi';
-import { ADVENTUROUS, GROOVES, MELODIES, tonalityOf } from '../../style';
+import { ADVENTUROUS, BRIDGE, GROOVES, MELODIES, tonalityOf } from '../../style';
 import type { Sounds } from '../song';
 import type { Melody } from '../writers';
 import type { NoteSpec } from '../score';
@@ -30,7 +30,8 @@ export class Bridge extends PlayedSection<BridgeMaterial> {
       const key = ctx.harmonizer(rng.fork('key')).bridgeKey(ADVENTUROUS);
       const templates = tonalityOf(key.mode).bridges;
       const body = ctx.progress(rng.pick(templates), 6, rng.fork('harmony'), { key });
-      const cadence = ctx.harmonizer(rng.fork('cadence')).approach();
+      const home = ctx.harmonizer(rng.fork('cadence'));
+      const cadence = rng.fork('exit').chance(BRIDGE.susExit) ? home.into(BRIDGE.sus) : home.approach();
       const bars = [...body, ...cadence];
       const keys = ctx.swap(rng.fork('swap'));
       return {

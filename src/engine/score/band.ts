@@ -18,7 +18,7 @@ import {
 } from '../../style';
 import { Chord, Voicing } from '../../theory';
 import type { Instruments, SoundPath } from '../song';
-import { Part, scoreNote, spans, timed, type Changes, type NoteSpec, type Span } from './score';
+import { Part, rise, scoreNote, spans, timed, type Changes, type NoteSpec, type Span } from './score';
 
 /** A part that plays lines, at a gain (before its sound's trim). */
 export interface LineVoice {
@@ -72,6 +72,11 @@ export class ScoreBand {
   /** A crash cymbal at a time. */
   crash(time = 0): Part {
     return this.kit(PERCUSSION.crash, [{ time, dur: 1, gain: 0.2 }]);
+  }
+
+  /** The kick and a crash hit together, the band landing on a chord. */
+  kickCrash(time: number, dur: number, gain = 0.5): Part {
+    return this.kit([PERCUSSION.kick, PERCUSSION.crash], [{ time, dur, gain }]);
   }
 
   // A part's instrument on some notes at a level in the mix, trimmed for
@@ -188,6 +193,10 @@ export class ScoreBand {
   }
   strings(changes: Changes): Part {
     return this.chords('strings', changes, changes.spans, 'strings');
+  }
+  /** Strings swelling through the changes, up to `top`. */
+  swell(changes: Changes, top: number): Part {
+    return this.strings(changes).gain(rise(0.04, top, changes.bars));
   }
   choir(changes: Changes): Part {
     return this.chords('choir', changes, changes.spans, 'choir');

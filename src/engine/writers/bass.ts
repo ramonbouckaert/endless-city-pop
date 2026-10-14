@@ -8,6 +8,7 @@
 // feels ghost an octave pop after a note; a walking line has a way of
 // its own.
 
+import { along, lerp } from '../../lib/math';
 import type { Odds, Range, Rng } from '../../lib/random';
 import {
   BASS,
@@ -72,9 +73,7 @@ export class BassWriter {
   ) {
     this.feel = riff ? 'riff' : rng.weightedKey(feels);
     this.def = riff ? { ...BASS_FEELS.riff, cells: [riff] } : BASS_FEELS[this.feel];
-    const [slow, fast] = SONG.pace;
-    const pace = Math.min(1, Math.max(0, (bpm - slow) / (fast - slow)));
-    this.busy = 1 - BASS.tempoCalm * pace;
+    this.busy = lerp(1, 1 - BASS.tempoCalm, along(bpm, SONG.pace));
     this.density = rng.range(this.calmed(this.def.density));
     this.sync = rng.range(this.calmed(this.def.sync));
     this.octave = rng.range(this.def.octave);
@@ -84,7 +83,8 @@ export class BassWriter {
   }
 
   write(bars: Bar[]): BassLine {
-    if (this.def.walk) return new BassLine(this.feel, this.walk(bars));
+    const { walk } = this.def;
+    if (walk) return new BassLine(this.feel, this.walk(bars, this.rng.chance(walk.eighths)));
     const groove = this.groove();
     // The bars that push the next bar's root onto their last sixteenth
     // (never the last, so a looping line starts on its root).
@@ -125,8 +125,9 @@ export class BassWriter {
 
   // A walking line, a quarter note a beat: each chord's bass note on its
   // first beat, then steps through its scale towards the next chord's
-  // bass, the last beat approaching it.
-  private walk(bars: Bar[]): BassNote[][] {
+  // bass, the last beat approaching it. In `eighths`, each beat's note
+  // twice, the last eighth approaching the next chord.
+  private walk(bars: Bar[], eighths: boolean): BassNote[][] {
     return bars.map((bar, b) => {
       const next = bars[(b + 1) % bars.length][0];
       const each = 16 / bar.length;
@@ -134,12 +135,18 @@ export class BassWriter {
         const into = bar[c + 1] ?? next;
         const first = this.degree('R', chord);
         const dir = into.bassMidi >= chord.bassMidi ? 1 : -1;
-        return Array.from({ length: each / 4 }, (_, k): BassNote => {
+        const beats = each / 4;
+        return Array.from({ length: beats }, (_, k): BassNote[] => {
           const start = c * each + k * 4;
-          if (k === 0) return { start, len: 4, degree: first };
-          if (k === each / 4 - 1) return { start, len: 4, degree: this.approach(chord, into) };
-          return { start, len: 4, degree: { step: first.step + dir * k, alter: 0 } };
-        });
+          const last = k === beats - 1;
+          const on: Degree = k === 0 ? first : { step: first.step + dir * k, alter: 0 };
+          // The approach: the last beat (but a chord's only one), or in eighths its second eighth.
+          if (!eighths) return [{ start, len: 4, degree: last && k > 0 ? this.approach(chord, into) : on }];
+          return [
+            { start, len: 2, degree: on },
+            { start: start + 2, len: 2, degree: last ? this.approach(chord, into) : on },
+          ];
+        }).flat();
       });
     });
   }

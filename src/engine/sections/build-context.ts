@@ -5,9 +5,10 @@
 
 import type { Program } from '../../lib/general-midi';
 import { lazy } from '../../lib/lazy';
-import type { Odds, Rng } from '../../lib/random';
+import { only, type Odds, type Rng } from '../../lib/random';
 import {
   BALLAD_FEELS,
+  balladLean,
   BASS_WITH,
   CHORUS,
   CLAV,
@@ -57,6 +58,16 @@ export class BuildContext {
   /** How lush the song's chords are. */
   get colour(): Colour {
     return this.traits.colour;
+  }
+
+  /** How far the song's tempo leans it towards a ballad (0 to 1, BALLAD). */
+  get ballad(): number {
+    return balladLean(this.bpm);
+  }
+
+  /** Whether the song has a chorus (all but a verse-and-B song's). */
+  get choruses(): boolean {
+    return !!this.plan.first(Chorus);
   }
 
   /** A Harmonizer in the song's colour, in a key (the song's unless given). */
@@ -153,9 +164,9 @@ export class BuildContext {
     return rng.chance(SWAP.chance) ? rng.shuffle(SWAP.keys) : undefined;
   }
 
-  /** A melody in a style, in a key, over some chords. */
+  /** A melody in a style, in a key, over some chords: in longer notes, the further the song leans towards a ballad. */
   melody(style: MelodyStyle, key: Key, bars: Bar[], rng: Rng): Melody {
-    return new MelodyWriter(key, style, rng).write(bars);
+    return new MelodyWriter(key, style, rng, this.ballad).write(bars);
   }
 
   /**
@@ -163,12 +174,13 @@ export class BuildContext {
    * in a feel that sits with them: in a song whose kick follows its bass,
    * a grooving section's kick on the bass line's notes, and perhaps the
    * song's one bass riff. A grooving section plays the song's guitar
-   * figure, if it has one.
+   * figure, if it has one. The slower the song, the likelier a ballad's
+   * feels (BALLAD_FEELS).
    */
   band(key: Key, bars: Bar[], groove: GroovePlan, rng: Rng): PlayedMaterial {
-    const plan = this.traits.ballad ? balladGroove(groove) : groove;
+    const plan = easedGroove(groove, this.ballad);
     const drumWriter = new DrumWriter(plan.drums, rng.fork('drums'));
-    const grooves = LOCKED_FEELS.includes(drumWriter.feel);
+    const grooves = LOCKED_FEELS.has(drumWriter.feel);
     const { lock, riff, ostinato } = this.traits;
     const feels = bassFeels(plan.bass, drumWriter.feel);
     const bass = new BassWriter(feels, key, this.bpm, rng.fork('bass'), grooves ? riff : undefined).write(bars);
@@ -245,60 +257,74 @@ export class BuildContext {
   /** The vamp's chords (a trading outro's too). */
   readonly vampBars = lazy(() => this.loop(this.tonality.templates.vamp, this.shared.fork(`${Vamp.id}Harmony`)));
 
-  /** The intro's chords (a reprise's too): the hook's, planing chords, or a template of its own. */
-  readonly introBars = lazy((): { harmony: IntroHarmony; bars: Bar[] } => {
+  /**
+   * The intro's chords (a reprise's too), and their key: the hook's (in a
+   * song with a chorus, in the chorus's key), planing chords, or a
+   * template of its own.
+   */
+  readonly introBars = lazy((): { harmony: IntroHarmony; bars: Bar[]; key: Key } => {
     const rng = this.shared.fork(`${Intro.id}Harmony`);
-    const harmony = rng.weightedKey(INTRO.harmony);
-    if (harmony === 'hook') return { harmony, bars: this.chorusBars().slice(0, 4) };
-    if (harmony === 'planing') return { harmony, bars: this.harmonizer(rng.fork('planing')).planing() };
-    return { harmony, bars: this.progress(rng.pick(this.tonality.templates.intro), 4, rng.fork('harmony')) };
+    const harmony = rng.weightedKey(INTRO.harmony, this.choruses ? undefined : 'hook');
+    const { key } = this;
+    if (harmony === 'hook') return { harmony, bars: this.chorusBars().slice(0, 4), key: this.chorusKey() };
+    if (harmony === 'planing') return { harmony, bars: this.harmonizer(rng.fork('planing')).planing(), key };
+    return { harmony, bars: this.progress(rng.pick(this.tonality.templates.intro), 4, rng.fork('harmony')), key };
   });
 }
 
 // A quiet drum feel limits the bass to feels that suit it (any of them,
-// if none of the plan's does).
+// if none of the plan's that weigh anything does).
 function bassFeels(feels: Odds<BassFeel>, drums: DrumFeel): Odds<BassFeel> {
   const fits = BASS_WITH[drums];
   if (!fits) return feels;
-  const matching = Object.entries(feels).filter(([f]) => fits.includes(f as BassFeel));
-  return Object.fromEntries(matching.length ? matching : fits.map((f) => [f, 1]));
+  const matching = only(feels, (f, weight) => weight > 0 && fits.includes(f));
+  return Object.keys(matching).length ? matching : Object.fromEntries(fits.map((f) => [f, 1]));
 }
 
 /**
  * What a song does throughout: how lush its chords are; whether its kick
  * follows its bass line, and the one riff that bass plays all through
  * (a riff cell, BASS_FEELS), if it does; its signature guitar figure, if
- * it has one (only grooving sections, LOCKED_FEELS, play these); and
- * whether it is a ballad.
+ * it has one (only grooving sections, LOCKED_FEELS, play these); whether
+ * its verses and choruses move two chords a bar; and how far it eases
+ * back at the end of each four-bar phrase, if it does (the last two
+ * likelier, and the kick less likely to follow the bass, the slower the
+ * song: BALLAD).
  */
 export interface Traits {
   colour: Colour;
   lock: boolean;
   riff?: string;
   ostinato?: GuitarOstinato;
-  /** A ballad: every groove eased into a ballad's (BALLAD_FEELS); `paired`, its verses and choruses two chords a bar. */
-  ballad?: boolean;
   paired?: boolean;
+  /** The share of its tempo the last beat of each four-bar phrase eases back to. */
+  ritard?: number;
 }
 
 /** A song with none of the traits, lushly coloured. */
 export const PLAIN_TRAITS: Traits = { colour: 'lush', lock: false };
 
 // The drum feels that groove, where a song's traits play.
-const LOCKED_FEELS: readonly DrumFeel[] = ['funk', 'disco', 'fusion', 'halfTime'];
+const LOCKED_FEELS: ReadonlySet<DrumFeel> = new Set(['funk', 'disco', 'fusion', 'halfTime']);
 
 // A kick on every note a bass line starts in its first bar: louder on the beats.
 function kicksOf(bass: BassLine): StepGains {
   const starts = new Set((bass.bars[0] ?? []).map((n) => n.start).filter((s) => Number.isInteger(s) && s < 16));
-  return empty().map((_, i) => (starts.has(i) ? (i % 4 ? 0.6 : 0.75) : 0));
+  const gain = (i: number) => (i % 4 ? 0.6 : 0.75);
+  return empty().map((_, i) => (starts.has(i) ? gain(i) : 0));
 }
 
-// A section's groove eased into a ballad's (BALLAD_FEELS).
-function balladGroove({ drums, bass }: GroovePlan): GroovePlan {
-  const eased = <F extends string>(odds: Odds<F>, to: Readonly<Partial<Record<F, F>>>): Odds<F> =>
-    Object.entries(odds).reduce<Partial<Record<F, number>>>((out, [feel, weight]) => {
-      const as = to[feel as F] ?? (feel as F);
-      return { ...out, [as]: (out[as] ?? 0) + (weight as number) };
-    }, {});
+// A section's groove eased towards a ballad's (BALLAD_FEELS): `t` of
+// each eased feel's weight moved onto the ballad's feel (all of it at 1).
+function easedGroove({ drums, bass }: GroovePlan, t: number): GroovePlan {
+  const eased = <F extends string>(odds: Odds<F>, to: Readonly<Partial<Record<F, F>>>): Odds<F> => {
+    const out: Partial<Record<F, number>> = {};
+    for (const [feel, weight] of Object.entries(odds) as [F, number][]) {
+      const as = to[feel];
+      out[feel] = (out[feel] ?? 0) + (as ? weight * (1 - t) : weight);
+      if (as) out[as] = (out[as] ?? 0) + weight * t;
+    }
+    return out;
+  };
   return { drums: { ...drums, feels: eased(drums.feels, BALLAD_FEELS.drums) }, bass: eased(bass, BALLAD_FEELS.bass) };
 }

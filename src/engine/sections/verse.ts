@@ -1,6 +1,7 @@
 // Keys, clavinet and the lead, later verses adding rhythm guitar and a
-// pad; or sparse; or the band coming in through it. Its chords are a
-// verse template's, the chorus's, or a two-chord vamp.
+// pad; or sparse; or the band coming in through it; or (leaning towards
+// a ballad) the keys alone under the lead. Its chords are a verse
+// template's, the chorus's (in a song with one), or a two-chord vamp.
 
 import type { Rng } from '../../lib/random';
 import { MELODIES, THEME, VERSE, VERSE_TEXTURES, type VerseHarmony, type VerseTexture } from '../../style';
@@ -35,7 +36,8 @@ export class Verse extends PlayedSection<VerseMaterial> {
   constructor(plan: Plan<VerseFields>, ctx: BuildContext) {
     super(plan);
     this.material = ctx.material(this, (rng) => {
-      const harmony = rng.fork('source').weightedKey(VERSE.harmony);
+      // (The chorus's chords only in a song with a chorus.)
+      const harmony = rng.fork('source').weightedKey(VERSE.harmony, ctx.choruses ? undefined : 'chorus');
       const eight = Verse.eight(harmony, ctx, rng.fork('harmony'));
       // A song whose verses are all sixteen bars may sing them in four-bar
       // phrases over its chords twice (never a shorter verse: it would
@@ -43,9 +45,9 @@ export class Verse extends PlayedSection<VerseMaterial> {
       // seven bars drops the first.
       const verses = ctx.plan.ofType(Verse);
       const long = verses.every((v) => v.bars >= 16) && rng.fork('long').chance(THEME.longVerse);
-      const short = verses.every((v) => v.bars === 7);
-      const bars = long ? [...eight, ...eight] : short ? eight.slice(1) : eight;
-      const variant = rng.fork('texture').weightedKey(VERSE_TEXTURES);
+      const fitted = verses.every((v) => v.bars === 7) ? eight.slice(1) : eight;
+      const bars = long ? [...eight, ...eight] : fitted;
+      const variant = Verse.texture(ctx.ballad, rng.fork('texture'));
       return {
         ...ctx.band(ctx.key, bars, VERSE_TEXTURES[variant].groove, rng.fork('groove')),
         harmony,
@@ -53,6 +55,13 @@ export class Verse extends PlayedSection<VerseMaterial> {
         melody: ctx.melody(long ? MELODIES.theme : MELODIES.verse, ctx.key, bars, rng.fork('melody')),
       };
     });
+  }
+
+  // How it is played: the keys alone the likelier, the further the song
+  // leans towards a ballad (`ballad`), and never in a song that doesn't.
+  private static texture(ballad: number, rng: Rng): VerseTexture {
+    const { alone } = VERSE_TEXTURES;
+    return rng.weightedKey({ ...VERSE_TEXTURES, alone: { ...alone, weight: alone.weight * ballad } });
   }
 
   // Eight bars of chords: a verse template's, the chorus's first eight,
@@ -82,7 +91,7 @@ export class Verse extends PlayedSection<VerseMaterial> {
   }
 
   protected play(ctx: PlayedScoreContext): Parts {
-    const { band, C, B, len } = ctx;
+    const { band, C, B, underB, len } = ctx;
     const { later } = this;
     const lead = band.lead(ctx.line(this.material.melody));
     // (The song's own guitar figure, if it has one, plays in place of the scratch.)
@@ -92,6 +101,9 @@ export class Verse extends PlayedSection<VerseMaterial> {
         return [ctx.drums(), B, band.keys(C), ctx.clav, lead, guitar, later && band.pad(C)];
       case 'sparse':
         return [ctx.drums(), B, band.softKeysUnder(C), lead, later && band.pad(C)];
+      case 'alone':
+        // The keys alone under the lead; later, the bass and a pad under them.
+        return [band.keysUnder(C), lead, later && underB, later && band.pad(C)];
       case 'build': {
         // Kick, bass and keys; the hats and clavinet a quarter in, the
         // backbeat and guitar halfway, the pad for the last quarter.

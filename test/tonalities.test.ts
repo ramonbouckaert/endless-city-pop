@@ -165,6 +165,29 @@ describe('tonalities', () => {
     expect(changed('minor')).toBeGreaterThan(changed('phrygian') * 1.5);
   });
 
+  it("picks a pre-chorus's templates that fill it in whole repeats, the fewest first, or any if none do", () => {
+    const { minor } = TONALITIES;
+    const lengths = (bars: number) => minor.preTemplates('climb', bars).map((t) => new Template(t).length);
+    // Eight bars: the four-bar templates twice, or an eight-bar one (Flyday Chinatown's).
+    expect(new Set(lengths(8))).toEqual(new Set([4, 8]));
+    expect(new Set(lengths(4))).toEqual(new Set([4]));
+    expect(new Set(lengths(16))).toEqual(new Set([8]));
+    expect(lengths(7)).toHaveLength(minor.pre.climb.length);
+    // Never a short template over and over, nor one cut off: every flavour fills four, eight and sixteen bars in
+    // whole repeats, at most four of them (never two bars eight times in sixteen, or six bars and a half).
+    for (const tonality of Object.values(TONALITIES)) {
+      for (const flavour of Object.keys(PRE_FLAVOURS) as (keyof typeof PRE_FLAVOURS)[]) {
+        for (const bars of [4, 8, 16]) {
+          for (const t of tonality.preTemplates(flavour, bars)) {
+            const { length } = new Template(t);
+            expect(bars % length, `${tonality.mode} ${flavour} ${bars}: ${t}`).toBe(0);
+            expect(bars / length).toBeLessThanOrEqual(4);
+          }
+        }
+      }
+    }
+  });
+
   it('fits a pre-chorus template to end on its cadence', () => {
     const t = new Template('ii7 iii7 IVmaj7 V7sus');
     const texts = (n: number) => t.fitEnding(n).map((bar) => bar.map((r) => r.text).join(' '));

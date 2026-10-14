@@ -4,7 +4,8 @@
 // bossa comp, perhaps).
 
 import type { Program } from '../../lib/general-midi';
-import type { Odds, Rng } from '../../lib/random';
+import { only, type Odds, type Rng } from '../../lib/random';
+import { cycle } from '../../lib/math';
 import {
   ADVENTUROUS,
   COMP,
@@ -68,11 +69,14 @@ export class SoloSection extends PlayedSection<SoloMaterial> {
     });
   }
 
-  // What it may play over: the song's verse only if it has verses.
+  // What it may play over: the song's verse only if it has verses, its
+  // chorus only if it has one.
   private sources(ctx: BuildContext): Odds<SoloOver> {
-    if (ctx.plan.first(Verse)) return SOLO_OVER;
-    const { verse: _, ...rest } = SOLO_OVER;
-    return rest;
+    const has: Partial<Record<SoloOver, boolean>> = {
+      verse: !!ctx.plan.first(Verse),
+      chorus: ctx.choruses,
+    };
+    return only(SOLO_OVER, (over) => has[over] ?? true);
   }
 
   // Its changes, and their key: the mode's solo changes, an interlude in
@@ -90,7 +94,7 @@ export class SoloSection extends PlayedSection<SoloMaterial> {
       return { key, bars: [...ctx.progress(vamp, this.bars - 2, rng.fork('vamp'), { key }), ...approach()] };
     }
     const source = this.source(over, ctx);
-    const looped = Array.from({ length: this.bars }, (_, b) => source[b % source.length]);
+    const looped = cycle(source, this.bars);
     if (this.bars % source.length === 0) return { key: home, bars: looped };
     return { key: home, bars: [...looped.slice(0, -2), ...approach()] };
   }

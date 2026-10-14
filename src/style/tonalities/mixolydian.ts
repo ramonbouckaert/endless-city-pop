@@ -79,6 +79,8 @@ export const MIXOLYDIAN: TonalityDef = {
       'IV7 IV7 I7 I7',
       'V7sus V7sus V7sus bVIImaj7',
     ],
+    // Cadences home looped as an outro.
+    outro: ['IVmaj7 IVmaj7 I7 I7 IVmaj7 bVIImaj7 I7 I7', 'bVIImaj7 IV7 I7 I7'],
   },
   pre: {
     climb: [

@@ -30,7 +30,7 @@ export interface BassFeelDef {
   // Fixed one-bar riffs to pick from, in place of a rolled groove: a
   // sixteenth per character, a token (R T F S O) where a note starts, . elsewhere.
   cells?: readonly string[];
-  walk?: boolean; // a walking line, in quarter notes
+  walk?: { eighths: number }; // a walking line, in quarter notes (or, this often, eighths)
 }
 
 export const BASS = {
@@ -111,10 +111,19 @@ export const BASS_FEELS: Readonly<Record<BassFeel, BassFeelDef>> = {
     anticipate: 0.35,
     anchors: { 8: 'F' },
   },
-  // Walking quarter notes (Tokai's upright): a chord tone on the beat,
-  // stepping on through the chord-scale, the last note approaching the
-  // next chord (BassWriter's walk; the ranges are unused).
-  walk: { grid: 8, density: [1, 1], sync: [0, 0], octave: [0, 0], legato: [1, 1], approach: 1, walk: true },
+  // Walking quarter notes: a chord tone on the beat, stepping on through
+  // the chord-scale, the last note approaching the next chord; now and
+  // then in eighths, each beat's note twice (Tokai's upright). (BassWriter's
+  // walk; the ranges are unused.)
+  walk: {
+    grid: 8,
+    density: [1, 1],
+    sync: [0, 0],
+    octave: [0, 0],
+    legato: [1, 1],
+    approach: 1,
+    walk: { eighths: 0.35 },
+  },
   bossa: {
     grid: 8,
     density: [0.1, 0.3],

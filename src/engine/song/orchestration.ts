@@ -2,10 +2,10 @@
 // melody voices, and a drum kit, all picked per song from style/instruments.
 
 import type { Program } from '../../lib/general-midi';
-import type { Rng } from '../../lib/random';
+import { blend, type Rng } from '../../lib/random';
 import {
-  BAND,
   BALLAD_KITS,
+  BAND,
   KITS,
   PICKS,
   SOUND_LEVELS,
@@ -47,9 +47,14 @@ export class Instruments {
     ]);
   }
 
-  /** Every part's sound and the kit (a ballad's, for one), picked from the style's lists. */
-  static pick(rng: Rng, ballad = false): Instruments {
-    return new Instruments(pickSounds(rng.fork('sounds')), rng.fork('kit').weighted(ballad ? BALLAD_KITS : KITS));
+  /**
+   * Every part's sound and the kit, picked from the style's lists: the
+   * further the song leans towards a ballad (`ballad`, 0 to 1: BALLAD),
+   * the likelier a ballad's kit.
+   */
+  static pick(rng: Rng, ballad: number): Instruments {
+    const kits = blend(KITS, BALLAD_KITS, ballad);
+    return new Instruments(pickSounds(rng.fork('sounds')), rng.fork('kit').weighted(kits));
   }
 
   /** These instruments, with some parts' sounds changed. */

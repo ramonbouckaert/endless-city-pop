@@ -190,7 +190,9 @@ export const KITS: Weighted<Kit> = [
   [{ program: 26, name: 'Dance' }, 1],
   [{ program: 32, name: 'Jazz' }, 1],
 ];
-// A ballad's kits: brushes (GeneralUser GS's, for ballads only), jazz or standard.
+// A ballad's kits: brushes (GeneralUser GS's), jazz or standard; a song's
+// odds move towards these the slower it is (BALLAD), so only a song
+// leaning towards a ballad plays brushes.
 export const BALLAD_KITS: Weighted<Kit> = [
   [{ program: 40, name: 'Brush' }, 3],
   [{ program: 32, name: 'Jazz' }, 1],

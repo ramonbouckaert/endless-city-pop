@@ -10,11 +10,15 @@ import {
   Chorus,
   Finale,
   Intro,
+  Lift,
   Link,
+  Outro,
+  PreChorus,
   ScoreArranger,
   ShortBar,
   SoloSection,
   Song,
+  Swell,
   Verse,
   type AnySection,
 } from '../src/engine';
@@ -47,31 +51,79 @@ function problems(song: Song): string[] {
 
 // What a song has that a sweep tallies: its features, by name.
 function features(song: Song): string[] {
-  const { form, traits } = song;
-  const secs: readonly AnySection[] = form.sections;
-  const bars = secs.flatMap((s) => ('bars' in s.material ? s.material.bars.flat() : []));
-  const finale = form.first(Finale)?.material.ends;
-  const chorus = song.part(Chorus);
+  return [...endsOf(song), ...formOf(song), ...partsOf(song), ...traitsOf(song)].filter(
+    (f): f is string => typeof f === 'string',
+  );
+}
+
+// How it opens and ends. (Each list holds a feature's name, or something falsy if the song lacks it.)
+function endsOf(song: Song): unknown[] {
+  const { form } = song;
+  const finale = form.first(Finale)?.material;
+  const outro = form.first(Outro);
   return [
-    form.fadeFrom !== undefined ? 'fade' : `finale on ${finale}`,
     !form.first(Intro) && 'no intro',
     form.first(Intro)?.free && 'free intro',
+    form.first(Swell) && 'swell intro',
+    form.ofType(Intro).some((i) => i.extended) && 'odd intro',
+    // (A finale on unison is the riff ending.)
+    form.fadeFrom === undefined ? `finale on ${finale?.ends}` : 'fade',
+    song.part(Chorus) && song.lastPlayed instanceof Verse && 'verse ending',
+    form.sections.some((s) => s.bare) && 'bare start',
+    outro && `outro ${outro.variant}`,
+    finale?.eases && 'easing finale',
+    finale?.variant === 'neapolitan' && 'neapolitan finale',
+  ];
+}
+
+// Its form.
+function formOf(song: Song): unknown[] {
+  const { form } = song;
+  const secs: readonly AnySection[] = form.sections;
+  const chorus = song.part(Chorus);
+  return [
+    !chorus && 'no chorus',
+    !form.first(Verse) && 'no verses',
+    song.rounds.some((s) => s instanceof Lift) && 'chorus re-entry',
+    song.chorusTwice && 'chorus twice',
+    form.ofType(PreChorus).some((p) => p.bars === 16) && '16-bar pre',
+    form.ofType(Chorus).some((c) => c.half) && 'half chorus',
+    chorus && chorus.key.mode !== song.key.mode && 'relative-major chorus',
     secs.some((s) => s instanceof ShortBar && s.beats === 2) && '2/4 bar',
     secs.some((s) => s instanceof ShortBar && s.beats === 1) && '1/4 bar',
     secs.some((s) => s instanceof Link) && 'link',
     secs.some((s) => s.stop) && 'stop',
-    form.ofType(Chorus).some((c) => c.half) && 'half chorus',
-    !form.first(Verse) && 'no verses',
-    chorus && chorus.key.mode !== song.key.mode && 'relative-major chorus',
+  ];
+}
+
+// What its sections play.
+function partsOf(song: Song): unknown[] {
+  const { form } = song;
+  const secs: readonly AnySection[] = form.sections;
+  const bars = secs.flatMap((s) => ('bars' in s.material ? s.material.bars.flat() : []));
+  const walks = secs.flatMap((s) => ('bass' in s.material && s.material.bass.feel === 'walk' ? [s.material.bass] : []));
+  return [
     bars.some((c) => c.bass !== undefined) && 'slash chords',
     ...form.ofType(SoloSection).map((s) => `solo over ${s.material.over}`),
     ...form.ofType(Verse).map((v) => `${v.material.variant} verse`),
-    secs.some((s) => 'bass' in s.material && s.material.bass.feel === 'walk') && 'walking bass',
+    walks.length > 0 && 'walking bass',
+    walks.some((bass) => bass.bars[0][0]?.len === 2) && 'walking eighths',
+  ];
+}
+
+// What it does throughout, and how far it leans towards a ballad.
+function traitsOf(song: Song): unknown[] {
+  const { traits } = song;
+  return [
     `${traits.colour} chords`,
     traits.lock && 'kick on the bass',
     traits.ostinato && 'signature guitar',
-    traits.ballad && 'ballad',
-  ].filter((f): f is string => !!f);
+    traits.ritard && 'easing back',
+    traits.paired && 'two chords a bar',
+    song.swingUnit === 8 && 'eighths swing',
+    song.instruments.kit.name === 'Brush' && 'brushes',
+    song.form.sections.some((s) => 'drums' in s.material && s.material.drums.feel === 'ballad') && 'ballad grooves',
+  ];
 }
 
 let failures = 0;

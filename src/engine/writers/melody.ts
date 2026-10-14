@@ -5,9 +5,11 @@
 // in solo-line.ts.)
 
 import type { Rng } from '../../lib/random';
+import { cycle } from '../../lib/math';
 import {
   ANSWER,
   type AnswerStyle,
+  BALLAD,
   CADENCE_WEIGHTS,
   CHROMATIC_PROB,
   MELODY_HELD,
@@ -86,6 +88,11 @@ export class Melody extends Line<MelodyNote> {
   /** The first `n` bars. */
   take(n: number): Melody {
     return new Melody(this.bars.slice(0, n), this.form);
+  }
+
+  /** Its bars looped over `bars` bars, then `rest` bars resting. */
+  looped(bars: number, rest = 0): Melody {
+    return new Melody([...cycle(this.bars, bars), ...Array.from({ length: rest }, () => [])], this.form);
   }
 
   /** Its bars from bar `n` on. */
@@ -355,10 +362,12 @@ interface Progress {
 export class MelodyWriter {
   private readonly form?: PhraseForm;
 
+  /** `calm` (0 to 1): how far the song leans towards a ballad, favouring rhythm cells of fewer, longer notes (BALLAD.melody). */
   constructor(
     private readonly key: Key,
     private readonly style: MelodyStyle,
     private readonly rng: Rng,
+    private readonly calm = 0,
   ) {
     if (style.forms) this.form = rng.weightedKey(style.forms);
   }
@@ -460,7 +469,7 @@ export class MelodyWriter {
     const { range } = this.style;
     const cells = this.phrase?.cells?.[letter] ?? this.style.cells[letter];
     if (!cells) throw new Error(`No ${letter} cells for this melody`);
-    const rhythm = parseRhythm(rng.pick(cells));
+    const rhythm = parseRhythm(this.cell(cells));
     const offsets = this.shape(rng.weightedKey(SHAPE_CHOICES[letter]), rhythm.length);
     const top = Math.max(...offsets);
     const startDeg =
@@ -468,6 +477,13 @@ export class MelodyWriter {
         ? range.center - Math.floor((top - Math.min(...offsets)) / 2) + rng.pick([0, 0, 1])
         : foldByThirds(prevDeg - top + rng.pick([0, 1, 2]), range.lo, range.hi);
     return { notes: rhythm.map((n, i) => ({ ...n, offset: offsets[i] })), startDeg };
+  }
+
+  // One of some rhythm cells: any, or (calm) those of fewer notes the likelier.
+  private cell(cells: readonly string[]): string {
+    if (!this.calm) return this.rng.pick(cells);
+    const notes = (cell: string) => Math.max(1, parseRhythm(cell).length);
+    return this.rng.weighted(cells.map((c) => [c, notes(c) ** -(BALLAD.melody * this.calm)] as const));
   }
 
   // A melodic shape, as degree offsets from a motif's first note. Openings
@@ -519,7 +535,7 @@ function phrasePlan(plan: readonly MotifLetter[], n: number): MotifLetter[] {
 // A loop over `n` bars, into as much of its end as fits after the first bar.
 function loopPlan({ loop, end }: LoopPlan, n: number): MotifLetter[] {
   const ending = end.slice(-Math.max(1, Math.min(end.length, n - 1)));
-  return [...Array.from({ length: n - ending.length }, (_, i) => loop[i % loop.length]), ...ending];
+  return [...cycle(loop, n - ending.length), ...ending];
 }
 
 // "x-.x" -> notes with lengths, in sixteenths: x = a note, - = held, . =

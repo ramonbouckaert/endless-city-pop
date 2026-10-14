@@ -10,8 +10,9 @@ export interface Turnaround {
   bars: readonly (readonly ChordSpec[])[];
 }
 
-// Each section's progressions (a tag's: the bars a chorus runs over by);
-// a bridge's only where the mode has its own.
+// Each section's progressions (a tag's: the bars a chorus runs over by;
+// an outro's, cadences home looped before the last chord); a bridge's
+// only where the mode has its own.
 export interface Templates {
   vamp: readonly string[];
   verseVamp: readonly string[];
@@ -20,6 +21,7 @@ export interface Templates {
   tag: readonly string[];
   riff: readonly string[];
   intro: readonly string[];
+  outro: readonly string[];
   bridge?: readonly string[];
 }
 

@@ -1,6 +1,8 @@
 // A turnaround into the lifted key, never played the way the lift before
-// it was, leading into the next chorus. Like the chorus, it is written in
-// the song's key and played shifted up to the new one.
+// it was, leading into the next section: a chorus, or (a song ending on
+// its verse) a verse; or, mid-song, back into the chorus in the same key.
+// Like the section after it, it is written in the song's key and played
+// shifted up to the new one.
 
 import { FIGURES, GROOVES, LIFT_STYLES, RHYTHMS, type LiftStyle } from '../../style';
 import type { Rng } from '../../lib/random';
@@ -19,7 +21,7 @@ export interface LiftFields {
 /** The turnaround that bends the chorus's own last two bars onto the new key's V. */
 export const OWN = 'own';
 
-// A turnaround into the chorus after it, whose first chord (`into`) a
+// A turnaround into the section after it, whose first chord (`into`) a
 // bass pickup may lead to.
 export interface LiftMaterial extends PlayedMaterial {
   variant: LiftStyle;
@@ -76,7 +78,7 @@ export class Lift extends PlayedSection<LiftMaterial> {
         return ctx.stopTime(ctx.drums(), false);
       case 'drop':
         // The drums drop out under held chords and a riser; the chorus lands on them.
-        return [ctx.riser, underB, band.pad(C), ctx.swell(0.16)];
+        return [ctx.riser, underB, band.pad(C), band.swell(C, 0.16)];
       case 'run':
         // The lead holds a chord tone, then runs up into the chorus.
         return [

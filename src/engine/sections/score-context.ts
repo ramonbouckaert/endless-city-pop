@@ -26,7 +26,6 @@ import {
   lastBar,
   onChord,
   Part,
-  rise,
   scoreNote,
   spans,
   timed,
@@ -245,7 +244,7 @@ export class PlayedScoreContext extends ScoreContext {
     const held = new Changes([{ time: last, dur: 1, chord }], len);
     return [
       ...parts.map((p) => p && p.until(last)),
-      band.kit([PERCUSSION.kick, PERCUSSION.crash], [{ time: last, dur: 1, gain: 0.5 }]),
+      band.kickCrash(last, 1),
       band.finaleKeys(held),
       band.strings(held),
       band.bass([{ time: last, dur: 1, note: chord.bassMidi }]),
@@ -262,12 +261,9 @@ export class PlayedScoreContext extends ScoreContext {
     const { band, len } = this;
     const last = len - 1;
     const hit = [{ time: last, dur: 1 / 8 }];
-    const sings = (n: ScoreNote) => !!n.path && SINGING.some((p) => n.path?.startsWith(p));
     return [
-      ...parts.map(
-        (p) => p && Part.stack(new Part(p.until(last).notes.filter((n) => !sings(n))), new Part(p.notes.filter(sings))),
-      ),
-      band.kit([PERCUSSION.kick, PERCUSSION.crash], [{ ...hit[0], gain: 0.5 }]),
+      ...parts.map((p) => p && p.sparing(sings, (rest) => rest.until(last))),
+      band.kickCrash(last, 1 / 8),
       band.keys(this.C, hit),
       band.stabs(this.C, hit),
       band.bass([{ ...hit[0], note: this.C.at(last).bassMidi }]),
@@ -278,9 +274,20 @@ export class PlayedScoreContext extends ScoreContext {
     ];
   }
 
-  /** Strings swelling through the section, up to `top`. */
-  swell(top: number): Part {
-    return this.band.strings(this.C).gain(rise(0.04, top, this.len));
+  /**
+   * The section's parts with the band dropping out for its first BARE
+   * bars (ANRI's break after its key change): only the keys and the
+   * melody voices play, the band crashing back in after them (a chord it
+   * held over from before struck again as it does; the crash only if the
+   * section has drums).
+   */
+  bareStart(parts: Parts): Parts {
+    const plays = (n: ScoreNote) => n.path === 'keys' || sings(n);
+    const drums = parts.some((p) => p && p.notes.some((n) => n.program === 'drums'));
+    return [
+      ...parts.map((p) => p && p.sparing(plays, (rest) => rest.from(BARE))),
+      drums && this.len > BARE && this.band.kickCrash(BARE, 1 / 8),
+    ];
   }
 
   /** A solo against the section's chords: a stab's chords too, if `chords`. */
@@ -289,5 +296,13 @@ export class PlayedScoreContext extends ScoreContext {
   }
 }
 
+// How many bars the band drops out for at a bare start.
+const BARE = 2;
+
 // The melody voices, which sing on through a stop: their parts' paths.
 const SINGING = ['lead', 'double', 'echo', 'answer', 'bell', 'soloists.'];
+
+/** Whether a note is a melody voice's (one that sings on through a stop or a bare start). */
+export function sings(n: ScoreNote): boolean {
+  return !!n.path && SINGING.some((p) => n.path?.startsWith(p));
+}

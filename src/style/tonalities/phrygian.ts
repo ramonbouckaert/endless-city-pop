@@ -70,6 +70,8 @@ export const PHRYGIAN: TonalityDef = {
       'i7 bvii7 bVImaj7 bIImaj7',
       'iv7 iv7 bIImaj7 bIImaj7',
     ],
+    // Cadences home looped as an outro.
+    outro: ['bVImaj7 bVImaj7 i7 i7 bvii7 bIImaj7 i7 i7', 'bIImaj7 bIImaj7 i7 i7'],
   },
   pre: {
     climb: ['iv7 bVImaj7 bvii7 bIImaj7', 'bVImaj7 bvii7', 'iv7 bvii7 bVImaj7 bvii7 bIII7 bIImaj7'],

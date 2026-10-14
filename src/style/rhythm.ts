@@ -17,6 +17,9 @@ export interface GroovePlan {
   bass: Odds<BassFeel>;
 }
 
+/** Drums on the quiet ride alone, with no crash or fill (a section that plays no drums takes these too). */
+export const RIDE_ALONE: DrumPlan = { feels: { introRide: 1 }, crash: 0, fill: 0 };
+
 /** The groove of each section the band plays through without variants of its own. */
 export const GROOVES = {
   vamp: { drums: { feels: { funk: 1 }, crash: 0, fill: 1 }, bass: { funk: 2, disco: 1, riff: 1 } },
@@ -50,7 +53,8 @@ export const BASS_WITH: Readonly<Partial<Record<DrumFeel, readonly BassFeel[]>>>
 };
 
 // A ballad's grooves: each section's drum and bass feels eased into a
-// ballad's (a feel not named here stays as it is).
+// ballad's (a feel not named here stays as it is), the more of its odds
+// the slower the song (BALLAD).
 export const BALLAD_FEELS: {
   drums: Readonly<Partial<Record<DrumFeel, DrumFeel>>>;
   bass: Readonly<Partial<Record<BassFeel, BassFeel>>>;

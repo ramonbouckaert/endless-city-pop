@@ -1,6 +1,8 @@
 // A bar of 16 sixteenth-note steps, each a gain (0 = silent): how drum
 // parts are written.
 
+import { cycle } from './math';
+
 export type StepGains = readonly number[];
 
 export const empty = (): StepGains => Array.from({ length: 16 }, () => 0);
@@ -21,7 +23,6 @@ export function loopBars<H, T>(
   count: number,
   place: (item: H, bar: number, i: number) => T,
 ): T[] {
-  return Array.from({ length: count }, (_, b) =>
-    (bars[b % bars.length] ?? []).map((item, i) => place(item, b, i)),
-  ).flat();
+  if (!bars.length) return [];
+  return cycle(bars, count).flatMap((bar, b) => (bar ?? []).map((item, i) => place(item, b, i)));
 }
