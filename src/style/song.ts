@@ -100,9 +100,10 @@ export const BRIDGE = {
 // Yes!'s), the slower it is: from not at all at `tempo`'s top to fully
 // at its bottom. Each thing a ballad does is rolled on its own, likelier
 // the further it leans: swung in eighths rather than sixteenths (by
-// `swing`, in eighths), its grooves eased into a ballad's (BALLAD_FEELS),
-// on brushes (BALLAD_KITS), easing back on the last beat of each
-// four-bar phrase (to `ritard` of its tempo, fully leaning; never leaning
+// `swing`, in eighths: from a lilt, 0.15 or 57:43, to a triplet's, 1/3
+// or 2:1, and never past it), its grooves eased into a ballad's
+// (BALLAD_FEELS), on brushes (BALLAD_KITS), easing back on the last beat
+// of each four-bar phrase (to `ritard` of its tempo, fully leaning; never leaning
 // less than `ritardFrom`, too slight to hear), its verses and choruses
 // moving two chords a bar (`paired`, fully leaning), its kick never
 // following its bass, fewer rounds and solos and no drum break
@@ -112,7 +113,7 @@ export const BRIDGE = {
 // piano: VERSE_TEXTURES.alone).
 export const BALLAD = {
   tempo: [80, 98] as Range,
-  swing: [0.2, 0.45] as Range,
+  swing: [0.15, 1 / 3] as Range,
   paired: 0.5,
   ritard: 0.94,
   ritardFrom: 0.3,
