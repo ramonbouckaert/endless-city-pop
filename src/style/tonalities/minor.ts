@@ -24,6 +24,8 @@ export const MINOR: TonalityDef = {
   approach: [['iv:m9|m11'], ['bVII:13|9']],
   templates: {
     // A verse's two-chord vamp (the approach home follows).
+    // Chords held two bars, never coming home.
+    verseLoop: ['iv7 iv7 i7 i7', 'bVImaj7 bVImaj7 i7 i7'],
     verseVamp: ['iv7 v7', 'bVImaj7 bVII7', 'i7 IV7', 'iv7 bVII7', 'i7 i/b7'],
     vamp: [
       'iv7 bVII7 v7 i7',
@@ -95,6 +97,13 @@ export const MINOR: TonalityDef = {
       'bVImaj7 bVII7 i7 i7 iv7 bVII7',
       'bIIImaj7 bVImaj7 iv7 bVII7 i7 i7',
       'IV7sus V7sus IV7sus V7sus bvi7 bII7',
+      // Ten bars, for a long bridge: round the circle through the relative major, iiø-V home, and the
+      // line down from the tonic onto bVI-bVII.
+      'iv7 bVII7 bIIImaj7 bVImaj7 iiø V7 i7 i/b7 bVImaj7 bVII7sus',
+      // Ten bars: a ii-V into the neapolitan, held, then climbing iv-v-bVI to bVII (Tokai's chain).
+      'i7 [iv7 bVII7] bIIImaj7 [biii7 bVI7] bIImaj7 bIImaj7 iv7 [v7 bVImaj7] bVII7sus bVII7',
+      // Ten bars: the bass falling by semitones from the tonic (ANRI's), then bVI onto an altered V.
+      'i V7/3 bIII/5 IV7/3 bVImaj7 bIII/3 iv7 bVII7 bVImaj7 V7alt',
     ],
     riff: [
       'iv7 bVII7 v7 i7',

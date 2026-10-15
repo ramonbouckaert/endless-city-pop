@@ -7,6 +7,7 @@ import { Rng } from '../../lib/random';
 import { Timeline } from '../../lib/timeline';
 import {
   BALLAD,
+  balladChance,
   balladLean,
   BASS_RIFFS,
   GUITAR_OSTINATOS,
@@ -34,7 +35,7 @@ import {
   type Traits,
 } from '../sections';
 import { FormPlanner } from './form-planner';
-import { Instruments } from './orchestration';
+import { Instruments, type PartPath } from './orchestration';
 import { formatTitle, TitleWriter, type TitleParts } from './title';
 
 export interface SongData {
@@ -48,6 +49,8 @@ export interface SongData {
   swing: number;
   /** What swings: the second sixteenth of each eighth (16), or (a ballad's) the second eighth of each beat (8). */
   swingUnit: 8 | 16;
+  /** Whether only some parts swing (SONG.swingOnly.parts), the rest playing straight. */
+  swingOnly: boolean;
   voicings: Voicings;
   instruments: Instruments;
   /** Its sections, each with its part's material. */
@@ -76,7 +79,8 @@ export class Song {
     const bpm = Math.round(rng.range(rng.weighted(SONG.tempo)));
     // How far its tempo leans it towards a ballad (BALLAD): eighths' swing is likelier the further.
     const ballad = balladLean(bpm);
-    const eighths = rng.fork('swingUnit').chance(ballad);
+    const eighths = rng.fork('swingUnit').chance(balladChance(ballad));
+    const swingOnly = !eighths && rng.fork('swingOnly').chance(SONG.swingOnly.chance);
     const traits = Song.traits(rng.fork('traits'), ballad);
     const plan = new FormPlanner(rng.fork('form'), tonality.turnarounds, bpm, ballad).plan();
     const form = buildForm(plan, key, bpm, rng.fork('materials'), traits);
@@ -87,6 +91,7 @@ export class Song {
       bpm,
       swing: Math.round(rng.range(eighths ? BALLAD.swing : SONG.swing) * 100) / 100,
       swingUnit: eighths ? 8 : 16,
+      swingOnly,
       voicings: Song.voicings(tonality.voicings ?? SONG.voicings, rng.fork('voicings')),
       form,
       instruments: Instruments.pick(rng.fork('instruments'), ballad),
@@ -101,7 +106,7 @@ export class Song {
   private static traits(rng: Rng, ballad: number): Traits {
     const colour = rng.fork('colour').weightedKey(SONG.colour);
     const paired = rng.fork('paired').chance(BALLAD.paired * ballad);
-    const eases = ballad >= BALLAD.ritardFrom && rng.fork('ritard').chance(ballad);
+    const eases = ballad >= BALLAD.ritardFrom && rng.fork('ritard').chance(balladChance(ballad));
     const ritard = eases ? lerp(1, BALLAD.ritard, ballad) : undefined;
     const lock = rng.chance(SONG.lock * (1 - ballad));
     const riff = lock && rng.chance(SONG.riff) ? rng.pick(BASS_RIFFS) : undefined;
@@ -158,6 +163,13 @@ export class Song {
     return this.form.sections.findLast((s) => !(s instanceof Finale) && !(s instanceof Outro));
   }
 
+  /** Whether the part at `path` swings: every part does, but in a song that swings only some (`swingOnly`). */
+  swings(path: PartPath): boolean {
+    // (A soloist's path names its part first: `soloists.1`.)
+    const parts: ReadonlySet<string> = SONG.swingOnly.parts;
+    return !this.swingOnly || parts.has(path.split('.')[0]);
+  }
+
   /** The material of each part of a kind, in form order. */
   parts<K extends SectionKind>(kind: K): InstanceType<K>['material'][] {
     return [...new Map(this.form.ofType(kind).map((sec) => [sec.part, sec.material])).values()];
@@ -180,6 +192,7 @@ export class Song {
         this.traits.ostinato && `${this.traits.ostinato} guitar`,
         this.traits.paired && 'two chords a bar',
         this.traits.ritard && `easing back to ${this.traits.ritard.toFixed(2)}`,
+        this.swingOnly && `only ${[...SONG.swingOnly.parts].join(', ')} swung`,
       ]
         .filter(Boolean)
         .join(', '),

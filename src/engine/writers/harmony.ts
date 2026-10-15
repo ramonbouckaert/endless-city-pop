@@ -7,7 +7,7 @@ import type { Odds, Rng } from '../../lib/random';
 import {
   COLOURS,
   PALETTE,
-  PLANING_STARTS,
+  PLANING,
   REHARM,
   SOLO_CHANGES,
   tonalityOf,
@@ -18,6 +18,14 @@ import {
   type Tonality,
 } from '../../style';
 import { Chord, Key, PitchClass, Roman, Template, type Bar, type ChordClass, type ChordSpec } from '../../theory';
+
+// The colours of a chord over a slash bass, by its class (others take their key's).
+const SLASH_PALETTES: Partial<Record<ChordClass, PaletteName>> = {
+  maj: 'slashMaj',
+  min: 'slashMin',
+  hdim: 'slashMin',
+  dom: 'slashDom',
+};
 
 /** Writes harmony in a key, drawing on one random stream. */
 export class Harmonizer {
@@ -76,25 +84,27 @@ export class Harmonizer {
 
   // The colours a numeral takes, by its family, where it sits in the key and the numeral after it.
   private palette(rn: Roman, next: Roman): PaletteName {
-    const root = rn.root(this.key);
-    const down5 = (root - next.root(this.key) + 12) % 12 === 7;
+    const down5 = PitchClass.of(rn.root(this.key) - next.root(this.key)) === 7;
     // In jazz harmony an unadorned V is still a dominant.
     const cls = rn.cls === 'maj' && rn.offset === 7 && down5 ? 'dom' : rn.cls;
+    // Whether it falls a fifth into a minor chord (or a half-diminished one).
+    const intoMinor = down5 && (next.cls === 'min' || next.cls === 'hdim');
+    return (rn.bass ? SLASH_PALETTES[cls] : undefined) ?? this.keyPalette(rn, cls, intoMinor);
+  }
+
+  // The colours a numeral of class `cls` takes in the key, with no slash bass that has its own.
+  private keyPalette(rn: Roman, cls: ChordClass, intoMinor: boolean): PaletteName {
+    const mode = this.key.modeAt(rn.root(this.key));
     const { tonic, tonicPalette, borrowedPalette } = this.tonality;
-    if (rn.bass) {
-      if (cls === 'min' || cls === 'hdim') return 'slashMin';
-      if (cls === 'dom') return 'slashDom';
-      if (cls === 'maj') return 'slashMaj';
-    }
     // A minor key's V is altered wherever it goes, even into the next section.
     const minorV = this.key.minor && rn.offset === 7;
     if (rn.offset === 0 && cls === tonic && tonicPalette) return tonicPalette;
-    if (cls === 'dom' && ((down5 && (next.cls === 'min' || next.cls === 'hdim')) || minorV)) return 'domToMinor';
+    if (cls === 'dom' && (intoMinor || minorV)) return 'domToMinor';
     if (cls === 'sus' && minorV) return 'susToMinor';
-    if (cls === 'maj' && borrowedPalette && this.key.modeAt(root) === undefined) return borrowedPalette;
+    if (cls === 'maj' && borrowedPalette && mode === undefined) return borrowedPalette;
     // Major chords take #11 unless they are the key's ionian chord.
-    if (cls === 'maj' && this.key.modeAt(root) !== 'major') return 'majLydian';
-    if (cls === 'min' && this.key.modeAt(root) === 'phrygian') return 'minPhrygian';
+    if (cls === 'maj' && mode !== 'major') return 'majLydian';
+    if (cls === 'min' && mode === 'phrygian') return 'minPhrygian';
     return cls;
   }
 
@@ -208,16 +218,18 @@ export class Harmonizer {
     return Chord.inBars(Chord.fitScales(flat, key), bars);
   }
 
-  /** add9 chords planing down in whole steps from bIII or bVI, then a sus dominant. */
+  /**
+   * Four bars of chords planing down (PLANING: add9s in whole steps, or
+   * 9sus chords by semitones), then a sus dominant: sharing the last bar,
+   * or holding it where the planing lands on it.
+   */
   planing(): Bar[] {
-    const start = this.key.tonic + this.rng.pick(PLANING_STARTS);
-    const add9 = (root: number) => new Chord(root, 'add9', 'major');
-    return [
-      [add9(start)],
-      [add9(start - 2)],
-      [add9(start - 4)],
-      [add9(start - 6), new Chord(this.key.tonic + 7, '9sus', 'mixolydian')],
-    ];
+    const { starts, step, symbol, scale } = PLANING[this.rng.weightedKey(PLANING)];
+    const start = this.key.tonic + this.rng.pick(starts);
+    const planed = (i: number) => new Chord(start + i * step, symbol, scale);
+    const v = new Chord(this.key.tonic + 7, '9sus', 'mixolydian');
+    const lands = PitchClass.of(start + 3 * step) === PitchClass.of(v.root);
+    return [[planed(0)], [planed(1)], [planed(2)], lands ? [v] : [planed(3), v]];
   }
 
   /**

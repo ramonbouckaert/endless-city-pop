@@ -50,10 +50,22 @@ export class FormPlanner {
   // Whether its verses are all seven bars, and whether each round sings its verse twice.
   private readonly shortVerses: boolean;
   private readonly verseTwice: boolean;
-  // How long the link before each verse after the first is (0: none).
+  // How long the link before each verse after the first is (0: none), and whether the first verse has one too.
   private readonly linkBars: number;
+  private readonly linkFirst: boolean;
   // Whether its later choruses stop dead in their last bar.
   private readonly stops: boolean;
+  // How long its bridge is (every bridge plays the same).
+  private readonly bridgeBars: number;
+  // Whether each round sings its verse and pre-chorus twice (A A′ A A′).
+  private readonly versesWithB: boolean;
+  // Whether a tune plays its bridge between rounds, and again before its last choruses.
+  private readonly tuneBridges: boolean;
+  // How it ends: on its final chord or fading; and, fading, on what if not
+  // its last choruses (FadeOn). (Rolled up front: these change the rounds
+  // before them.)
+  private readonly songEnding: SongEnding;
+  private readonly fadeOn: FadeOn | undefined;
   // How much likelier a sixteen-bar section is at the song's tempo (1: as its odds say).
   private readonly sixteens: number;
   // How many lifts it has planned, each a part of its own.
@@ -89,6 +101,32 @@ export class FormPlanner {
     this.verseTwice = jpop || extras.chance(FORM.verseTwice);
     this.linkBars = extras.chance(FORM.link.chance) ? extras.pick(FORM.link.bars) : 0;
     this.stops = extras.chance(FORM.stopChance);
+    this.linkFirst = this.linkBars > 0 && extras.fork('linkFirst').chance(FORM.link.first);
+    this.bridgeBars = rng.fork('bridge').weighted(FORM.bridgeBars);
+    const withB = this.pre && this.choruses && !this.verseTwice && this.preBars <= 8;
+    this.versesWithB = withB && extras.fork('withB').chance(FORM.versesWithB);
+    this.tuneBridges = tune && extras.fork('tuneBridges').chance(FORM.tuneBridges);
+    const endings = rng.fork('ending');
+    this.songEnding = tune ? 'fade' : endings.weightedKey(FORM.ending);
+    this.fadeOn = this.songEnding === 'fade' && this.verses && this.choruses ? this.fadeEnding(endings) : undefined;
+  }
+
+  // What a fading song with verses and choruses fades on, if not its last
+  // choruses (FORM.verseEnding, FORM.fade.roundOutro).
+  private fadeEnding(rng: Rng): FadeOn | undefined {
+    if (rng.chance(FORM.verseEnding.chance)) return rng.chance(FORM.verseEnding.afterSolo) ? 'soloVerses' : 'verses';
+    return this.pre && rng.chance(FORM.fade.roundOutro) ? 'round' : undefined;
+  }
+
+  // Whether its rounds have a pre-chorus (after their verses).
+  private get pre(): boolean {
+    return this.verses && this.preBars > 0;
+  }
+
+  // Whether its final chorus is its last round's: its ending has none (a
+  // last round with no chorus, or a solo into its verses).
+  private get finalInRounds(): boolean {
+    return this.fadeOn === 'round' || this.fadeOn === 'soloVerses';
   }
 
   // A section's length in bars, with sixteen weighted up by the tempo.
@@ -103,11 +141,12 @@ export class FormPlanner {
     const opening = this.opening();
     this.intro = opening.some((p) => p.kind === Intro && p.part !== FREE);
     const rounds = this.rounds();
-    const body = [...rounds, ...this.middle()];
     const vamp = opening.find((s) => s.kind === Vamp);
+    const main = [...rounds, ...this.middle()];
+    const body = vamp ? this.vampReturn(main, vamp.bars) : main;
     // (Verses after the last lift are as long as the first round's.)
     const verseBars = rounds.find((p) => p.kind === Verse)?.bars ?? 8;
-    const plans = [...opening, ...(vamp ? this.vampReturn(body, vamp.bars) : body), ...this.ending(verseBars)];
+    const plans = [...opening, ...body, ...this.ending(verseBars, body.at(-1)?.kind === Bridge)];
     return new Form(this.held(this.shortBars(plans)));
   }
 
@@ -191,9 +230,15 @@ export class FormPlanner {
     const riffChance = this.shape === 'jpop' ? 1 : rng.pick(FORM.riffChance);
     const rounds = blend(FORM.rounds, FORM.ballad.rounds, this.ballad);
     const count = this.shape === 'tune' ? rng.weighted(TUNE_ROUNDS) : rng.weighted(rounds);
-    return Array.from({ length: count }, (_, r) =>
+    const plans: Plan[][] = Array.from({ length: count }, (_, r) =>
       this.round(r, count, riffChance).map((p) => ({ ...p, round: r })),
-    ).flat();
+    );
+    // A tune's bridge after one of its rounds but the last (Tokai's).
+    if (this.tuneBridges) {
+      const after = rng.fork('bridgeAfter').int(0, count - 2);
+      plans[after] = [...plans[after], planned(Bridge, this.bridgeBars)];
+    }
+    return plans.flat();
   }
 
   // The `r`th of `count` rounds.
@@ -206,37 +251,56 @@ export class FormPlanner {
         planned(Chorus, this.chorusBars, { answer: true, big: false, stop: later && this.stops }),
       ];
     }
-    const pre = this.verses && this.preBars > 0;
     // (Without a chorus, neither the verse nor the B is ever left out.)
-    const dropVerse = later && pre && this.choruses && rng.chance(FORM.later.dropVerse);
+    const dropVerse = later && this.pre && this.choruses && rng.chance(FORM.later.dropVerse);
     const dropPre = later && !dropVerse && this.choruses && rng.chance(FORM.later.dropPre);
     return [
-      ...(this.verses && !dropVerse ? this.verse(later) : []),
-      ...(pre && !dropPre ? [planned(PreChorus, this.preBars, { later })] : []),
+      ...this.verseAndB(later, !dropVerse, !dropPre),
       ...(this.choruses ? this.roundChorus(later, r === count - 1) : []),
       ...this.riffs(riffChance),
     ];
   }
 
-  // A round's verse (perhaps sung twice), after a link in a later round.
-  private verse(later: boolean): Plan[] {
-    const link = later && this.linkBars ? [planned(Link, this.linkBars)] : [];
-    // (A verse sung twice is at most eight bars.)
+  // A round's verse and pre-chorus (in a song that has them, but for one
+  // it leaves out: `withVerse`, `withPre`), twice over (A A′ A A′) in a song that
+  // sings them twice, the second time with no link. (A round that leaves
+  // out one sings the other once.) The first B leads into the second verse
+  // as it would into the chorus, its cadence and any riser all the same.
+  private verseAndB(later: boolean, withVerse = true, withPre = true): Plan[] {
+    if (!this.verses) return [];
+    const once = (link: boolean) => [
+      ...(withVerse ? this.verse(later, link) : []),
+      ...(this.pre && withPre ? [planned(PreChorus, this.preBars, { later })] : []),
+    ];
+    return this.versesWithB && withVerse && withPre ? [...once(true), ...once(false)] : once(true);
+  }
+
+  // A round's verse (perhaps sung twice), after a link in a later round
+  // (and, in some songs, the first, after an intro in time) unless `link`
+  // says not.
+  private verse(later: boolean, link = true): Plan[] {
+    const linked =
+      link && this.linkBars && (later || (this.linkFirst && this.intro)) ? [planned(Link, this.linkBars)] : [];
+    // (A verse sung twice, or sung twice with its B, is at most eight bars.)
     let bars = 7;
-    if (!this.shortVerses) bars = this.verseTwice ? 8 : this.length(FORM.verseBars);
+    if (!this.shortVerses) bars = this.verseTwice || this.versesWithB ? 8 : this.length(FORM.verseBars);
     const verses = Array.from({ length: this.verseTwice ? 2 : 1 }, () => planned(Verse, bars, { later }));
-    return [...link, ...verses];
+    return [...linked, ...verses];
   }
 
   // A round's chorus; the `last` round's perhaps twice (whole, the first
-  // time too), perhaps re-entered through a turnaround.
+  // time too), perhaps re-entered through a turnaround. The song's final
+  // chorus (in an ending with no last choruses: a round with no chorus, or
+  // a solo into its verses) has everything, and never stops.
   private roundChorus(later: boolean, last: boolean): Plan[] {
     const { rng } = this;
+    const final = last && this.finalInRounds;
     const again = last && rng.chance(FORM.later.again);
-    const first = this.chorus({ answer: later, big: false, stop: later && this.stops }, later && !again);
+    const stop = later && this.stops && (!final || again);
+    const first = this.chorus({ answer: later, big: final && !again, stop }, later && !again && !final);
     if (!again) return [first];
     const reentry = rng.chance(FORM.later.reentry) ? [this.lift(0, rng.chance(FORM.lift.own))] : [];
-    return [first, ...reentry, this.chorus({ answer: true, big: false }, false)];
+    return [first, ...reentry, this.chorus({ answer: true, big: final }, false)];
   }
 
   // Perhaps the riff (`chance`), perhaps again a semitone up.
@@ -254,8 +318,8 @@ export class FormPlanner {
     return planned(Chorus, this.chorusBars, fields);
   }
 
-  // A turnaround into a key `shift` up from the song's (perhaps the
-  // chorus's own last bars bent onto its V: `own`), a part of its own.
+  // A turnaround into a key `shift` up from the song's (perhaps the last
+  // bars of the section before bent onto its V: `own`), a part of its own.
   private lift(shift: number, own: boolean): Plan {
     const turnaround = own ? OWN : this.rng.weightedKey(this.turnarounds);
     const bars = own ? 2 : this.turnarounds[turnaround].bars.length;
@@ -264,13 +328,28 @@ export class FormPlanner {
 
   // A bridge and up to two solos, in either order, then perhaps a
   // breakdown (in a song with a chorus, for it to play), and perhaps a
-  // drum break into a solo or the last choruses.
+  // drum break before a solo or at the end; a tune whose bridge came
+  // between its rounds plays it again last. In a song whose lift into its
+  // verses comes out of a solo (ANRI's), its last solo comes after one
+  // more verse, with no chorus. (So a drum break may lead into anything
+  // that follows it: a solo, the last choruses or their lift, the tune's
+  // last bridge, the verse before the last solo, or a last round. And a
+  // returning vamp may come after the last solo, before the lift into the
+  // verses, or after the tune's last bridge, its last choruses then
+  // lifting out of the vamp: both fine.)
   // Each solo is a part of its own, with its own soloist.
   private middle(): Plan[] {
     const { rng } = this;
+    const afterSolo = this.fadeOn === 'soloVerses';
     const parts: Plan[][] = [];
-    if (this.shape === 'tune' || rng.chance(FORM.bridgeChance)) parts.push([planned(Bridge, 8)]);
-    const soloCount = rng.weighted(blend(FORM.soloCount, FORM.ballad.soloCount, this.ballad));
+    // (A tune whose bridge came between its rounds plays it again last, below.)
+    if (!this.tuneBridges && (this.shape === 'tune' || rng.chance(FORM.bridgeChance)))
+      parts.push([planned(Bridge, this.bridgeBars)]);
+    // (A lift into the verses out of a solo needs a solo.)
+    const soloCount = Math.max(
+      afterSolo ? 1 : 0,
+      rng.weighted(blend(FORM.soloCount, FORM.ballad.soloCount, this.ballad)),
+    );
     if (soloCount) {
       const soloists = rng.shuffle(FORM.soloists);
       parts.push(
@@ -287,7 +366,10 @@ export class FormPlanner {
       const spots = body.flatMap((x, i) => (x.kind === SoloSection ? [i] : []));
       body.splice(rng.pick([...spots, body.length]), 0, planned(DrumBreak, 2));
     }
-    return body;
+    if (this.tuneBridges) return [...body, planned(Bridge, this.bridgeBars)];
+    if (!afterSolo) return body;
+    const solo = body.findLastIndex((p) => p.kind === SoloSection);
+    return [...body.slice(0, solo), ...body.slice(solo + 1), ...this.verse(true), body[solo]];
   }
 
   // The last choruses, each perhaps lifted a key by a turnaround (a part
@@ -296,27 +378,27 @@ export class FormPlanner {
   // more choruses, the song fading over the outro or the last of them. A
   // fading song with verses may instead play one last chorus and lift
   // into its verse, played again and again; a song without a chorus plays
-  // its B once more, then a coda fading or the finale.
-  private ending(verseBars: number): Plan[] {
-    const { rng } = this;
-    // A tune fades out.
-    const ending = this.shape === 'tune' ? 'fade' : rng.weightedKey(FORM.ending);
-    const fades = ending === 'fade';
-    if (!this.choruses) return this.lastB(ending);
-    // (A tune has no verses.)
-    if (fades && this.verses && rng.chance(FORM.verseEnding.chance)) return this.verseEnding(verseBars);
-    const { choruses, shift } = this.finalChoruses(fades);
+  // its B once more, then a coda fading or the finale. (`afterBridge`:
+  // whether the body before it ends on its bridge.)
+  private ending(verseBars: number, afterBridge: boolean): Plan[] {
+    const { rng, songEnding } = this;
+    const fades = songEnding === 'fade';
+    if (!this.choruses) return this.lastB(songEnding);
+    if (this.fadeOn === 'round') return this.lastRound();
+    if (this.fadeOn) return this.verseEnding(verseBars);
+    const { choruses, shift } = this.finalChoruses(fades, afterBridge);
     const riffs = !fades && rng.fork('riffEnding').chance(FORM.riffEnding);
     const tail = riffs
       ? Array.from({ length: RIFF_ENDING }, () => planned(Riff, 4, { shift }))
-      : this.outro(ending, shift);
-    return this.close([...choruses, ...tail], ending, shift);
+      : this.outro(songEnding, shift);
+    return this.close([...choruses, ...tail], songEnding, shift);
   }
 
   // The last choruses (before a fade, if the song `fades`), each perhaps
-  // lifted a key by a turnaround (a part of its own), and the key they end
-  // in.
-  private finalChoruses(fades: boolean): { choruses: Plan[]; shift: number } {
+  // lifted a key by a turnaround (a part of its own; the first, likelier
+  // bending the bridge's own last bars `afterBridge`), and the key they
+  // end in.
+  private finalChoruses(fades: boolean, afterBridge: boolean): { choruses: Plan[]; shift: number } {
     const { rng } = this;
     const { lift } = FORM;
     const choruses: Plan[] = [];
@@ -326,7 +408,8 @@ export class FormPlanner {
       const step = rng.weighted(lift.steps);
       if (shift + step <= MAX_SHIFT && rng.chance(i ? lift.again : lift.first)) {
         shift += step;
-        choruses.push(this.lift(shift, rng.chance(lift.own)));
+        // (Out of a bridge, likelier bending its own last bars: Tokai's.)
+        choruses.push(this.lift(shift, rng.chance(!i && afterBridge ? lift.ownAfterBridge : lift.own)));
       }
       // The last chorus has everything; a fading song's last two do. In a
       // song that fades, one after the first may play just its second
@@ -368,10 +451,19 @@ export class FormPlanner {
     return this.close([planned(PreChorus, this.preBars, { later: true }), ...outro], ending);
   }
 
+  // A last round with no chorus, its verse (after a link, as in every
+  // later round) and pre-chorus (twice, in a song that sings them twice),
+  // then the verse's chords looping under a new hook, the song fading over
+  // them (Plastic Love's).
+  private lastRound(): Plan[] {
+    return this.faded([...this.verseAndB(true), this.outroOf('loop', 'fade')]);
+  }
+
   // The last chorus, with everything, then a lift a key up into the verse
   // (ANRI's), the verse played again and again to the end, the song
   // fading over it; perhaps the band dropping out under the keys and the
-  // lead for the first two bars after the lift.
+  // lead for the first two bars after the lift. (In a song whose lift
+  // comes out of a solo, no last chorus.)
   private verseEnding(verseBars: number): Plan[] {
     const { rng } = this;
     const shift = rng.weighted(FORM.lift.steps);
@@ -381,8 +473,8 @@ export class FormPlanner {
     const verses = Array.from({ length: count }, (_, i) =>
       planned(Verse, verseBars, { later: true, shift, ...(i === 0 && bare ? { bare } : {}) }),
     );
-    const last = this.chorus({ answer: true, big: true }, false);
-    return this.faded([last, this.lift(shift, false), ...verses]);
+    const last = this.fadeOn === 'soloVerses' ? [] : [this.chorus({ answer: true, big: true }, false)];
+    return this.faded([...last, this.lift(shift, false), ...verses]);
   }
 
   // The ending fading out over its last sections (its outro, and the
@@ -396,6 +488,13 @@ export class FormPlanner {
     return ending.map((p, i) => (i >= from ? { ...p, fade: true } : p));
   }
 }
+
+// What a fading song with verses and choruses may fade on instead of its
+// last choruses: its verse played again and again after a lift, the lift
+// out of a last chorus (`verses`) or out of a solo after a last
+// verse (`soloVerses`: ANRI's); or a last round with no chorus, into the
+// verse's chords looping under a new hook (`round`: Plastic Love's).
+type FadeOn = 'verses' | 'soloVerses' | 'round';
 
 // The fewest bars a song fades out over (its last choruses).
 const FADE_BARS = 12;

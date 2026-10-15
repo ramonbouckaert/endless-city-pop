@@ -1,6 +1,8 @@
 // One of the flavour's progressions, fitted to end on its cadence into
 // the chorus (one as long as the section, if there is one), played in the
-// flavour's texture. Later rounds add a layer.
+// flavour's texture. Later rounds add a layer. (In a round singing its
+// verse and B twice, A A′ A A′, the first B plays just the same into the
+// second verse.)
 
 import { PRE_FLAVOURS, RHYTHMS, type PreFlavour } from '../../style';
 import type { Melody } from '../writers';
@@ -58,14 +60,7 @@ export class PreChorus extends PlayedSection<PreChorusMaterial> {
         return [drums, riser, B, band.softKeysUnder(C), band.swell(C, 0.14), lead, later && band.choir(C)];
       case 'drop':
         // The drums drop out, then come back halfway.
-        return [
-          drums.mask(ctx.from(Math.floor(len / 2))),
-          underB,
-          band.pad(C),
-          band.softKeysUnder(C),
-          lead,
-          later && band.strings(C),
-        ];
+        return [drums.mask(ctx.fromHalf()), underB, band.pad(C), band.softKeysUnder(C), lead, later && band.strings(C)];
       case 'stops':
         // Stop-time hits under a free lead.
         return [...ctx.stopTime(drums), lead, later && band.strings(C)];

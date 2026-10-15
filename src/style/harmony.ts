@@ -2,6 +2,7 @@
 
 import type { Odds, Weighted } from '../lib/random';
 import type { ChordClass } from '../theory';
+import type { Variant, Variants } from './variants';
 
 export type PaletteName =
   | ChordClass
@@ -153,5 +154,16 @@ export const SOLO_CHANGES = {
   ] as Weighted<readonly number[]>,
 };
 
-// Planing intros start on bIII or bVI.
-export const PLANING_STARTS = [3, 8];
+// How planing chords glide down onto the sus dominant (an intro's, or a
+// link's): add9s in whole steps from bIII or bVI; or 9sus chords sliding
+// down by semitones from bVII, the fourth landing on it (Sea Line's
+// link). Each: semitones above the tonic it may start on, its step, and
+// its chord, on its scale.
+export type Planing = 'add9' | 'sus';
+export const PLANING: Variants<
+  Planing,
+  Variant & { starts: readonly number[]; step: number; symbol: string; scale: string }
+> = {
+  add9: { weight: 3, starts: [3, 8], step: -2, symbol: 'add9', scale: 'major' },
+  sus: { weight: 1, starts: [10], step: -1, symbol: '9sus', scale: 'mixolydian' },
+};

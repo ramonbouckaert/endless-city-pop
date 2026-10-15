@@ -207,7 +207,8 @@ export const LIFT_STYLES: Odds<LiftStyle> = { horns: 3, stops: 2, drop: 2, run: 
 // outro templates: Summer Suspicion's bVI-V+-i); in a song that fades
 // out, two soloists trading, a loop of the verse's chords under a new
 // hook, or the chorus's chords looping with a soloist over them in place
-// of the lead (Sea Line's trombone). Picked with the form, as it sets the
+// of the lead (Sea Line's trombone); a loop runs sixteen bars, or
+// twenty-four (Plastic Love's). Picked with the form, as it sets the
 // outro's length: `bars`, the lengths it may have before each ending it
 // may lead to.
 export type OutroStyle = 'reprise' | 'trade' | 'coda' | 'cadence' | 'loop' | 'obbligato';
@@ -246,7 +247,7 @@ export const OUTRO_STYLES: Variants<
   },
   loop: {
     weight: 1,
-    bars: { fade: [16] },
+    bars: { fade: [16, 24] },
     groove: {
       drums: { feels: { funk: 1, disco: 1 }, crash: 1, fill: 0.5 },
       bass: { funk: 1, disco: 1, riff: 1 },

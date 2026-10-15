@@ -54,6 +54,8 @@ export const MAJOR: TonalityDef = {
   approach: [['ii:m9|m11'], ['V:13|7alt|9sus']],
   templates: {
     // A verse's two-chord vamp (the approach home follows).
+    // Chords held two bars, never coming home: IV to I/3 (Sparkle's A), II to I (Stay With Me's verse).
+    verseLoop: ['IVmaj7 IVmaj7 I/3 I/3', 'II7 II7 Imaj7 Imaj7'],
     verseVamp: ['IVmaj7 V7sus', 'IVmaj7 I/3', 'II/I Imaj7', 'IVmaj7 iii7', 'ii7 IV/V', 'IVmaj7 IVmaj7 IV/V IV/V'],
     vamp: [
       'II/I Imaj7',
@@ -100,6 +102,12 @@ export const MAJOR: TonalityDef = {
       'IVmaj7 V7 iii7 VI7 ii7 V7 Imaj7 Imaj7',
       'Imaj7 III7 IVmaj7 iv7 iii7 VI7 ii7 V7',
       'IVmaj7 iv7 iii7 vi7 ii7 bII7 Imaj7 V7sus',
+      // The bass falling from the tonic through bVII (ANRI's chorus, in the relative major).
+      'Imaj7 V/3 bVIImaj7 VI7 ii7 bVIImaj7 V7sus V7sus',
+      // iii to III, and a line cliché under vi (Stay With Me's).
+      'IVmaj7 IVmaj7 iii7 III7 [vi7 vi/7] [I/5 II7/3] ii7 V7sus',
+      // V/iii into iii, and a tritone slide home (Tokai's tune).
+      'Imaj7 VII7 iii7 [v7 I7] IVmaj7 III7 vi7 [bVI7 V7]',
     ],
     tag: [
       'IV/V IV/V',
@@ -122,6 +130,14 @@ export const MAJOR: TonalityDef = {
       'bVImaj7 bVII7 Imaj7 Imaj7 ii7 V7',
       'iii7 VI7 ii7 V7 IVmaj7 V7sus',
       'IV7sus V7sus IV7sus V7sus bvi7 bII7',
+      // Ten bars, for a long bridge: a minor seventh a step below the tonic, slipping round to ii (Tokai's).
+      'bvii7 bvii7 [bvii7 bVI7] VI7 ii7 V7sus Imaj7 [ii7 bIII7] ii7 bVII7',
+      // Ten bars: the royal road IV-V-iii-vi, a ii-V-I, then the iii-VI-ii-V turnaround.
+      'IVmaj7 V7 iii7 vi7 ii7 V7 Imaj7 [iii7 VI7] ii7 V7sus',
+      // Ten bars: the bass walking down the scale from the tonic to ii, then round to V.
+      'Imaj7 V/3 vi7 I/5 IVmaj7 I/3 ii7 [iii7 VI7] ii7 V7sus',
+      // Ten bars: the borrowed iv, VI7 into ii and the tritone sub home, then bVII and bVI planing onto V.
+      'IVmaj7 iv7 iii7 VI7 ii7 bII7 Imaj7 bVIImaj7 bVImaj7 V7sus',
     ],
     riff: [
       'IVmaj7 I/3',

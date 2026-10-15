@@ -24,6 +24,20 @@ export class Tonality {
     return bridge;
   }
 
+  /** Its verses' loops (chords held two bars, never coming home): none, in a mode without them. */
+  get verseLoops(): readonly string[] {
+    return this.templates.verseLoop ?? [];
+  }
+
+  /**
+   * Its bridges' templates for a body of `bars` (before the cadence home):
+   * those that fill it once or twice over if any do (a ten-bar one in a
+   * twelve-bar bridge), else all of them.
+   */
+  bridgeTemplates(bars: number): readonly string[] {
+    return fitting(this.bridges, bars, [2]);
+  }
+
   /**
    * A pre-chorus flavour's templates: those that fill `bars` in whole
    * repeats, once or twice over (a four-bar one twice in eight) if any
@@ -31,16 +45,7 @@ export class Tonality {
    * them.
    */
   preTemplates(flavour: PreFlavour, bars: number): readonly string[] {
-    const options = this.pre[flavour];
-    const fills = (t: string, most: number) => {
-      const { length } = new Template(t);
-      return bars % length === 0 && bars / length <= most;
-    };
-    for (const most of [2, 4]) {
-      const fitting = options.filter((t) => fills(t, most));
-      if (fitting.length) return fitting;
-    }
-    return options;
+    return fitting(this.pre[flavour], bars, [2, 4]);
   }
 
   /** A named turnaround into the key's tonic. */
@@ -59,4 +64,18 @@ export class Tonality {
   isTonic(chord: Chord, key: Key): boolean {
     return chord.root === key.tonic && chord.cls === this.tonic;
   }
+}
+
+// The templates that fill `bars` in whole repeats, at most each of
+// `maxRepeats` times over (the first that any fill); else all of them.
+function fitting(options: readonly string[], bars: number, maxRepeats: readonly number[]): readonly string[] {
+  const fills = (t: string, most: number) => {
+    const { length } = new Template(t);
+    return bars % length === 0 && bars / length <= most;
+  };
+  for (const most of maxRepeats) {
+    const fit = options.filter((t) => fills(t, most));
+    if (fit.length) return fit;
+  }
+  return options;
 }

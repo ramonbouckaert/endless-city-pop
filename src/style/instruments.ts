@@ -4,8 +4,9 @@
 // (GM, lib/general-midi.ts); the app plays them from GeneralUser GS,
 // trimmed to SOUNDFONT_PROGRAMS and SOUNDFONT_KITS by `npm run soundfont`.
 
-import { GM, type Program } from '../lib/general-midi';
+import { GM, PERCUSSION, type Percussion, type Program } from '../lib/general-midi';
 import type { Weighted } from '../lib/random';
+import { WEATHER } from './weather';
 
 // The band's parts, besides the melody voices.
 export type BandPart =
@@ -45,17 +46,36 @@ export const BAND: Readonly<Record<BandPart, Program>> = {
 // picked (their order here). A part never takes a sound another part already plays (melody
 // voices first), where its list allows.
 export const PICKS: Readonly<Record<PickedPart, readonly Program[]>> = {
-  // Electric pianos and clavinet; acoustic piano and organs.
-  keys: [GM.electricPiano1, GM.electricPiano2, GM.clavinet, GM.acousticGrandPiano, GM.percussiveOrgan, GM.rockOrgan],
+  // Electric pianos and clavinet; acoustic, bright and electric grand pianos (ANRI's, Plastic Love's) and organs.
+  keys: [
+    GM.electricPiano1,
+    GM.electricPiano2,
+    GM.clavinet,
+    GM.acousticGrandPiano,
+    GM.brightAcousticPiano,
+    GM.electricGrandPiano,
+    GM.percussiveOrgan,
+    GM.rockOrgan,
+  ],
   // Funk scratching on any electric; nylon for a bossa feel.
   guitar: [GM.electricGuitarMuted, GM.electricGuitarJazz, GM.electricGuitarClean, GM.acousticGuitarNylon],
   pad: [GM.warmPad, GM.polysynthPad, GM.choirPad, GM.metallicPad, GM.haloPad, GM.sweepPad],
-  strings: [GM.stringEnsemble1, GM.stringEnsemble2, GM.synthStrings1, GM.synthStrings2],
+  // (Tremolo strings: Plastic Love's.)
+  strings: [GM.stringEnsemble1, GM.stringEnsemble2, GM.synthStrings1, GM.synthStrings2, GM.tremoloStrings],
   choir: [GM.choirAahs, GM.voiceOohs, GM.synthVoice],
   // The phrases answering the hook: brass, or a flute.
   answer: [GM.trumpet, GM.mutedTrumpet, GM.trombone, GM.flute],
-  // The intro teaser and bridge melody, high up: mallets and bells.
-  bell: [GM.vibraphone, GM.marimba, GM.xylophone, GM.celesta, GM.musicBox, GM.kalimba, GM.glockenspiel],
+  // The intro teaser and bridge melody, high up: mallets and bells (tubular bells: RIDE ON TIME's).
+  bell: [
+    GM.vibraphone,
+    GM.marimba,
+    GM.xylophone,
+    GM.celesta,
+    GM.musicBox,
+    GM.kalimba,
+    GM.glockenspiel,
+    GM.tubularBells,
+  ],
   stabs: [GM.brassSection, GM.synthBrass1, GM.synthBrass2],
   hornDouble: [GM.altoSax, GM.tenorSax, GM.baritoneSax, GM.trombone],
   // Electric, upright and synth basses.
@@ -75,9 +95,10 @@ export const PICKS: Readonly<Record<PickedPart, readonly Program[]>> = {
 
 // Each song picks its lead, the lead's octave double and its soloists
 // from `pool`, none twice; the lead and soloists never one that swells
-// in too slowly to carry a melody (`slow`: over 100 ms to half its level on the
-// soundfont, which CC73 can't shorten). Their levels in style/mix.ts are
-// set for the alto sax (level 1).
+// in too slowly to carry a melody (`slow`: over 100 ms to half its level
+// on the soundfont, which CC73 can't shorten). (The violin, Tokai's lead,
+// takes 50 to 130 ms across its range: about the line, and kept as a
+// lead.) Their levels in style/mix.ts are set for the alto sax (level 1).
 export const VOICES: {
   readonly pool: readonly Program[];
   readonly slow: ReadonlySet<Program>;
@@ -89,10 +110,13 @@ export const VOICES: {
     GM.altoSax,
     GM.tenorSax,
     GM.clarinet,
+    GM.baritoneSax,
     GM.oboe,
     GM.flute,
     GM.harmonica,
     GM.accordion,
+    GM.tangoAccordion,
+    GM.violin,
     GM.trumpet,
     GM.mutedTrumpet,
     GM.trombone,
@@ -103,6 +127,7 @@ export const VOICES: {
     // Guitars, keys and mallets
     GM.electricGuitarJazz,
     GM.overdrivenGuitar,
+    GM.distortionGuitar,
     GM.acousticGrandPiano,
     GM.drawbarOrgan,
     GM.rockOrgan,
@@ -113,10 +138,13 @@ export const VOICES: {
     GM.squareLead,
     GM.sawtoothLead,
     GM.calliopeLead,
+    GM.chiffLead,
     GM.bassAndLead,
     // Pads, effects and voices
     GM.crystal,
     GM.atmosphere,
+    GM.brightness,
+    GM.sciFi,
     GM.warmPad,
     GM.polysynthPad,
     GM.choirPad,
@@ -124,8 +152,9 @@ export const VOICES: {
     GM.haloPad,
     GM.sweepPad,
     GM.voiceOohs,
+    GM.synthVoice,
   ],
-  slow: new Set([GM.warmPad, GM.sweepPad, GM.metallicPad, GM.haloPad, GM.synthBrass2]),
+  slow: new Set([GM.warmPad, GM.sweepPad, GM.metallicPad, GM.haloPad, GM.synthBrass2, GM.sciFi]),
   soloists: 4,
 };
 
@@ -137,6 +166,7 @@ export const SCOOPERS: ReadonlySet<Program> = new Set([
   GM.squareLead,
   GM.sawtoothLead,
   GM.calliopeLead,
+  GM.chiffLead,
   GM.bassAndLead,
 ]);
 
@@ -149,6 +179,7 @@ export const CHORDAL: ReadonlySet<Program> = new Set([
   GM.vibraphone,
   GM.electricGuitarJazz,
   GM.overdrivenGuitar,
+  GM.distortionGuitar,
 ]);
 
 // A solo or bridge may hand its keys part to another sound for its
@@ -162,11 +193,16 @@ export const WALKING_BASS: Program = GM.acousticBass;
 
 // The riser into a pre-chorus's chorus or a lift's: a reverse cymbal.
 export const RISER: Program = GM.reverseCymbal;
-// Waves on the shore under a quiet intro (Sea Line's).
-export const SEASHORE: Program = GM.seashore;
 // How long its sample swells before it stops (on the app's soundfont, at
 // any tempo): it starts this long before the downbeat, to peak on it.
 export const RISER_SECONDS = 1.4;
+// A synth drum struck with the band's hits (Sea Line's: KIT_VOICES.synthDrum):
+// its sound, its pitch, and its share of the hit's gain.
+export const SYNTH_DRUM: { readonly program: Program; readonly note: number; readonly share: number } = {
+  program: GM.synthDrum,
+  note: 48,
+  share: 0.6,
+};
 
 // ---- Drum kits --------------------------------------------------------
 
@@ -190,6 +226,30 @@ export const KITS: Weighted<Kit> = [
   [{ program: 26, name: 'Dance' }, 1],
   [{ program: 32, name: 'Jazz' }, 1],
 ];
+// The kick and crash each song plays on its kit: the bass drum, now and
+// then the acoustic one (Sparkle's, Sea Line's, Plastic Love's); its
+// crashes from these (how often two, taking turns section by section);
+// and how often a synth drum strikes with the band's hits (SYNTH_DRUM).
+export const KIT_VOICES: {
+  readonly kick: Weighted<Percussion>;
+  readonly crashes: Weighted<Percussion>;
+  readonly twoCrashes: number;
+  readonly synthDrum: number;
+} = {
+  kick: [
+    [PERCUSSION.kick, 3],
+    [PERCUSSION.acousticBassDrum, 1],
+  ],
+  crashes: [
+    [PERCUSSION.crash, 4],
+    [PERCUSSION.crash2, 2],
+    [PERCUSSION.splash, 1],
+    [PERCUSSION.chinaCymbal, 0.5],
+  ],
+  twoCrashes: 0.4,
+  synthDrum: 0.15,
+};
+
 // A ballad's kits: brushes (GeneralUser GS's), jazz or standard; a song's
 // odds move towards these the slower it is (BALLAD), so only a song
 // leaning towards a ballad plays brushes.
@@ -210,7 +270,8 @@ export const SOUNDFONT_PROGRAMS: ReadonlySet<Program> = new Set([
   ...Object.values(PICKS).flat(),
   ...VOICES.pool,
   RISER,
-  SEASHORE,
+  ...Object.values(WEATHER.sounds).map((w) => w.program),
+  SYNTH_DRUM.program,
 ]);
 export const SOUNDFONT_KITS: ReadonlySet<number> = new Set([...KITS, ...BALLAD_KITS].map(([kit]) => kit.program));
 
@@ -224,6 +285,8 @@ export const SOUNDFONT_KITS: ReadonlySet<number> = new Set([...KITS, ...BALLAD_K
 // Only ratios between sounds that share a part matter.
 export const SOUND_LEVELS: Readonly<Partial<Record<Program, number>>> = {
   [GM.acousticGrandPiano]: 1.37,
+  [GM.brightAcousticPiano]: 1.39,
+  [GM.electricGrandPiano]: 1.21,
   [GM.electricPiano1]: 1,
   [GM.electricPiano2]: 1.71,
   [GM.clavinet]: 1.41,
@@ -233,17 +296,20 @@ export const SOUND_LEVELS: Readonly<Partial<Record<Program, number>>> = {
   [GM.vibraphone]: 0.72,
   [GM.marimba]: 1.24,
   [GM.xylophone]: 2, // measured 2.15
+  [GM.tubularBells]: 1.08,
   [GM.drawbarOrgan]: 1.14,
   [GM.percussiveOrgan]: 1.09,
   [GM.rockOrgan]: 1.09,
   [GM.reedOrgan]: 0.99,
   [GM.accordion]: 1.44,
   [GM.harmonica]: 1.29,
+  [GM.tangoAccordion]: 1.36,
   [GM.acousticGuitarNylon]: 1.27,
   [GM.electricGuitarJazz]: 1.3,
   [GM.electricGuitarClean]: 1.18,
   [GM.electricGuitarMuted]: 2, // measured 2.51
   [GM.overdrivenGuitar]: 0.84,
+  [GM.distortionGuitar]: 0.7,
   [GM.acousticBass]: 0.92,
   [GM.electricBassFinger]: 1.15,
   [GM.electricBassPick]: 1.32,
@@ -252,6 +318,8 @@ export const SOUND_LEVELS: Readonly<Partial<Record<Program, number>>> = {
   [GM.slapBass2]: 1.45,
   [GM.synthBass1]: 1.16,
   [GM.synthBass2]: 1.15,
+  [GM.violin]: 0.79,
+  [GM.tremoloStrings]: 1.47,
   [GM.stringEnsemble1]: 1.11,
   [GM.stringEnsemble2]: 1.22,
   [GM.synthStrings1]: 1.02,
@@ -276,6 +344,7 @@ export const SOUND_LEVELS: Readonly<Partial<Record<Program, number>>> = {
   [GM.squareLead]: 1.06,
   [GM.sawtoothLead]: 0.92,
   [GM.calliopeLead]: 0.51,
+  [GM.chiffLead]: 1.02,
   [GM.bassAndLead]: 0.8,
   [GM.warmPad]: 1.55,
   [GM.polysynthPad]: 1.24,
@@ -285,5 +354,7 @@ export const SOUND_LEVELS: Readonly<Partial<Record<Program, number>>> = {
   [GM.sweepPad]: 1.14,
   [GM.crystal]: 1.07,
   [GM.atmosphere]: 0.84,
+  [GM.brightness]: 0.7,
+  [GM.sciFi]: 0.72,
   [GM.kalimba]: 1.29,
 };

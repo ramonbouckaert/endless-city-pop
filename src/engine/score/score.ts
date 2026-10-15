@@ -173,10 +173,10 @@ export class Part {
     return this.map((n) => ({ ...n, clip: value }));
   }
 
-  /** Pitched notes moved by semitones (drums, and effects such as the riser, stay as they are). */
+  /** Pitched notes moved by semitones (the kit's, and effects such as the riser, stay as they are). */
   transpose(semis: number): Part {
     if (!semis) return this;
-    return this.map((n) => (n.program === 'drums' || !n.path ? n : { ...n, note: n.note + semis }));
+    return this.map((n) => (n.path === 'kit' || !n.path ? n : { ...n, note: n.note + semis }));
   }
 
   /** Every note `bars` later. */

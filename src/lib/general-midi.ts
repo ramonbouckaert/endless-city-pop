@@ -166,6 +166,7 @@ export const programName = (program: Program): string =>
 
 /** The percussion keys the band plays (General MIDI, but the shaker: GS and GM2's). */
 export const PERCUSSION = {
+  acousticBassDrum: 35,
   kick: 36,
   sideStick: 37,
   snare: 38,
@@ -179,17 +180,24 @@ export const PERCUSSION = {
   crash: 49,
   highTom: 50,
   ride: 51,
+  chinaCymbal: 52,
   rideBell: 53,
   tambourine: 54,
+  splash: 55,
   cowbell: 56,
+  crash2: 57,
+  vibraslap: 58,
   highBongo: 60,
   lowBongo: 61,
   muteHighConga: 62,
   openHighConga: 63,
   lowConga: 64,
+  cabasa: 69,
   maracas: 70,
+  claves: 75,
   highWoodBlock: 76,
   lowWoodBlock: 77,
+  muteTriangle: 80,
   openTriangle: 81,
   shaker: 82,
   bellTree: 84, // GS

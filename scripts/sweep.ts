@@ -7,6 +7,7 @@
 // Usage: scripts/run-node.sh scripts/sweep.ts [count]
 import { songToMidi } from '../src/midi/from-score';
 import {
+  Bridge,
   Chorus,
   Finale,
   Intro,
@@ -15,6 +16,7 @@ import {
   Outro,
   PreChorus,
   ScoreArranger,
+  type Score,
   ShortBar,
   SoloSection,
   Song,
@@ -28,8 +30,7 @@ import { Chord } from '../src/theory';
 const count = Number(process.argv[2] ?? 100);
 const DRUMS = new Set<number>(Object.values(PERCUSSION));
 
-function problems(song: Song): string[] {
-  const { notes, bars } = new ScoreArranger(song).arrange();
+function problems(song: Song, { notes, bars }: Score): string[] {
   const found = notes.flatMap((n) => {
     const where = `${n.program === 'drums' ? 'drums' : programName(n.program)} at bar ${n.time.toFixed(2)}`;
     return [
@@ -50,10 +51,15 @@ function problems(song: Song): string[] {
 }
 
 // What a song has that a sweep tallies: its features, by name.
-function features(song: Song): string[] {
-  return [...endsOf(song), ...formOf(song), ...partsOf(song), ...traitsOf(song)].filter(
-    (f): f is string => typeof f === 'string',
-  );
+function features(song: Song, { notes }: Score): string[] {
+  return [
+    ...endsOf(song),
+    ...formOf(song),
+    ...joinsOf(song),
+    ...partsOf(song),
+    ...traitsOf(song),
+    ...soundsOf(song, notes),
+  ].filter((f): f is string => typeof f === 'string');
 }
 
 // How it opens and ends. (Each list holds a feature's name, or something falsy if the song lacks it.)
@@ -61,14 +67,21 @@ function endsOf(song: Song): unknown[] {
   const { form } = song;
   const finale = form.first(Finale)?.material;
   const outro = form.first(Outro);
+  const verseEnding = song.part(Chorus) && song.lastPlayed instanceof Verse;
   return [
     !form.first(Intro) && 'no intro',
     form.first(Intro)?.free && 'free intro',
     form.first(Swell) && 'swell intro',
-    form.ofType(Intro).some((i) => i.extended) && 'odd intro',
+    form.ofType(Intro).some((i) => i.tail) && 'odd intro',
     // (A finale on unison is the riff ending.)
     form.fadeFrom === undefined ? `finale on ${finale?.ends}` : 'fade',
-    song.part(Chorus) && song.lastPlayed instanceof Verse && 'verse ending',
+    verseEnding && 'verse ending',
+    // (Its last chorus in its last round, before the middle; a returning vamp may come between the solo and the lift.)
+    verseEnding &&
+      form.sections.findLastIndex((s) => s instanceof Chorus) <
+        form.sections.findLastIndex((s) => s instanceof SoloSection) &&
+      'verse ending after a solo',
+    song.part(Chorus) && song.lastPlayed instanceof PreChorus && 'round outro',
     form.sections.some((s) => s.bare) && 'bare start',
     outro && `outro ${outro.variant}`,
     finale?.eases && 'easing finale',
@@ -76,23 +89,35 @@ function endsOf(song: Song): unknown[] {
   ];
 }
 
-// Its form.
+// Its form: its rounds.
 function formOf(song: Song): unknown[] {
   const { form } = song;
-  const secs: readonly AnySection[] = form.sections;
   const chorus = song.part(Chorus);
   return [
     !chorus && 'no chorus',
     !form.first(Verse) && 'no verses',
     song.rounds.some((s) => s instanceof Lift) && 'chorus re-entry',
     song.chorusTwice && 'chorus twice',
+    chorus && form.runs(Verse, PreChorus, Verse).length > 0 && 'verse and B twice',
     form.ofType(PreChorus).some((p) => p.bars === 16) && '16-bar pre',
     form.ofType(Chorus).some((c) => c.half) && 'half chorus',
     chorus && chorus.key.mode !== song.key.mode && 'relative-major chorus',
+  ];
+}
+
+// Its form: how its sections join, and its bridges.
+function joinsOf(song: Song): unknown[] {
+  const { form } = song;
+  const secs: readonly AnySection[] = form.sections;
+  return [
     secs.some((s) => s instanceof ShortBar && s.beats === 2) && '2/4 bar',
     secs.some((s) => s instanceof ShortBar && s.beats === 1) && '1/4 bar',
     secs.some((s) => s instanceof Link) && 'link',
+    secs[secs.findIndex((s) => s instanceof Verse) - 1] instanceof Link && 'link before the first verse',
     secs.some((s) => s.stop) && 'stop',
+    form.ofType(Bridge).length > 1 && 'bridge twice',
+    form.ofType(Bridge).some((b) => b.bars === 12) && '12-bar bridge',
+    form.runs(Bridge, Lift).length > 0 && 'lift out of a bridge',
   ];
 }
 
@@ -106,6 +131,12 @@ function partsOf(song: Song): unknown[] {
     bars.some((c) => c.bass !== undefined) && 'slash chords',
     ...form.ofType(SoloSection).map((s) => `solo over ${s.material.over}`),
     ...form.ofType(Verse).map((v) => `${v.material.variant} verse`),
+    form.ofType(Verse).some((v) => v.material.harmony === 'loop') && 'verse on a loop',
+    secs.some(
+      (s) =>
+        (s instanceof Link || (s instanceof Intro && s.material.harmony === 'planing')) &&
+        s.material.bars[0][0].symbol === '9sus',
+    ) && 'sus planing',
     walks.length > 0 && 'walking bass',
     walks.some((bass) => bass.bars[0][0]?.len === 2) && 'walking eighths',
   ];
@@ -121,8 +152,29 @@ function traitsOf(song: Song): unknown[] {
     traits.ritard && 'easing back',
     traits.paired && 'two chords a bar',
     song.swingUnit === 8 && 'eighths swing',
+    song.swingOnly && 'some parts swung',
     song.instruments.kit.name === 'Brush' && 'brushes',
     song.form.sections.some((s) => 'drums' in s.material && s.material.drums.feel === 'ballad') && 'ballad grooves',
+  ];
+}
+
+// The sounds and drums it plays, of those a song picks only now and then.
+function soundsOf(song: Song, notes: Score['notes']): unknown[] {
+  const { kitVoices } = song.instruments;
+  const drum = (key: number) => notes.some((n) => n.program === 'drums' && n.note === key);
+  const weather = song.form.sections.flatMap((s) => {
+    const weather = 'weather' in s.material && s.material.weather;
+    return weather ? [`${weather} under the ${s.kind.id}`] : [];
+  });
+  return [
+    kitVoices.kick === PERCUSSION.acousticBassDrum && 'acoustic kick',
+    kitVoices.crashes.length > 1 && 'two crashes',
+    kitVoices.synthDrum && 'synth drum',
+    ...weather,
+    drum(PERCUSSION.vibraslap) && 'vibraslap',
+    drum(PERCUSSION.cabasa) && 'cabasa',
+    drum(PERCUSSION.claves) && 'claves',
+    drum(PERCUSSION.muteTriangle) && 'mute triangle',
   ];
 }
 
@@ -133,8 +185,9 @@ for (let i = 0; i < count; i++) {
   let found: string[];
   try {
     const song = Song.generate(seed);
-    for (const f of new Set(features(song))) tally.set(f, (tally.get(f) ?? 0) + 1);
-    found = problems(song);
+    const score = new ScoreArranger(song).arrange();
+    for (const f of new Set(features(song, score))) tally.set(f, (tally.get(f) ?? 0) + 1);
+    found = problems(song, score);
   } catch (e) {
     found = [
       String((e as Error).stack ?? e)

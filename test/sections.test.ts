@@ -29,18 +29,21 @@ import {
   FINALE_SUITS,
   INTRO,
   INTRO_TEXTURES,
+  type IntroTexture,
   LIFT_STYLES,
   MAX_SHIFT,
   OUTRO_STYLES,
+  PLANING,
   PRE_FLAVOURS,
   RISER,
   TRILL,
+  VERSE,
   VERSE_TEXTURES,
   TONALITIES,
+  WEATHER,
 } from '../src/style';
-import { PERCUSSION } from '../src/lib/general-midi';
-import { MODES, Roman, type Bar, type Mode } from '../src/theory';
-import { defined } from './helpers';
+import { MODES, Roman, type Bar, type ChordSpec, type Mode } from '../src/theory';
+import { defined, isCrash } from './helpers';
 
 describe('section materials', () => {
   it("starts the opening vamp's drums late, light or with the whole kit", () => {
@@ -201,6 +204,17 @@ describe('section materials', () => {
     }
   });
 
+  it("takes a verse's chords from every source, a loop only in a mode that has loops", () => {
+    const verses = Array.from({ length: 300 }, (_, i) => Song.generate(`vsrc${i}`)).flatMap((song) =>
+      song.form.ofType(Verse).map((sec) => ({ song, sec })),
+    );
+    expect(new Set(verses.map(({ sec }) => sec.material.harmony))).toEqual(new Set(Object.keys(VERSE.harmony)));
+    for (const { song, sec } of verses.filter(({ sec }) => sec.material.harmony === 'loop')) {
+      expect(TONALITIES[song.key.mode].templates.verseLoop).toBeDefined();
+      expect(sec.describe()).toContain('on loop');
+    }
+  });
+
   it('varies the pre-chorus', () => {
     const pres = Array.from({ length: 150 }, (_, i) => Song.generate(`pre${i}`)).flatMap((song) => {
       const [mat, sec] = [song.part(PreChorus), song.form.first(PreChorus)];
@@ -277,10 +291,20 @@ describe('section materials', () => {
     );
     expect(new Set(intros.map((m) => m.variant))).toEqual(new Set(Object.keys(INTRO_TEXTURES)));
     expect(new Set(intros.map((m) => m.harmony))).toEqual(new Set(Object.keys(INTRO.harmony)));
-    // A quiet one may have waves on the shore under it; no other does.
-    const shores = intros.filter((m) => m.seashore);
-    expect(shores.length).toBeGreaterThan(0);
-    for (const m of shores) expect(['pads', 'rubato']).toContain(m.variant);
+    // Planing add9s down by whole steps, or 9sus chords down by semitones onto the V (Sea Line's).
+    const planing = intros.filter((m) => m.harmony === 'planing');
+    expect(new Set(planing.map((m) => m.bars[0][0].symbol))).toEqual(
+      new Set(Object.values(PLANING).map((p) => p.symbol)),
+    );
+    for (const m of planing.filter((m) => m.bars[0][0].symbol === '9sus')) {
+      const roots = m.bars.slice(0, 4).map((bar) => bar[0].root);
+      expect(roots.slice(1).map((r, i) => (((r - roots[i]) % 12) + 12) % 12)).toEqual([11, 11, 11]);
+      expect(m.bars[3]).toHaveLength(1);
+    }
+    // A quiet one may have the weather under it; no other does.
+    const weathers = intros.filter((m) => m.weather);
+    expect(new Set(weathers.map((m) => m.weather))).toEqual(new Set(Object.keys(WEATHER.sounds)));
+    for (const m of weathers) expect(['pads', 'rubato']).toContain(m.variant);
     // Some songs have none; some open with a free intro, out of tempo, before the one in time.
     expect(songs.some((song) => !song.form.first(Intro))).toBe(true);
     const free = songs.filter((song) => song.form.first(Intro)?.free);
@@ -452,7 +476,7 @@ describe('section materials', () => {
       const inLast = new ScoreArranger(song).arrange().notes.filter((n) => n.time >= last && n.time < last + 1);
       const played = inLast.filter((n) => n.path);
       expect(played.every((n) => Math.abs(n.time - last) < 1e-9)).toBe(true);
-      expect(played.some((n) => n.program === 'drums' && n.note === PERCUSSION.crash)).toBe(true);
+      expect(played.some(isCrash(song))).toBe(true);
       expect(played.filter((n) => n.path === 'keys').length).toBeGreaterThan(1);
       expect(inLast.some((n) => n.program === RISER)).toBe(true);
     }
@@ -502,7 +526,7 @@ describe('section materials', () => {
       // (A verse on the keys alone has no drums to crash back in.)
       const verse = song.form.sections[i];
       const drums = !(verse instanceof Verse && verse.material.variant === 'alone');
-      expect(back.some((n) => n.note === PERCUSSION.crash && n.program === 'drums')).toBe(drums);
+      expect(back.some(isCrash(song))).toBe(drums);
       // The band's chords back with it, even those it held over from before.
       expect(back.some((n) => n.program !== 'drums' && n.path !== 'keys' && !sings(n))).toBe(true);
     }
@@ -528,25 +552,49 @@ describe('section materials', () => {
     }
   });
 
-  it("ends an intro a bar longer than its phrases on its key's approach home, a teaser resting over it", () => {
+  it("ends an intro longer than its phrases on its key's approach home, a teaser resting over it", () => {
     const intros = Array.from({ length: 300 }, (_, i) => Song.generate(`odd${i}`)).flatMap((song) =>
       song.form
         .ofType(Intro)
-        .filter((s) => s.extended)
+        .filter((s) => s.tail)
         .map((sec) => ({ song, sec })),
     );
-    expect(intros.length).toBeGreaterThan(0);
+    expect(new Set(intros.map(({ sec }) => sec.tail))).toEqual(new Set([1, 2, 3]));
     for (const { song, sec } of intros) {
       const { bars, key, melody, harmony } = sec.material;
       expect(bars).toHaveLength(sec.bars);
-      const [spec] = TONALITIES[key.mode].approach.at(-1) ?? [];
-      expect(bars.at(-1)?.[0].root).toBe((key.tonic + Roman.parseSpec(spec).offset) % 12);
+      const root = (spec: ChordSpec) => (key.tonic + Roman.parseSpec(spec).offset) % 12;
+      const [ii, v] = TONALITIES[key.mode].approach.map(([spec]) => root(spec));
+      expect(bars.at(-1)?.[0].root).toBe(v);
+      if (sec.tail >= 2) expect(bars.at(-sec.tail)?.[0].root).toBe(ii);
+      if (sec.tail === 3) expect(bars.at(-2)?.[0].root).toBe(v);
       expect(key.tonic === song.key.tonic || key.tonic === song.key.majorTonic).toBe(true);
-      // The hook's teaser over its phrases, never over the bar home.
+      // The hook's teaser over its phrases, never over the bars home.
       if (melody && harmony === 'hook') {
         expect(melody.bars).toHaveLength(sec.bars);
-        expect(melody.rests.at(-1)).toBe(true);
+        expect(melody.rests.slice(-sec.tail).every(Boolean)).toBe(true);
       }
+    }
+    // What comes in halfway comes in halfway through its phrases, on a bar line, never mid-bar: the bass (or, after
+    // it, the pad), and in a drums-first intro, a crash with it.
+    const entering: Partial<Record<IntroTexture, string>> = {
+      arp: 'bass',
+      drumsFirst: 'bass',
+      keys: 'bass',
+      bassFirst: 'pad',
+    };
+    const entries = intros.filter(({ sec }) => entering[sec.material.variant]);
+    expect(new Set(entries.map(({ sec }) => sec.tail))).toEqual(new Set([1, 2, 3]));
+    for (const { song, sec } of entries) {
+      const start = song.form.starts[song.form.sections.indexOf(sec)];
+      const half = start + (sec.bars - sec.tail) / 2;
+      const notes = new ScoreArranger(song).arrange().notes.filter((n) => n.time >= start && n.time < start + sec.bars);
+      const entered = notes.filter((n) => n.path === entering[sec.material.variant]);
+      expect(entered.every((n) => n.time >= half - 1e-9)).toBe(true);
+      expect(entered.some((n) => n.time < half + 1)).toBe(true);
+      if (sec.material.variant !== 'drumsFirst') continue;
+      const crashed = notes.filter((n) => isCrash(song)(n) && n.time < half + 1);
+      expect(crashed.map((n) => n.time)).toContain(half);
     }
   });
 

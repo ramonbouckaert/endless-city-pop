@@ -74,7 +74,8 @@ describe('tonalities', () => {
   it('gives a dorian song modal bridges', () => {
     const dorian = TONALITIES.dorian;
     expect(dorian.bridgeKeys.some((k) => k.mode === 'dorian')).toBe(true);
-    for (const text of dorian.bridges) expect(new Template(text).length).toBe(6);
+    // (Six bars, or ten for a long bridge.)
+    for (const text of dorian.bridges) expect([6, 10]).toContain(new Template(text).length);
   });
 
   it('plays a tritone sub over lydian dominant', () => {
@@ -186,6 +187,20 @@ describe('tonalities', () => {
         }
       }
     }
+  });
+
+  it("picks a bridge's templates that fill its body, or any if none do", () => {
+    const lengths = (mode: Mode, bars: number) =>
+      new Set(TONALITIES[mode].bridgeTemplates(bars).map((t) => new Template(t).length));
+    // An eight-bar bridge's six bars, never a ten-bar template cut short; a twelve-bar one's ten (Tokai's), in
+    // every mode a bridge may be in.
+    const modes = new Set(Object.values(TONALITIES).flatMap((t) => t.bridgeKeys.map((k) => k.mode ?? 'major')));
+    for (const mode of modes) {
+      expect(lengths(mode, 6)).toEqual(new Set([6]));
+      expect(lengths(mode, 10)).toEqual(new Set([10]));
+    }
+    // (Else any.)
+    expect(lengths('major', 7).size).toBeGreaterThan(1);
   });
 
   it('fits a pre-chorus template to end on its cadence', () => {

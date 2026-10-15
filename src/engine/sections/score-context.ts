@@ -16,9 +16,10 @@ import {
   RHYTHMS,
   RISER,
   RISER_SECONDS,
-  SEASHORE,
+  WEATHER,
   type DrumRole,
   type Rhythm,
+  type Weather,
 } from '../../style';
 import type { Chord, Key } from '../../theory';
 import {
@@ -55,9 +56,19 @@ export class ScoreContext {
     return this.sec.bars;
   }
 
+  /** The bar halfway through it (or through its first `bars`), rounded down to a whole bar. */
+  half(bars = this.len): number {
+    return Math.floor(bars / 2);
+  }
+
   /** Keeps notes from bar `start` on. */
   from(start: number): (time: number) => boolean {
     return (time) => time >= start;
+  }
+
+  /** Keeps notes from halfway through it (or through its first `bars`: `half`) on. */
+  fromHalf(bars = this.len): (time: number) => boolean {
+    return this.from(this.half(bars));
   }
 
   /**
@@ -69,9 +80,11 @@ export class ScoreContext {
     return new Part([scoreNote({ time: this.len - dur, dur, program: RISER, note: 60, gain: 0.35 })]);
   }
 
-  /** Waves on the shore through the section (an effect: never transposed, nor swung). */
-  seashore(): Part {
-    return new Part([scoreNote({ time: 0, dur: this.len, program: SEASHORE, note: 60, gain: 0.25 })]);
+  /** The weather through the section, waves on the shore or rain (an effect: never transposed, nor swung). */
+  weather(weather: Weather): Part {
+    return new Part([
+      scoreNote({ time: 0, dur: this.len, program: WEATHER.sounds[weather].program, note: 60, gain: 0.25 }),
+    ]);
   }
 
   /** A reverse cymbal swelling into the next section, its peak on the downbeat. */

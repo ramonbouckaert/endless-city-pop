@@ -118,7 +118,7 @@ export class Chorus extends PlayedSection<ChorusMaterial> {
       band.double(ctx.line(melody), ctx.octaveUp(melody)),
       mat.echo !== undefined && band.echo(ctx.line(echoed), mat.echo).until(len),
       answer && band.counter(ctx.line(this.answered)),
-      mat.bells && band.ostinato(C).mask(ctx.from(len / 2)),
+      mat.bells && band.ostinato(C).mask(ctx.fromHalf()),
       big && band.stabs(C),
       big && band.strings(C),
       big && band.choir(C),

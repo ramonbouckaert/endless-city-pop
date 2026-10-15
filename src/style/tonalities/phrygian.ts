@@ -61,6 +61,12 @@ export const PHRYGIAN: TonalityDef = {
       'i7 bvii7 i7 bvii7 bVImaj7 bIImaj7',
       'i7 i7 iv7 iv7 bIImaj7 bIImaj7',
       'bVImaj7 bvii7 i7 i7 bIImaj7 bIImaj7',
+      // Ten bars, for a long bridge: the tonic rocking to bII, then down bVI-bvii onto it.
+      'i7 i7 bIImaj7 bIImaj7 i7 i7 bVImaj7 bvii7 bIImaj7 bIImaj7',
+      // Ten bars: from iv through bVI and bvii to the tonic, then bIII7 and down onto bII.
+      'iv7 iv7 bVImaj7 bvii7 i7 i7 bIII7 bVImaj7 bvii7 bIImaj7',
+      // Ten bars: the vamp against bII, then down through bvii and bVI, held, and up a semitone onto bII.
+      'i7 bIImaj7 i7 bIImaj7 bvii7 bvii7 bVImaj7 bVImaj7 bIImaj7 bIImaj7',
     ],
     intro: [
       'i7 bIImaj7',

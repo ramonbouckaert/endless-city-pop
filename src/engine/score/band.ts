@@ -15,9 +15,10 @@ import {
   type Level,
   type MixName,
   type Voicings,
+  SYNTH_DRUM,
 } from '../../style';
 import { Chord, Voicing } from '../../theory';
-import type { Instruments, SoundPath } from '../song';
+import type { Instruments, SectionKit, SoundPath } from '../song';
 import { Part, rise, scoreNote, spans, timed, type Changes, type NoteSpec, type Span } from './score';
 
 /** A part that plays lines, at a gain (before its sound's trim). */
@@ -44,16 +45,25 @@ const bassRange = (note: number) =>
 export class ScoreBand {
   /**
    * `bpm`: the song's tempo; `voicings`: how it voices chords; `rng`: for
-   * the keyboard parts' varying velocities.
+   * the keyboard parts' varying velocities; `own`: the song's own kick,
+   * crash and synth drum, as this section plays them.
    */
   constructor(
     private readonly instruments: Instruments,
     readonly bpm: number,
     private readonly voicings: Voicings,
     private readonly rng: Rng,
+    private readonly own: SectionKit,
   ) {}
 
-  /** Hits on a drum of the song's kit (or several, together), each at its gain. */
+  // A drum as the song's kit plays it: its own kick and crash.
+  private voiced(drum: Percussion): Percussion {
+    if (drum === PERCUSSION.kick) return this.own.kick;
+    if (drum === PERCUSSION.crash) return this.own.crash;
+    return drum;
+  }
+
+  /** Hits on a drum of the song's kit (or several, together), each at its gain; its kick and crash the song's own. */
   kit(drums: Percussion | readonly Percussion[], hits: readonly (Span & { gain: number })[]): Part {
     return Part.stack(
       ...[drums]
@@ -62,7 +72,7 @@ export class ScoreBand {
           (drum) =>
             new Part(
               hits.map(({ time, dur, gain }) =>
-                scoreNote({ time, dur, path: 'kit', program: 'drums', note: drum, gain }),
+                scoreNote({ time, dur, path: 'kit', program: 'drums', note: this.voiced(drum), gain }),
               ),
             ),
         ),
@@ -74,9 +84,14 @@ export class ScoreBand {
     return this.kit(PERCUSSION.crash, [{ time, dur: 1, gain: 0.2 }]);
   }
 
-  /** The kick and a crash hit together, the band landing on a chord. */
+  /** The kick and a crash hit together, the band landing on a chord (and the song's synth drum, if it has one). */
   kickCrash(time: number, dur: number, gain = 0.5): Part {
-    return this.kit([PERCUSSION.kick, PERCUSSION.crash], [{ time, dur, gain }]);
+    const hit = this.kit([PERCUSSION.kick, PERCUSSION.crash], [{ time, dur, gain }]);
+    if (!this.own.synthDrum) return hit;
+    // (On the kit's path: never transposed, and swung with the kick.)
+    const { program, note, share } = SYNTH_DRUM;
+    const synth = scoreNote({ time, dur: Math.min(dur, 1 / 2), path: 'kit', program, note, gain: gain * share });
+    return Part.stack(hit, new Part([synth]));
   }
 
   // A part's instrument on some notes at a level in the mix, trimmed for

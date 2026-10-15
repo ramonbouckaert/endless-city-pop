@@ -9,6 +9,7 @@ import {
   Intro,
   Lift,
   Link,
+  OWN,
   Outro,
   PreChorus,
   Riff,
@@ -75,12 +76,15 @@ describe('form', () => {
         expect(choruses.indexOf(half)).toBeGreaterThan(0);
         expect(half.material.bars).toEqual(whole[0].material.bars.slice(whole[0].bars - half.bars));
       }
-      // A link only ever comes before a verse, after the first round (its chorus, or a song without one, its B).
+      // A link only ever comes before a verse: after the first round (its chorus, or a song without one, its B), or in some songs before the first verse too.
       form.forEach((sec, i) => {
         if (!(sec instanceof Link)) return;
         seen.add(`${sec.bars}-bar link`);
         expect(form[i + 1]).toBeInstanceOf(Verse);
-        expect(form.slice(0, i).some((s) => s instanceof Chorus || s instanceof PreChorus)).toBe(true);
+        if (form.slice(0, i).some((s) => s instanceof Chorus || s instanceof PreChorus)) return;
+        // (Before the first verse, only after an intro in time.)
+        seen.add('first link');
+        expect(form.slice(0, i).some((s) => s instanceof Intro && !s.free)).toBe(true);
       });
       // A stop is never on the last chorus, nor the first.
       for (const [i, c] of choruses.entries()) {
@@ -127,6 +131,7 @@ describe('form', () => {
         '1-bar link',
         '2-bar link',
         '3-bar link',
+        'first link',
         'stop',
         'side-step',
         'verse twice',
@@ -155,15 +160,24 @@ describe('form', () => {
         expect(song.form.first(Breakdown)).toBeUndefined();
         if (song.form.first(Outro)?.fade) expect(song.form.first(Outro)?.variant).toBe('coda');
       }
-      // A song ending on its verse (ANRI's): its last chorus, with everything, then a lift up into verses to the
-      // end, fading, the first perhaps bare.
+      // A song ending on its verse (ANRI's): its last chorus, with everything (or a last verse and a solo), then a
+      // lift up into verses to the end, fading, the first perhaps bare.
       if (last instanceof Verse && song.form.first(Chorus)) {
         seen.add('verse ending');
         const lift = form.findLastIndex((s) => s instanceof Lift);
         expect(lift).toBeGreaterThan(0);
-        const chorus = form[lift - 1];
-        expect(chorus).toBeInstanceOf(Chorus);
-        expect(chorus instanceof Chorus && chorus.big).toBe(true);
+        // (A returning vamp may come between a solo and the lift.)
+        const at = form.slice(0, lift).findLastIndex((s) => !(s instanceof Vamp));
+        const before = form[at];
+        if (before instanceof SoloSection) {
+          seen.add('verse ending after a solo');
+          expect(form[at - 1]).toBeInstanceOf(Verse);
+          expect(song.form.ofType(Chorus).at(-1)?.big).toBe(true);
+        } else {
+          expect(at).toBe(lift - 1);
+          expect(before).toBeInstanceOf(Chorus);
+          expect(before instanceof Chorus && before.big).toBe(true);
+        }
         const after = form.slice(lift + 1);
         expect(after.length).toBeGreaterThanOrEqual(2);
         for (const v of after) {
@@ -201,6 +215,49 @@ describe('form', () => {
           expect([body[i - 1].round, next.round]).toEqual([sec.round, sec.round]);
         }
       });
+      // A last round with no chorus, into the verse's chords looping under a new hook (Plastic Love's).
+      const outro = song.form.first(Outro);
+      if (song.form.first(Chorus) && last instanceof PreChorus && outro?.variant === 'loop') {
+        seen.add('round outro');
+        expect(form.at(-1)).toBe(outro);
+        expect(outro.fade).toBe(true);
+        const chorus = form.findLastIndex((s) => s instanceof Chorus);
+        // (After the middle: its last round, verse and pre-chorus, and no lift.)
+        const after = form.slice(chorus + 1, -1).map((s) => s.kind.id);
+        expect(after).toContain(Verse.id);
+        expect(after).not.toContain(Lift.id);
+      }
+      if (outro && outro.bars === 24) seen.add('24-bar outro');
+      // Rounds singing their verse and pre-chorus twice before the chorus (A A′ A A′). (A song without a chorus
+      // plays its rounds of verse and B back to back.)
+      if (song.form.first(Chorus))
+        for (const [verse] of song.form.runs(Verse, PreChorus, Verse)) {
+          seen.add('verse and B twice');
+          expect(verse.bars).toBeLessThanOrEqual(8);
+          const i = form.indexOf(verse);
+          expect(form[i + 3]?.kind.id).toBe(PreChorus.id);
+          expect([Chorus.id, ShortBar.id, Outro.id]).toContain(form[i + 4]?.kind.id);
+        }
+      // A tune's bridge between its rounds, and again before the last choruses, perhaps lifting out of it (Tokai's).
+      const bridges = song.form.ofType(Bridge);
+      if (bridges.length > 1) {
+        seen.add('bridge between rounds');
+        const at = form.indexOf(bridges[0]);
+        expect(form.slice(0, at).some((s) => s instanceof Chorus)).toBe(true);
+        expect(form.slice(at + 1).some((s) => s instanceof Chorus && s.round !== undefined)).toBe(true);
+      }
+      for (const [bridge, sec] of song.form.runs(Bridge, Lift)) {
+        seen.add('lift out of a bridge');
+        if (sec.turnaround !== OWN) continue;
+        // Its own: the bridge's last bars, a step down, the last chord bent onto the new key's V.
+        seen.add('own lift out of a bridge');
+        const step = sec.shift - bridge.shift;
+        const roots = (bars: readonly (readonly { root: number }[])[]) => bars.map((bar) => bar.map((c) => c.root));
+        const down = bridge.material.bars.slice(-2).map((bar) => bar.map((c) => ({ root: (c.root - step + 12) % 12 })));
+        expect(roots(sec.material.bars)[0]).toEqual(roots(down)[0]);
+        expect(sec.material.bars[1].at(-1)?.root).toBe((song.key.tonic + 7) % 12);
+      }
+      for (const b of bridges) seen.add(`${b.bars}-bar bridge`);
       if (song.form.ofType(PreChorus).some((p) => p.bars === 16)) seen.add('16-bar pre');
       const intros = song.form.ofType(Intro);
       for (const intro of intros) if (!intro.free) seen.add(`${intro.bars}-bar intro`);
@@ -225,7 +282,19 @@ describe('form', () => {
         '5-bar intro',
         '8-bar intro',
         '9-bar intro',
+        '6-bar intro',
+        '7-bar intro',
+        '11-bar intro',
         'swell',
+        'verse ending after a solo',
+        'round outro',
+        '24-bar outro',
+        'verse and B twice',
+        'bridge between rounds',
+        'lift out of a bridge',
+        'own lift out of a bridge',
+        '8-bar bridge',
+        '12-bar bridge',
       ]),
     );
   });

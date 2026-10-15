@@ -1,9 +1,10 @@
 // Keys, clavinet and the lead, later verses adding rhythm guitar and a
 // pad; or sparse; or the band coming in through it; or (leaning towards
 // a ballad) the keys alone under the lead. Its chords are a verse
-// template's, the chorus's (in a song with one), or a two-chord vamp.
+// template's, the chorus's (in a song with one), a two-chord vamp, or (in
+// a mode that has them) a loop of two chords held two bars each.
 
-import type { Rng } from '../../lib/random';
+import { only, type Rng } from '../../lib/random';
 import { MELODIES, THEME, VERSE, VERSE_TEXTURES, type VerseHarmony, type VerseTexture } from '../../style';
 import type { Bar } from '../../theory';
 import type { Melody } from '../writers';
@@ -36,8 +37,12 @@ export class Verse extends PlayedSection<VerseMaterial> {
   constructor(plan: Plan<VerseFields>, ctx: BuildContext) {
     super(plan);
     this.material = ctx.material(this, (rng) => {
-      // (The chorus's chords only in a song with a chorus.)
-      const harmony = rng.fork('source').weightedKey(VERSE.harmony, ctx.choruses ? undefined : 'chorus');
+      // (The chorus's chords only in a song with a chorus; a loop only in a mode with loops.)
+      const sources = only(
+        VERSE.harmony,
+        (source) => (source !== 'chorus' || ctx.choruses) && (source !== 'loop' || ctx.tonality.verseLoops.length > 0),
+      );
+      const harmony = rng.fork('source').weightedKey(sources);
       const eight = Verse.eight(harmony, ctx, rng.fork('harmony'));
       // A song whose verses are all sixteen bars may sing them in four-bar
       // phrases over its chords twice (never a shorter verse: it would
@@ -65,7 +70,8 @@ export class Verse extends PlayedSection<VerseMaterial> {
   }
 
   // Eight bars of chords: a verse template's, the chorus's first eight,
-  // or a two-chord vamp three times and the approach home.
+  // a two-chord vamp three times and the approach home, or a loop of two
+  // chords held two bars each.
   private static eight(harmony: VerseHarmony, ctx: BuildContext, rng: Rng): Bar[] {
     const { templates } = ctx.tonality;
     switch (harmony) {
@@ -78,6 +84,8 @@ export class Verse extends PlayedSection<VerseMaterial> {
           ...ctx.progress(rng.pick(templates.verseVamp), 6, rng.fork('vamp')),
           ...ctx.harmonizer(rng.fork('approach')).approach(),
         ];
+      case 'loop':
+        return ctx.progress(rng.pick(ctx.tonality.verseLoops), 8, rng.fork('loop'));
     }
   }
 

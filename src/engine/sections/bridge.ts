@@ -1,6 +1,7 @@
-// A related key's progression, then the cadence home (the key's approach,
-// or V/V and V suspended: BRIDGE), on an arpeggio and strings, the lead
-// doubled high on bells. (A key change after it is the lift's to make.)
+// A related key's progression (six bars, or ten: a template that fills
+// them, if any), then the cadence home (the key's approach, or V/V and V
+// suspended: BRIDGE), on an arpeggio and strings, the lead doubled high
+// on bells. (A key change after it is the lift's to make.)
 
 import type { Program } from '../../lib/general-midi';
 import { ADVENTUROUS, BRIDGE, GROOVES, MELODIES, tonalityOf } from '../../style';
@@ -28,10 +29,11 @@ export class Bridge extends PlayedSection<BridgeMaterial> {
     super(plan);
     this.material = ctx.material(this, (rng) => {
       const key = ctx.harmonizer(rng.fork('key')).bridgeKey(ADVENTUROUS);
-      const templates = tonalityOf(key.mode).bridges;
-      const body = ctx.progress(rng.pick(templates), 6, rng.fork('harmony'), { key });
       const home = ctx.harmonizer(rng.fork('cadence'));
       const cadence = rng.fork('exit').chance(BRIDGE.susExit) ? home.into(BRIDGE.sus) : home.approach();
+      const length = this.bars - cadence.length;
+      const templates = tonalityOf(key.mode).bridgeTemplates(length);
+      const body = ctx.progress(rng.pick(templates), length, rng.fork('harmony'), { key });
       const bars = [...body, ...cadence];
       const keys = ctx.swap(rng.fork('swap'));
       return {

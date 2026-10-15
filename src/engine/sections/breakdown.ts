@@ -1,6 +1,7 @@
-// The hook over the chorus's first bars, on pads, keys coming in halfway.
+// The hook over the chorus's first bars, on pads, keys coming in halfway;
+// now and then the weather under it.
 
-import { COMP, GROOVES } from '../../style';
+import { COMP, GROOVES, WEATHER } from '../../style';
 import type { Melody } from '../writers';
 import type { BuildContext } from './build-context';
 import type { Parts, PlayedScoreContext } from './score-context';
@@ -25,6 +26,7 @@ export class Breakdown extends PlayedSection<BreakdownMaterial> {
       return {
         ...ctx.band(ctx.chorusKey(), bars, GROOVES.breakdown, rng.fork('groove')),
         melody: ctx.hook().take(bars.length),
+        ...ctx.weather(WEATHER.breakdown, rng.fork('weather')),
       };
     });
   }
@@ -40,7 +42,7 @@ export class Breakdown extends PlayedSection<BreakdownMaterial> {
       underB,
       band.pad(C),
       band.choir(C),
-      band.comp(C, spans(COMP.chorus, len)).mask(ctx.from(Math.floor(len / 2))),
+      band.comp(C, spans(COMP.chorus, len)).mask(ctx.fromHalf()),
       band.lead(ctx.line(this.material.melody)),
     ];
   }

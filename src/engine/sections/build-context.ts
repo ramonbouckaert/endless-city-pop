@@ -17,6 +17,7 @@ import {
   SWAP,
   THEME,
   tonalityOf,
+  WEATHER,
   type BassFeel,
   type Colour,
   type GuitarOstinato,
@@ -25,6 +26,7 @@ import {
   type IntroHarmony,
   type MelodyStyle,
   type Tonality,
+  type Weather,
 } from '../../style';
 import { Key, Template, type Bar, type Chord } from '../../theory';
 import { BassWriter, DrumWriter, Harmonizer, MelodyWriter, type BassLine, type Melody } from '../writers';
@@ -121,10 +123,17 @@ export class BuildContext {
     return before && (this.section(before) as unknown as S);
   }
 
-  /** The section just before `sec`, built, if there is one. */
-  before(sec: Section): AnySection | undefined {
+  /**
+   * The section just before `sec`, built, if there is one (given `kind`,
+   * only if it is of that kind, and only then built: a section that picks
+   * up into `sec`, such as a drum break into a lift, is built after it).
+   */
+  before(sec: Section): AnySection | undefined;
+  before<K extends SectionKind>(sec: Section, kind: K): InstanceType<K> | undefined;
+  before(sec: Section, kind?: SectionKind): AnySection | undefined {
     const plan = this.plan.before(sec.plan);
-    return plan && this.section(plan);
+    if (!plan || (kind && plan.kind !== kind)) return undefined;
+    return this.section(plan);
   }
 
   /**
@@ -163,6 +172,14 @@ export class BuildContext {
   swap(rng: Rng): readonly Program[] | undefined {
     return rng.chance(SWAP.chance) ? rng.shuffle(SWAP.keys) : undefined;
   }
+
+  /** Perhaps the song's weather under a section, at `chance` (WEATHER). */
+  weather(chance: number, rng: Rng): { weather?: Weather } {
+    return rng.chance(chance) ? { weather: this.songWeather() } : {};
+  }
+
+  // The song's weather, the same under every section that has any.
+  private readonly songWeather = lazy(() => this.shared.fork('weather').weightedKey(WEATHER.sounds));
 
   /** A melody in a style, in a key, over some chords: in longer notes, the further the song leans towards a ballad. */
   melody(style: MelodyStyle, key: Key, bars: Bar[], rng: Rng): Melody {

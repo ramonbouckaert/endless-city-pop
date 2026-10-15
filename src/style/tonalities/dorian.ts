@@ -16,6 +16,8 @@ export const DORIAN: TonalityDef = {
   approach: [['bVII:^9|69'], ['IV:13|9']],
   templates: {
     // A verse's two-chord vamp (the approach home follows).
+    // Chords held two bars, never coming home.
+    verseLoop: ['IV7 IV7 i7 i7', 'bVIImaj7 bVIImaj7 i7 i7'],
     verseVamp: ['i7 IV7', 'iv7 bVII7', 'i7 ii7', 'bIIImaj7 IV7'],
     vamp: [
       'i7 IV/3',
@@ -77,6 +79,12 @@ export const DORIAN: TonalityDef = {
       'i7 i7 bVIImaj7 bVIImaj7 IV7 IV7',
       'IV7 IV7 i7 i7 v7 IV7',
       'IV7sus V7sus IV7sus V7sus bvi7 bII7',
+      // Ten bars, for a long bridge: the tonic held, then up a semitone and back (So What's).
+      'i7 i7 i7 i7 bii7 bii7 bii7 bii7 i7 IV7',
+      // Ten bars: the bright IV7 and the tonic, then the parent major's bVII and the borrowed bVI.
+      'IV7 IV7 i7 i7 IV7 IV7 bVIImaj7 bVIImaj7 bVImaj7 bVIImaj7',
+      // Ten bars: a long tonic, the plagal IV7, and up through bIII and IV to the v.
+      'i7 i7 i7 i7 IV7 IV7 bIIImaj7 IV7 v7 IV7',
     ],
     intro: [
       'i7 IV7',

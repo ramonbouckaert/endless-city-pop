@@ -57,9 +57,16 @@ export type FillKind = 'roll' | 'toms' | 'mixed' | 'unison' | 'stop';
 const BEATS = [0, 4, 8, 12];
 export const EIGHTH_OFFS = [2, 6, 10, 14];
 
-// Extra percussion: shaker, tambourine or cowbell.
+// Extra percussion: shaker, cabasa (RIDE ON TIME's, Sea Line's), tambourine or cowbell.
 const EXTRAS: readonly DrumVoice[] = [
   { drum: PERCUSSION.shaker, role: 'perc', bars: [empty().map((_, i) => (i % 2 ? 0.06 : 0.1))], weight: 2 },
+  {
+    drum: PERCUSSION.cabasa,
+    role: 'perc',
+    // (By its step in the beat: the beat, the offbeat eighth loudest, the sixteenths between.)
+    bars: [empty().map((_, i) => [0.07, 0.05, 0.1, 0.05][i % 4])],
+    weight: 0.6,
+  },
   {
     drum: PERCUSSION.tambourine,
     role: 'perc',
@@ -70,7 +77,8 @@ const EXTRAS: readonly DrumVoice[] = [
 const percussion = (chance: number) => ({ op: 'voice', chance, voices: EXTRAS }) as const;
 
 // Latin percussion over the kit, as fusion layers it: maracas in eighths,
-// wood blocks on a cross figure, congas or bongos.
+// wood blocks or claves on a cross figure, congas or bongos, or a muted
+// triangle in sixteenths (Sea Line's).
 const LATIN: readonly DrumVoice[] = [
   {
     drum: PERCUSSION.maracas,
@@ -107,6 +115,16 @@ const LATIN: readonly DrumVoice[] = [
     ],
   },
   { drum: PERCUSSION.lowBongo, role: 'perc', bars: [at({ 6: 0.08, 14: 0.08 }), at({ 7: 0.07, 14: 0.08, 15: 0.06 })] },
+  // The three side of the son clave, and of the rumba's.
+  {
+    drum: PERCUSSION.claves,
+    role: 'perc',
+    bars: [
+      [0, 6, 12],
+      [0, 7, 12],
+    ].map((list) => steps(list, 0.09)),
+  },
+  { drum: PERCUSSION.muteTriangle, role: 'perc', bars: [empty().map((_, i) => (i % 4 ? 0.04 : 0.07))] },
 ];
 const latin = (chance: number) => ({ op: 'voice', chance, voices: LATIN }) as const;
 
@@ -429,4 +447,6 @@ export const FILLS = {
   ] as Weighted<Percussion>,
   sixteenths: 0.65,
   quietLevel: 0.6,
+  // How often a loud fill starts on a vibraslap.
+  vibraslap: 0.012,
 };

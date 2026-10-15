@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { Song } from '../src/engine';
-import { GM, type Program } from '../src/lib/general-midi';
-import { BALLAD, BALLAD_KITS, BAND, KITS, PICKS, SOUND_LEVELS, VOICES, type PickedPart } from '../src/style';
+import { ScoreArranger, Song } from '../src/engine';
+import { GM, PERCUSSION, type Program } from '../src/lib/general-midi';
+import {
+  BALLAD,
+  BALLAD_KITS,
+  BAND,
+  KIT_VOICES,
+  KITS,
+  PICKS,
+  SOUND_LEVELS,
+  SYNTH_DRUM,
+  VOICES,
+  type PickedPart,
+} from '../src/style';
 import { defined } from './helpers';
 
 describe('instruments', () => {
@@ -84,5 +95,48 @@ describe('instruments', () => {
     }
     expect(new Set(songs.filter(fast).map((s) => s.instruments.kit))).toEqual(new Set(kits));
     for (const { program } of [...kits, ...ballads]) expect(program).toBeGreaterThanOrEqual(0);
+  });
+
+  it("plays each song's own kick and crashes on its kit, and now and then a synth drum on the band's hits", () => {
+    const kicks = new Set<number>();
+    const crashes = new Set<number>();
+    let pairs = 0;
+    for (const song of songs) {
+      const { kick, crashes: own } = song.instruments.kitVoices;
+      kicks.add(kick);
+      for (const c of own) crashes.add(c);
+      if (own.length === 2) pairs++;
+      expect(new Set(own).size).toBe(own.length);
+    }
+    expect(kicks).toEqual(new Set(KIT_VOICES.kick.map(([drum]) => drum)));
+    expect(crashes).toEqual(new Set(KIT_VOICES.crashes.map(([drum]) => drum)));
+    expect(pairs).toBeGreaterThan(0);
+    // Its notes: the kit's own kick and crash never, where the song plays others.
+    for (const song of songs.slice(0, 40)) {
+      const { kick, crashes: own, synthDrum } = song.instruments.kitVoices;
+      const notes = new ScoreArranger(song).arrange().notes;
+      const drums = notes.filter((n) => n.program === 'drums').map((n) => n.note);
+      if (kick !== PERCUSSION.kick) expect(drums).not.toContain(PERCUSSION.kick);
+      if (!own.includes(PERCUSSION.crash)) expect(drums).not.toContain(PERCUSSION.crash);
+      expect(drums).toContain(kick);
+      // (Two crashes taking turns, section by section: both heard.)
+      for (const crash of own) expect(drums).toContain(crash);
+      if (!synthDrum) expect(notes.some((n) => n.program === SYNTH_DRUM.program)).toBe(false);
+    }
+    const synths = songs.filter((s) => s.instruments.kitVoices.synthDrum);
+    expect(synths.length).toBeGreaterThan(0);
+    // On the kit, with the kick: never transposed, and swung with it.
+    let struck = 0;
+    for (const song of synths) {
+      const notes = new ScoreArranger(song).arrange().notes;
+      const kicks = notes.filter((n) => n.program === 'drums' && n.note === song.instruments.kitVoices.kick);
+      for (const n of notes.filter((n) => n.program === SYNTH_DRUM.program)) {
+        struck++;
+        expect(n.path).toBe('kit');
+        expect(n.note).toBe(SYNTH_DRUM.note);
+        expect(kicks.some((k) => Math.abs(k.time - n.time) < 1e-9)).toBe(true);
+      }
+    }
+    expect(struck).toBeGreaterThan(0);
   });
 });

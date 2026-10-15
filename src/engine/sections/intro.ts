@@ -1,13 +1,23 @@
 // The intro's chords in one of its textures, with the hook as a teaser,
 // or perhaps a riff of its own; the teaser (if any) on bells over the top.
-// An intro a bar longer than its phrases (five bars, or nine) ends on a
-// bar of its key's approach home, the teaser resting over it. A free
-// intro, before the intro in time, plays the hook's chords out of tempo
-// (rubato) under its teaser.
+// An intro longer than its phrases ends on as many bars of its key's
+// approach home, the teaser resting over them: a bar of the V (five
+// bars, or nine), the ii and V (six), or the ii and the V held two bars
+// (seven, or eleven: Tokai's). A free intro, before the intro in time,
+// plays the hook's chords out of tempo (rubato) under its teaser.
 
 import type { Rng } from '../../lib/random';
 import { cycle } from '../../lib/math';
-import { INTRO, INTRO_TEXTURES, MELODIES, RUBATO, RUN_INTO, type IntroHarmony, type IntroTexture } from '../../style';
+import {
+  INTRO,
+  INTRO_TEXTURES,
+  MELODIES,
+  RUBATO,
+  RUN_INTO,
+  WEATHER,
+  type IntroHarmony,
+  type IntroTexture,
+} from '../../style';
 import type { Melody } from '../writers';
 import type { NoteSpec, Part } from '../score';
 import type { Bar, Key } from '../../theory';
@@ -21,8 +31,6 @@ export interface IntroMaterial extends PlayedMaterial {
   melody?: Melody;
   /** Whether it ends with the horns running up into the next downbeat. */
   run: boolean;
-  /** Whether waves on the shore play under it (a quiet one's, now and then). */
-  seashore: boolean;
 }
 
 export interface IntroFields {
@@ -53,19 +61,19 @@ export class Intro extends PlayedSection<IntroMaterial> {
           variant: 'rubato',
           melody: ctx.hook().take(this.bars),
           run: false,
-          seashore: rng.fork('seashore').chance(INTRO.seashoreChance),
+          ...ctx.weather(WEATHER.intro, rng.fork('weather')),
         };
       }
       const { harmony, bars: phrase, key } = ctx.introBars();
-      const { extended } = this;
-      const bars = extended ? this.homeward(phrase, key, ctx, rng.fork('dominant')) : phrase;
+      const { tail } = this;
+      const bars = tail ? this.homeward(phrase, key, ctx, rng.fork('dominant')) : phrase;
       // (After a free intro, never out of tempo again.)
       const variant = rng.weightedKey(INTRO_TEXTURES, ctx.plan.first(Intro)?.free ? 'rubato' : undefined);
       let melody: Melody | undefined;
       if (harmony === 'hook') {
-        // (The hook's teaser rests over the bar of the approach home.)
+        // (The hook's teaser rests over the bars of the approach home.)
         const teaser = ctx.hook().take(4);
-        melody = extended ? teaser.looped(this.bars - 1, 1) : teaser;
+        melody = tail ? teaser.looped(this.bars - tail, tail) : teaser;
       } else if (harmony === 'template' && rng.chance(INTRO.melodyChance))
         melody = ctx.melody(MELODIES.riff, ctx.key, bars, rng.fork('melody'));
       return {
@@ -74,22 +82,23 @@ export class Intro extends PlayedSection<IntroMaterial> {
         variant,
         ...(melody ? { melody } : {}),
         run: rng.fork('run').chance(RUN_INTO),
-        seashore: QUIET.has(variant) && rng.fork('seashore').chance(INTRO.seashoreChance),
+        ...(QUIET.has(variant) ? ctx.weather(WEATHER.intro, rng.fork('weather')) : {}),
       };
     });
   }
 
-  /** Whether it is a bar longer than its phrases (five bars, or nine), ending on a bar of the approach home. */
-  get extended(): boolean {
-    return !this.free && this.bars % 4 === 1;
+  /** How many bars it runs on past its four-bar phrases (0 to 3), ending on the approach home. */
+  get tail(): number {
+    return this.free ? 0 : this.bars % 4;
   }
 
-  // The intro's phrases, then a bar of their key's approach home. (A
-  // hook's, in the chorus's key, leads home through it: in a
-  // relative-major chorus, bVII-i.)
+  // The intro's phrases, then its tail: a bar of their key's V; the ii
+  // and V; or the ii and the V held two bars. (A hook's, in the chorus's
+  // key, leads home through it: in a relative-major chorus, bVII-i.)
   private homeward(phrase: readonly Bar[], key: Key, ctx: BuildContext, rng: Rng): Bar[] {
-    const [, home] = ctx.harmonizer(rng, key).approach();
-    return [...cycle(phrase, this.bars - 1), home];
+    const [ii, v] = ctx.harmonizer(rng, key).approach();
+    const tails = [[v], [ii, v], [ii, v, v]];
+    return [...cycle(phrase, this.bars - this.tail), ...tails[this.tail - 1]];
   }
 
   // Rubato, out of tempo: each bar slower than the song, slowing into its
@@ -115,15 +124,17 @@ export class Intro extends PlayedSection<IntroMaterial> {
   }
 
   protected play(ctx: PlayedScoreContext): Parts {
-    return [...this.texture(ctx), this.material.run && ctx.runInto(), this.material.seashore && ctx.seashore()];
+    return [...this.texture(ctx), this.material.run && ctx.runInto()];
   }
 
-  // The intro's texture.
+  // The intro's texture. (What comes in halfway comes in halfway through
+  // its phrases, before any tail: on a phrase's first bar.)
   private texture(ctx: PlayedScoreContext): Parts {
     const { band, C, B, underB, len } = ctx;
     const mat = this.material;
     const drums = ctx.drums();
-    const halfway = (p: Part) => p.mask(ctx.from(len / 2));
+    const phrases = len - this.tail;
+    const halfway = (p: Part) => p.mask(ctx.fromHalf(phrases));
     switch (mat.variant) {
       case 'arp':
         // A keyboard arpeggio over a pad; bass and drums join halfway.
@@ -132,7 +143,7 @@ export class Intro extends PlayedSection<IntroMaterial> {
         // The drums alone, then the band in halfway on a crash.
         return [
           drums,
-          band.crash(len / 2),
+          band.crash(ctx.half(phrases)),
           halfway(B),
           halfway(band.keysUnder(C)),
           halfway(ctx.clav),
@@ -164,5 +175,5 @@ export class Intro extends PlayedSection<IntroMaterial> {
   }
 }
 
-// The quiet textures, which may have waves on the shore under them.
+// The quiet textures, which may have the weather under them.
 const QUIET: ReadonlySet<IntroTexture> = new Set(['pads', 'rubato']);

@@ -6,6 +6,7 @@ import { along } from '../lib/math';
 import type { Odds, Range, Weighted } from '../lib/random';
 import type { ChordSpec, VoicingStyle } from '../theory';
 import type { Colour } from './harmony';
+import type { BandPart } from './instruments';
 
 // How a song voices its chords: the keys, clav and stabs (`comp`) close
 // or in fourths, the pad, strings and choir (`sustain`) close or spread.
@@ -52,18 +53,23 @@ export const SONG = {
   lock: 0.2,
   riff: 0.5,
   ostinato: 0.2,
+  // How often a song swung in sixteenths swings only its guitar, its
+  // melody voices and the bells (the teaser, and the bridge's double of
+  // the lead), the rest of the band straight (Sparkle's).
+  swingOnly: { chance: 0.15, parts: new Set<SwingPart>(['guitar', 'bell', 'lead', 'double', 'echo', 'soloists']) },
 };
+
+// A part that may swing alone: one of the band's, or a melody voice
+// (every soloist as one).
+export type SwingPart = BandPart | 'lead' | 'double' | 'echo' | 'soloists';
 
 // How an intro gets its harmony: the hook's chords, the chorus's first
 // four bars (with the hook as a teaser), planing add9 chords, or an
-// intro template (perhaps with a riff of its own, `melodyChance`). A
-// quiet intro (pads, rubato) has waves on the shore under it this often
-// (`seashoreChance`: Sea Line's).
+// intro template (perhaps with a riff of its own, `melodyChance`).
 export type IntroHarmony = 'hook' | 'planing' | 'template';
 export const INTRO = {
   harmony: { hook: 3, planing: 2, template: 6 } as Odds<IntroHarmony>,
   melodyChance: 0.5,
-  seashoreChance: 0.25,
 };
 
 // How a sixteen-bar theme (a theme song's chorus) gets its harmony: the
@@ -78,11 +84,13 @@ export const THEME = {
 
 // Where a verse gets its harmony: a verse template of its own, the
 // chorus's first eight bars (a verse and chorus sharing their changes:
-// Flyday Chinatown's, Tokai's; in a song with a chorus), or a two-chord
-// vamp (IV-V, IV-I/3) with the approach home at its end.
-export type VerseHarmony = 'template' | 'chorus' | 'vamp';
+// Flyday Chinatown's, Tokai's; in a song with a chorus), a two-chord
+// vamp (IV-V, IV-I/3) with the approach home at its end, or (in a mode
+// that has them) two chords held two bars each, never coming home
+// (Sparkle's A, Stay With Me's verse).
+export type VerseHarmony = 'template' | 'chorus' | 'vamp' | 'loop';
 export const VERSE = {
-  harmony: { template: 6, chorus: 1.5, vamp: 2 } as Odds<VerseHarmony>,
+  harmony: { template: 6, chorus: 1.5, vamp: 2, loop: 1 } as Odds<VerseHarmony>,
 };
 
 // How often a minor or dorian song's chorus is in its relative major (a
@@ -110,15 +118,28 @@ export const BRIDGE = {
 // (FORM.ballad), its melodies in longer notes (a rhythm cell's weight
 // divided by its notes to the power `melody`, fully leaning), and its
 // verses now and then the keys alone under the lead (Oh No, Oh Yes!'s
-// piano: VERSE_TEXTURES.alone).
+// piano: VERSE_TEXTURES.alone). Even fully leaning, its swing in
+// eighths, its easing back and its kit are each a ballad's only `most`
+// of the time: a slow song may still be straight, steady and on sticks
+// (Last Summer Whisper's).
 export const BALLAD = {
   tempo: [80, 98] as Range,
+  most: 0.85,
   swing: [0.15, 1 / 3] as Range,
   paired: 0.5,
   ritard: 0.94,
   ritardFrom: 0.3,
   melody: 3,
 };
+
+/**
+ * How far a song leaning `ballad` (balladLean: 0 to 1) goes towards a
+ * ballad's swing, easing back and kit: the odds that it swings in eighths
+ * or eases back, and how far its kits' odds move towards a ballad's.
+ */
+export function balladChance(ballad: number): number {
+  return ballad * BALLAD.most;
+}
 
 /** How far a song at `bpm` leans towards a ballad: 0 (not at all) to 1 (fully), through BALLAD.tempo. */
 export function balladLean(bpm: number): number {

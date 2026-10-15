@@ -1,4 +1,4 @@
-import { Finale, Song, type AnySection, type Material } from '../src/engine';
+import { Finale, Song, type AnySection, type Material, type Score } from '../src/engine';
 import { FERMATA } from '../src/style';
 
 /** Each of a song's parts' material, by part id. */
@@ -9,6 +9,12 @@ export function materials(song: Song): Readonly<Record<string, Material>> {
 /** The first section of each of a song's parts. */
 export function partSections(song: Song): AnySection[] {
   return song.form.sections.filter((sec, i, all) => all.findIndex((s) => s.part === sec.part) === i);
+}
+
+/** Whether a note is a crash on the song's kit: one of its own crashes (KitVoices). */
+export function isCrash(song: Song): (note: Score['notes'][number]) => boolean {
+  const crashes: readonly number[] = song.instruments.kitVoices.crashes;
+  return (n) => n.program === 'drums' && crashes.includes(n.note);
 }
 
 /** A value a test needs to be there: it fails, naming what was missing, if not. */

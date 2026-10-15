@@ -24,6 +24,10 @@ export const FORM = {
   shape: { song: 6, tune: 1, jpop: 1.5, ab: 0.6 } as Odds<FormShape>,
   // How often a song has verses (and pre-choruses) before its choruses.
   verseChance: 0.85,
+  // How often a song with verses and a pre-chorus of at most eight bars
+  // sings each round's verse and pre-chorus twice before its chorus
+  // (A A′ A A′: Plastic Love's), its verses then at most eight bars.
+  versesWithB: 0.1,
   // How often a song's verses are all seven bars (an eight-bar verse with
   // its first bar dropped: Sea Line's), and how often each round sings
   // its verse twice (A A, as J-pop does: always, in a J-pop form).
@@ -67,8 +71,10 @@ export const FORM = {
   // then how often a turnaround re-enters it from another chord.
   later: { dropPre: 0.25, dropVerse: 0.15, halfChorus: 0.2, again: 0.12, reentry: 0.5 },
   // How often a song has a link (a bar to three of planing chords) before
-  // every verse after the first, and how long.
-  link: { chance: 0.2, bars: [1, 2, 3] },
+  // every verse after the first, and how long; and how often, having
+  // them, it plays one before the first verse too, after an intro in time
+  // (Sea Line's).
+  link: { chance: 0.2, bars: [1, 2, 3], first: 0.4 },
   // Short bars: how often a song breaks for a 2/4 bar before each chorus
   // that follows its verse or pre-chorus, and how often it starts its
   // first section after the intro with a 1/4 pickup.
@@ -76,13 +82,18 @@ export const FORM = {
   // How often a song stops dead in the last bar of its later choruses (a
   // band hit, then silence under the lead, and a drum pickup).
   stopChance: 0.25,
-  // An intro of five or nine bars has a bar on the dominant after its
-  // phrases (ANRI's band intro, Sparkle's).
+  // An intro longer than its phrases ends on the approach home: five or
+  // nine bars on a bar of the dominant (ANRI's band intro, Sparkle's);
+  // six on the ii and V (Stay With Me's); seven or eleven on the ii and
+  // the V held two bars (Tokai's).
   introBars: [
     [4, 2],
     [8, 1],
     [5, 0.3],
     [9, 0.3],
+    [6, 0.3],
+    [7, 0.15],
+    [11, 0.15],
   ] as Weighted<number>,
   // How often a song has an intro at all (one without starts on its first
   // verse or chorus), how often it opens with a free intro (out of tempo:
@@ -104,6 +115,14 @@ export const FORM = {
     [16, 1],
   ] as Weighted<number>,
   bridgeChance: 0.65,
+  // How often a tune plays its bridge between two of its rounds, and again
+  // after its solos, the last choruses lifting out of it (Tokai's).
+  tuneBridges: 0.5,
+  // A bridge: eight bars, or twelve (Tokai's), the last two its cadence home.
+  bridgeBars: [
+    [8, 3],
+    [12, 1],
+  ] as Weighted<number>,
   soloists: [0, 1, 2, 3],
   soloCount: [
     [0, 1],
@@ -122,6 +141,8 @@ export const FORM = {
     // How often a lift bends the chorus's own last two bars onto the new
     // key's V (Tokai's) instead of taking one of the tonality's turnarounds.
     own: 0.2,
+    // (And how often, straight out of a bridge: Tokai's.)
+    ownAfterBridge: 0.6,
     steps: [
       [1, 2],
       [2, 3],
@@ -145,9 +166,14 @@ export const FORM = {
   // a fade's choruses of eight, at least two verses); and how often the
   // band drops out under the keys and the lead for the first two bars
   // after the lift.
-  verseEnding: { chance: 0.15, bare: 0.5 },
+  // And how often that lift comes out of a solo after a last
+  // verse, with no last chorus (ANRI's: verse, trumpet solo, lift).
+  verseEnding: { chance: 0.15, bare: 0.5, afterSolo: 0.35 },
   // A fading song's last choruses, and how often an outro (one that
   // fades, OUTRO_STYLES) takes over from them.
+  // And how often a fading song with verses ends instead on a last round
+  // with no chorus, its verse and pre-chorus, then the verse's chords
+  // looping under a new hook (Plastic Love's).
   fade: {
     choruses: [
       [2, 2],
@@ -155,6 +181,7 @@ export const FORM = {
       [4, 2],
     ] as Weighted<number>,
     outroChance: 0.45,
+    roundOutro: 0.25,
   },
   // A ballad's rounds and solos: fewer, a song's odds moving towards
   // these the further it leans towards a ballad (BALLAD), and its drum

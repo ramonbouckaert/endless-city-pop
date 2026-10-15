@@ -7,12 +7,17 @@ import { Timeline } from '../src/lib/timeline';
 
 const ending = (song: Song) => song.part(Finale)?.variant === 'fermata';
 const midSong = (song: Song) => song.form.sections.some((sec) => sec.fermata);
+// (And no other change of tempo: no easing back each phrase, rubato intro or eased last chord.)
+const steady = (song: Song) =>
+  !song.traits.ritard &&
+  !song.form.ofType(Intro).some((i) => i.material.variant === 'rubato') &&
+  !song.part(Finale)?.eases;
 // Songs ending on a fermata, holding one mid-song, both, and neither.
 const songs = {
-  ending: songWhere((s) => ending(s) && !midSong(s), 'a song ending on a fermata, and none before'),
-  midSong: songWhere((s) => midSong(s) && !ending(s), 'a song holding a fermata mid-song only'),
-  both: songWhere((s) => midSong(s) && ending(s), 'a song with fermatas mid-song and at its end'),
-  neither: songWhere((s) => !midSong(s) && !ending(s), 'a song with no fermata'),
+  ending: songWhere((s) => steady(s) && ending(s) && !midSong(s), 'a song ending on a fermata, and none before'),
+  midSong: songWhere((s) => steady(s) && midSong(s) && !ending(s), 'a song holding a fermata mid-song only'),
+  both: songWhere((s) => steady(s) && midSong(s) && ending(s), 'a song with fermatas mid-song and at its end'),
+  neither: songWhere((s) => steady(s) && !midSong(s) && !ending(s), 'a song with no fermata'),
 };
 const held = Object.values(songs).filter((s) => heldBars(s).length);
 

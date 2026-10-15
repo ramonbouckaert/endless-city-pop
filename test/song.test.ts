@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { Chorus, DrumBreak, Finale, Intro, PreChorus, ShortBar, Song, Swell, Vamp, Verse } from '../src/engine';
+import {
+  Chorus,
+  DrumBreak,
+  Finale,
+  Intro,
+  PreChorus,
+  ScoreArranger,
+  ShortBar,
+  Song,
+  Swell,
+  Vamp,
+  Verse,
+} from '../src/engine';
 import { BALLAD, BALLAD_FEELS, TONALITIES } from '../src/style';
 import { CHORDS, MODES, type Mode } from '../src/theory';
 import { defined, materials } from './helpers';
@@ -107,16 +119,38 @@ describe('Song', () => {
     ).toBe(true);
   });
 
+  it('now and then swings only its guitar, melody voices and bells, the rest straight', () => {
+    const song = defined(
+      Array.from({ length: 200 }, (_, i) => Song.generate(`swingOnly${i}`)).find((s) => s.swingOnly),
+      'a song swinging some parts',
+    );
+    expect(song.swingUnit).toBe(16);
+    const notes = new ScoreArranger(song).arrange().notes;
+    // (Times in bars: a straight note on a thirty-second, but for a few triplets.)
+    const onGrid = (n: { time: number }) => Math.abs(n.time * 32 - Math.round(n.time * 32)) < 1e-9;
+    const straight = notes.filter((n) => n.path === 'bass' || n.path === 'kit');
+    expect(straight.filter(onGrid).length).toBeGreaterThan(straight.length * 0.99);
+    // (A melody's cells are mostly eighths, which sixteenths' swing leaves be: a soloist's sixteenths swing.)
+    const swingers = notes.filter((n) => n.path && song.swings(n.path));
+    expect(swingers.some((n) => !onGrid(n))).toBe(true);
+  });
+
   it('leans slower songs towards ballads: swung in eighths, eased grooves, easing back each phrase', () => {
     const songs = Array.from({ length: 400 }, (_, i) => Song.generate(`ballad${i}`));
     const [slowest, fastest] = BALLAD.tempo;
     const ballads = songs.filter((s) => s.bpm <= slowest);
     const between = songs.filter((s) => s.bpm > slowest && s.bpm < fastest);
     expect(ballads.length).toBeGreaterThan(5);
-    // Fully leaning: everything a ballad does.
+    // Fully leaning: everything a ballad does (its swing in eighths and its
+    // easing back most of the time, BALLAD.most).
     let paired = 0;
+    const swung = ballads.filter((s) => s.swingUnit === 8);
+    const eased = ballads.filter((s) => s.traits.ritard !== undefined);
+    for (const group of [swung, eased]) {
+      expect(group.length).toBeGreaterThan(ballads.length / 2);
+      expect(group.length).toBeLessThan(ballads.length);
+    }
     for (const song of ballads) {
-      expect(song.swingUnit).toBe(8);
       expect(song.traits.lock).toBe(false);
       expect(song.form.first(DrumBreak)).toBeUndefined();
       for (const mat of Object.values(materials(song))) {
@@ -128,9 +162,18 @@ describe('Song', () => {
       // Two chords a bar, in a song that pairs them.
       const chorus = defined(song.part(Chorus), 'a chorus');
       if (song.traits.paired && chorus.bars.slice(0, 8).every((bar) => bar.length === 2)) paired++;
-      // Easing back at the end of a four-bar phrase.
+      // Easing back at the end of a four-bar phrase, if it does: all the way.
+      if (!song.traits.ritard) continue;
       expect(song.traits.ritard).toBe(BALLAD.ritard);
       expect(song.timeline.tempoChanges.some((t) => Math.abs(t.bpm - song.bpm * BALLAD.ritard) < 1e-9)).toBe(true);
+      // And at the end of a section that keeps time but ends between its phrases (an intro's tail, a ten-bar
+      // chorus), its last beat eased back too.
+      song.form.sections.forEach((sec, i) => {
+        if (sec.tempo.length || sec.bars < 1 || sec.bars % 4 === 0) return;
+        const end = song.form.starts[i] + sec.bars;
+        expect(song.timeline.bpmAt(end - 0.125)).toBeCloseTo(song.bpm * BALLAD.ritard);
+        if (sec.bars % 4 > 0.5) expect(song.timeline.bpmAt(end - 0.375)).toBeCloseTo(song.bpm);
+      });
     }
     expect(paired).toBeGreaterThan(0);
     // Not leaning at all: none of it.

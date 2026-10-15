@@ -16,6 +16,8 @@ export interface Turnaround {
 export interface Templates {
   vamp: readonly string[];
   verseVamp: readonly string[];
+  // Loops a verse may sing over whole, never cadencing (each chord held two bars).
+  verseLoop?: readonly string[];
   verse: readonly string[];
   chorus: readonly string[];
   tag: readonly string[];

@@ -1,11 +1,13 @@
 // Which sounds play a song: a sound for each part of the band, the
 // melody voices, and a drum kit, all picked per song from style/instruments.
 
-import type { Program } from '../../lib/general-midi';
+import type { Percussion, Program } from '../../lib/general-midi';
 import { blend, type Rng } from '../../lib/random';
 import {
+  balladChance,
   BALLAD_KITS,
   BAND,
+  KIT_VOICES,
   KITS,
   PICKS,
   SOUND_LEVELS,
@@ -28,6 +30,18 @@ export type SoundPath = Exclude<keyof Sounds, 'soloists'> | `soloists.${number}`
 /** A part of the band: where its sound is, or "kit" for the drums. */
 export type PartPath = SoundPath | 'kit';
 
+/** The drums a song's kick and crash play on its kit (KIT_VOICES). */
+export interface KitVoices {
+  readonly kick: Percussion;
+  /** One, or two taking turns section by section. */
+  readonly crashes: readonly Percussion[];
+  /** Whether a synth drum strikes with the band's hits (Sea Line's). */
+  readonly synthDrum: boolean;
+}
+
+/** The song's own drums as a section plays them (KitVoices): its kick, its turn's crash, and the synth drum. */
+export type SectionKit = Omit<KitVoices, 'crashes'> & { readonly crash: Percussion };
+
 /** How loud an instrument plays, relative to the others (SOUND_LEVELS). */
 const level = (program: Program): number => SOUND_LEVELS[program] ?? 1;
 
@@ -39,6 +53,7 @@ export class Instruments {
   constructor(
     readonly sounds: Sounds,
     readonly kit: Kit,
+    readonly kitVoices: KitVoices,
   ) {
     const { soloists, ...parts } = sounds;
     this.byPath = new Map<SoundPath, Program>([
@@ -53,13 +68,23 @@ export class Instruments {
    * the likelier a ballad's kit.
    */
   static pick(rng: Rng, ballad: number): Instruments {
-    const kits = blend(KITS, BALLAD_KITS, ballad);
-    return new Instruments(pickSounds(rng.fork('sounds')), rng.fork('kit').weighted(kits));
+    const kits = blend(KITS, BALLAD_KITS, balladChance(ballad));
+    return new Instruments(
+      pickSounds(rng.fork('sounds')),
+      rng.fork('kit').weighted(kits),
+      pickKitVoices(rng.fork('drums')),
+    );
   }
 
   /** These instruments, with some parts' sounds changed. */
   with(sounds: Partial<Sounds>): Instruments {
-    return new Instruments({ ...this.sounds, ...sounds }, this.kit);
+    return new Instruments({ ...this.sounds, ...sounds }, this.kit, this.kitVoices);
+  }
+
+  /** The song's own drums as the section at `index` plays them, its crashes taking turns section by section. */
+  kitAt(index: number): SectionKit {
+    const { kick, crashes, synthDrum } = this.kitVoices;
+    return { kick, crash: crashes[index % crashes.length], synthDrum };
   }
 
   /** The path of a soloist, by an index into the sounds' soloists (wrapping round). */
@@ -103,4 +128,13 @@ function pickSounds(rng: Rng): Sounds {
     picked[part] = sound;
   }
   return { ...BAND, ...picked, lead, double, echo: lead, soloists };
+}
+
+// The song's kick, and a crash or two (KIT_VOICES).
+function pickKitVoices(rng: Rng): KitVoices {
+  const kick = rng.weighted(KIT_VOICES.kick);
+  const first = rng.weighted(KIT_VOICES.crashes);
+  const others = KIT_VOICES.crashes.filter(([drum]) => drum !== first);
+  const crashes = rng.chance(KIT_VOICES.twoCrashes) ? [first, rng.weighted(others)] : [first];
+  return { kick, crashes, synthDrum: rng.fork('synthDrum').chance(KIT_VOICES.synthDrum) };
 }

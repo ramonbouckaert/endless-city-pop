@@ -9,6 +9,7 @@ import type { Rng } from '../../lib/random';
 import { Chord, type Bar } from '../../theory';
 
 import type { BuildContext } from './build-context';
+import { Bridge } from './bridge';
 import type { Parts, PlayedScoreContext } from './score-context';
 import { PlayedSection, type Plan, type PlayedMaterial } from './section';
 import { lastBar, spans, timed } from '../score';
@@ -52,13 +53,14 @@ export class Lift extends PlayedSection<LiftMaterial> {
     });
   }
 
-  // The chorus's last two bars, the first still in the key it lifts from
-  // (written a step down, as the lift plays in its new key), the last
-  // chord bent onto the new key's V.
+  // The last two bars of the section before it (a chorus's, or a
+  // bridge's cadence home: Tokai's), the first still in the key it lifts
+  // from (written a step down, as the lift plays in its new key), the
+  // last chord bent onto the new key's V.
   private own(ctx: BuildContext, rng: Rng): Bar[] {
     const step = this.shift - (ctx.plan.before(this.plan)?.shift ?? 0);
     const down = (bar: Bar) => bar.map((c) => c.transpose(-step));
-    const [first, second] = ctx.chorusBars().slice(-2);
+    const [first, second] = (ctx.before(this, Bridge)?.material.bars ?? ctx.chorusBars()).slice(-2);
     const v = new Chord(ctx.key.tonic + 7, rng.pick(['13', '7alt', '9sus']));
     const bars = [down(first), [...down(second).slice(0, -1), v]];
     return Chord.inBars(Chord.fitScales(bars.flat(), ctx.key), bars);

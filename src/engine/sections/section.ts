@@ -14,7 +14,7 @@
 // section after a key change plays it shifted up (Section.shift).
 
 import type { Program } from '../../lib/general-midi';
-import { FERMATA, WALKING_BASS, type ClavFigure, type GuitarOstinato } from '../../style';
+import { FERMATA, WALKING_BASS, type ClavFigure, type GuitarOstinato, type Weather } from '../../style';
 import type { Bar, Key } from '../../theory';
 import type { NoteSpec, ScoreBand } from '../score';
 import type { Sounds } from '../song';
@@ -104,6 +104,8 @@ export interface PlayedMaterial {
   bass: BassLine;
   clav: ClavFigure;
   signature?: GuitarOstinato;
+  /** The weather under it, if any (a quiet intro's, or a breakdown's, now and then). */
+  weather?: Weather;
 }
 
 /**
@@ -209,7 +211,8 @@ export abstract class PlayedSection<M extends PlayedMaterial = PlayedMaterial> e
 
   parts(band: ScoreBand, repeat: number): Parts {
     const ctx = new PlayedScoreContext(this, band, repeat);
-    const played = this.play(ctx);
+    const { weather } = this.material;
+    const played = [...this.play(ctx), weather && ctx.weather(weather)];
     const parts = this.bare ? ctx.bareStart(played) : played;
     if (this.fermata) return ctx.fermata(parts);
     return this.stop ? ctx.stopBar(parts) : parts;

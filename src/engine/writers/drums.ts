@@ -283,6 +283,8 @@ class FillWriter {
         // Everything stops, then a snare pickup.
         hit(rng.pick([14, 15]), PERCUSSION.snare, 0.35 * level);
     }
+    // Now and then, in a loud fill, a vibraslap rattling from its start (ANRI's, Sparkle's).
+    if (level === 1 && rng.fork('vibraslap').chance(FILLS.vibraslap)) hit(start, PERCUSSION.vibraslap, 0.3);
     return { start, stop: this.kind === 'stop', hits };
   }
 

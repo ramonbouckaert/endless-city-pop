@@ -1,6 +1,7 @@
-// A bar or two linking a chorus back into the next verse (Sea Line's):
-// the planing intro's last chords, add9s gliding down onto the sus
-// dominant, over a light groove.
+// A bar to three linking a chorus back into the next verse (or, in some
+// songs, the intro into the first: Sea Line's): planing chords' last
+// bars, add9s or 9sus chords gliding down onto the sus dominant
+// (PLANING), over a light groove.
 
 import { GROOVES } from '../../style';
 
